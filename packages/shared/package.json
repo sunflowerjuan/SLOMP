@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "echo \"sin pruebas todavia (pendiente HU11)\" && exit 0",
     "postinstall": "prisma skills sync || exit 0"
   },
   "keywords": [],
