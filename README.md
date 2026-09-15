@@ -21,7 +21,7 @@ slomp/
 │   ├── frontend/        # Panel Administrador + Consulta Pública
 │   └── pdf-function/    # Generación de PDF (Azure Function, en desarrollo)
 ├── packages/
-│   └── shared/          # schema.prisma, cliente de Prisma, tipos de dominio
+│   └── shared/          # prisma/ (schema, migrations, seed), Prisma client, domain types
 ├── .github/
 │   ├── workflows/ci.yml
 │   └── PULL_REQUEST_TEMPLATE.md
@@ -49,14 +49,31 @@ pnpm install
 
 cp apps/backend/.env.example apps/backend/.env
 cp apps/frontend/.env.example apps/frontend/.env
+cp packages/shared/.env.example packages/shared/.env
 
 docker-compose up -d
+
+pnpm --filter shared run db:migrate
+pnpm --filter shared run db:seed
 
 pnpm --filter backend run start:dev
 pnpm --filter frontend run dev
 ```
 
 El backend queda disponible en `http://localhost:3000` y el frontend en `http://localhost:5173`.
+
+## Local database
+
+The Prisma schema lives at `packages/shared/prisma/schema.prisma`. With the PostgreSQL container running (`docker-compose up -d`):
+
+| Command | What it does |
+|---|---|
+| `pnpm --filter shared run db:migrate` | Applies pending migrations (creates the DB the first time) |
+| `pnpm --filter shared run db:seed` | Loads realistic test data (municipality, properties, owners, settlements, payment orders) |
+| `pnpm --filter shared run db:reset` | Resets the DB from scratch (deletes data), reapplies migrations and reseeds |
+| `pnpm --filter shared run db:generate` | Regenerates the Prisma client after schema changes |
+
+Run `db:migrate` and then `db:seed` (in that order) whenever the database is set up from scratch.
 
 ## Scripts disponibles
 
@@ -72,7 +89,7 @@ El backend queda disponible en `http://localhost:3000` y el frontend en `http://
 
 | Variable | Dónde | Descripción |
 |---|---|---|
-| `DATABASE_URL` | `apps/backend/.env` | Cadena de conexión a PostgreSQL |
+| `DATABASE_URL` | `apps/backend/.env`, `packages/shared/.env` | PostgreSQL connection string |
 | `JWT_SECRET` | `apps/backend/.env` | Secreto de firma de los tokens |
 | `PORT` | `apps/backend/.env` | Puerto del backend |
 | `VITE_API_URL` | `apps/frontend/.env` | URL base del backend que consume el frontend |
