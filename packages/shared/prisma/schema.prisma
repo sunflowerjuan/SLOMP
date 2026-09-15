@@ -1,0 +1,162 @@
+// ============================================================================
+// schema.prisma
+// Generated from the entity-relationship model validated in Jira:
+//   - SCRUM-21 / SCRUM-20 (HU05 - Conceptual data model)
+//   - SCRUM-14 / SCRUM-13 (HU03 - Business rules)
+//   - SCRUM-30 / SCRUM-44 (HU11 - Data model in Prisma)
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ----------------------------------------------------------------------------
+// Possible states of a Settlement (HU03: active/inactive lifecycle)
+// ----------------------------------------------------------------------------
+enum SettlementStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// ----------------------------------------------------------------------------
+// Municipality
+// ----------------------------------------------------------------------------
+model Municipality {
+  id        Int      @id @default(autoincrement())
+  name      String
+  state     String?
+  daneCode  String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  properties Property[]
+
+  @@map("municipalities")
+}
+
+// ----------------------------------------------------------------------------
+// Property
+// ----------------------------------------------------------------------------
+model Property {
+  id            Int      @id @default(autoincrement())
+  cadastralCode String   @unique
+  address       String
+  area          Decimal? @db.Decimal(12, 2)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  municipalityId Int
+  municipality   Municipality @relation(fields: [municipalityId], references: [id])
+
+  // N:N relationship with Owner (co-ownership) via join table
+  owners PropertyOwner[]
+
+  settlements Settlement[]
+
+  @@index([municipalityId])
+  @@map("properties")
+}
+
+// ----------------------------------------------------------------------------
+// Owner
+// ----------------------------------------------------------------------------
+model Owner {
+  id         Int      @id @default(autoincrement())
+  name       String
+  documentId String   @unique // national ID / tax ID (cédula / NIT)
+  phone      String?
+  email      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  properties PropertyOwner[]
+
+  @@map("owners")
+}
+
+// ----------------------------------------------------------------------------
+// PropertyOwner (N:N join table — co-ownership)
+// Also stores each co-owner's ownership percentage over the property.
+// ----------------------------------------------------------------------------
+model PropertyOwner {
+  propertyId Int
+  ownerId    Int
+  percentage Decimal  @db.Decimal(5, 2) // % of ownership over the property
+  createdAt  DateTime @default(now())
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  owner    Owner    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@id([propertyId, ownerId])
+  @@map("property_owners")
+}
+
+// ----------------------------------------------------------------------------
+// Settlement
+// HU03: unique per property+period, with active/inactive status.
+// ----------------------------------------------------------------------------
+model Settlement {
+  id          Int              @id @default(autoincrement())
+  period      String // e.g. "2026-01" (year-month or year, depending on periodicity)
+  status      SettlementStatus @default(ACTIVE)
+  issuedAt    DateTime         @default(now())
+  totalAmount Decimal          @db.Decimal(14, 2)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  propertyId Int
+  property   Property @relation(fields: [propertyId], references: [id])
+
+  details       SettlementDetail[]
+  paymentOrders PaymentOrder[]
+
+  // HU03: "Settlement uniqueness per period" -> one active settlement
+  // per property and period.
+  @@unique([propertyId, period])
+  @@index([propertyId])
+  @@map("settlements")
+}
+
+// ----------------------------------------------------------------------------
+// SettlementDetail
+// ----------------------------------------------------------------------------
+model SettlementDetail {
+  id        Int      @id @default(autoincrement())
+  concept   String
+  amount    Decimal  @db.Decimal(14, 2)
+  createdAt DateTime @default(now())
+
+  settlementId Int
+  settlement   Settlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+
+  @@index([settlementId])
+  @@map("settlement_details")
+}
+
+// ----------------------------------------------------------------------------
+// PaymentOrder
+//
+// NOTE (HU03 / SCRUM-13): the rule for what happens to a payment order when
+// its associated settlement is replaced was flagged as a high-complexity
+// edge case, PENDING validation with the client. That's why the relation is
+// left in restrictive mode (onDelete: Restrict), so payment orders are not
+// lost or automatically reassigned until that rule is confirmed. Revisit
+// this relation once HU03 closes that point.
+// ----------------------------------------------------------------------------
+model PaymentOrder {
+  id       Int      @id @default(autoincrement())
+  number   String   @unique
+  issuedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  settlementId Int
+  settlement   Settlement @relation(fields: [settlementId], references: [id], onDelete: Restrict)
+
+  @@index([settlementId])
+  @@map("payment_orders")
+}
