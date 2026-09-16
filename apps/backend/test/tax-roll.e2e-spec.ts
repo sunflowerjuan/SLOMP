@@ -11,8 +11,13 @@ const FIXTURE_PATH = fileURLToPath(
   new URL('./fixtures/excel_example.xlsx', import.meta.url),
 );
 
+const SEEDED_ADMIN_EMAIL =
+  process.env.SEED_ADMIN_EMAIL ?? 'admin@paez-boyaca.gov.co';
+const SEEDED_ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? 'changeme123';
+
 describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
   let app: INestApplication<App>;
+  let accessToken: string;
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -21,10 +26,19 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
 
     app = moduleFixture.createNestApplication();
     await app.init();
+
+    const login = await request(app.getHttpServer())
+      .post('/login')
+      .send({ email: SEEDED_ADMIN_EMAIL, password: SEEDED_ADMIN_PASSWORD });
+    accessToken = login.body.accessToken;
   });
 
   afterEach(async () => {
     await app.close();
+  });
+
+  it('rejects the request when no token is sent (this is a panel endpoint)', async () => {
+    await request(app.getHttpServer()).post('/tax-roll/import').expect(401);
   });
 
   it('processes the full real file without throwing and without dropping rows', async () => {
@@ -33,6 +47,7 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
 
     const response = await request(app.getHttpServer())
       .post('/tax-roll/import')
+      .set('Authorization', `Bearer ${accessToken}`)
       .attach('file', fileBuffer, 'excel_example.xlsx')
       .expect(201);
 
@@ -53,6 +68,7 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
 
     const response = await request(app.getHttpServer())
       .post('/tax-roll/import')
+      .set('Authorization', `Bearer ${accessToken}`)
       .attach('file', blankBuffer, 'blank.xlsx')
       .expect(400);
 
@@ -60,6 +76,9 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
   });
 
   it('returns 400 (not a 500) when no file is attached', async () => {
-    await request(app.getHttpServer()).post('/tax-roll/import').expect(400);
+    await request(app.getHttpServer())
+      .post('/tax-roll/import')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .expect(400);
   });
 });

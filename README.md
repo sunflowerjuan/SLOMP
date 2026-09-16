@@ -92,6 +92,7 @@ Run `db:migrate` and then `db:seed` (in that order) whenever the database is set
 | `DATABASE_URL` | `apps/backend/.env`, `packages/shared/.env` | PostgreSQL connection string |
 | `JWT_SECRET` | `apps/backend/.env` | Secreto de firma de los tokens |
 | `PORT` | `apps/backend/.env` | Puerto del backend |
+| `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | `packages/shared/.env` | Credenciales del Administrador que crea `db:seed` (opcional, con default de desarrollo) |
 | `VITE_API_URL` | `apps/frontend/.env` | URL base del backend que consume el frontend |
 
 Cada carpeta trae su propio `.env.example` como plantilla — nunca se sube el `.env` real.

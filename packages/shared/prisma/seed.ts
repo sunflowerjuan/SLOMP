@@ -1,9 +1,17 @@
 import "dotenv/config";
+import bcrypt from "bcrypt";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, SettlementStatus } from "@prisma/client";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
+
+const BCRYPT_SALT_ROUNDS = 10;
+// Dev-only fallback so `db:seed` works out of the box; override via env for
+// anything that isn't a local machine.
+const SEED_ADMIN_EMAIL =
+  process.env.SEED_ADMIN_EMAIL ?? "admin@paez-boyaca.gov.co";
+const SEED_ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? "changeme123";
 
 // "Firefighter surcharge": standard 5% surcharge on top of the unified
 // property tax, as billed in most municipalities in Boyacá.
@@ -24,6 +32,18 @@ async function main() {
   await prisma.property.deleteMany();
   await prisma.owner.deleteMany();
   await prisma.municipality.deleteMany();
+  await prisma.administrator.deleteMany();
+
+  await prisma.administrator.create({
+    data: {
+      email: SEED_ADMIN_EMAIL,
+      passwordHash: await bcrypt.hash(SEED_ADMIN_PASSWORD, BCRYPT_SALT_ROUNDS),
+      name: "Administrador Páez",
+    },
+  });
+  console.log(
+    `Seeded administrator: ${SEED_ADMIN_EMAIL} / ${SEED_ADMIN_PASSWORD}`,
+  );
 
   const municipality = await prisma.municipality.create({
     data: {
