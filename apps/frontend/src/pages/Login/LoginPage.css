@@ -1,0 +1,149 @@
+.login-page {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--semantic-surface-muted);
+}
+
+.login-page__institutional {
+  position: relative;
+  flex: 1 1 40%;
+  max-width: 480px;
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-end;
+  padding: var(--space-48);
+  background-color: var(--tinta-700);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.login-page__grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.login-page__brand {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.login-page__brand-name {
+  font-family: var(--font-sans);
+  font-size: 28px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.4px;
+}
+
+.login-page__brand-tag {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--tinta-100);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.login-page__content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-24);
+  box-sizing: border-box;
+}
+
+.login-page__card {
+  width: 100%;
+  max-width: 400px;
+  padding: var(--space-40);
+  background-color: var(--semantic-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 10px 30px rgba(19, 20, 23, 0.08);
+  box-sizing: border-box;
+}
+
+.login-page__title {
+  margin: 0 0 var(--space-8);
+  font-family: var(--font-sans);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--semantic-text);
+}
+
+.login-page__subtitle {
+  margin: 0 0 var(--space-32);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--semantic-text-muted);
+}
+
+.login-page__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-20);
+}
+
+.login-page__forgot-link {
+  align-self: flex-end;
+  margin-top: calc(var(--space-8) * -1);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--tinta-500);
+  text-decoration: none;
+}
+
+.login-page__forgot-link:hover {
+  text-decoration: underline;
+}
+
+.login-page__public-link {
+  display: block;
+  margin-top: var(--space-24);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--grafito-500);
+  text-align: center;
+  text-decoration: none;
+}
+
+.login-page__public-link:hover {
+  color: var(--tinta-600);
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .login-page {
+    flex-direction: column;
+  }
+
+  .login-page__institutional {
+    flex: none;
+    max-width: none;
+    min-height: 0;
+    height: 120px;
+    padding: var(--space-24);
+    align-items: center;
+  }
+
+  .login-page__brand-name {
+    font-size: 20px;
+  }
+
+  .login-page__content {
+    padding: var(--space-16);
+  }
+
+  .login-page__card {
+    padding: var(--space-24);
+    box-shadow: none;
+  }
+}
