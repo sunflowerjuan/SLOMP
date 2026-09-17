@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Post,
   UploadedFile,
@@ -14,7 +15,11 @@ export class TaxRollController {
 
   @Post('import')
   @UseInterceptors(FileInterceptor('file'))
-  import(@UploadedFile() file?: Express.Multer.File) {
+  import(
+    @UploadedFile() file?: Express.Multer.File,
+    // Multipart form fields always arrive as strings.
+    @Body('confirmReplace') confirmReplace?: string,
+  ) {
     if (!file) {
       throw new BadRequestException(
         'You must attach an Excel file (.xlsx) in the "file" field.',
@@ -23,6 +28,6 @@ export class TaxRollController {
     if (!file.originalname.toLowerCase().endsWith('.xlsx')) {
       throw new BadRequestException('The file must have a .xlsx extension.');
     }
-    return this.taxRollService.import(file.buffer);
+    return this.taxRollService.import(file.buffer, confirmReplace === 'true');
   }
 }
