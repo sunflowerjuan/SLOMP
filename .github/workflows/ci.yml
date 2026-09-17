@@ -6,6 +6,9 @@ on:
 jobs:
     build-and-test:
         runs-on: ubuntu-latest
+        env:
+            DATABASE_URL: postgresql://user:password@localhost:5432/ci_placeholder
+            JWT_SECRET: ci-placeholder-secret
         steps:
             - uses: actions/checkout@v5
             - uses: pnpm/action-setup@v6
@@ -14,6 +17,7 @@ jobs:
                   node-version: 24
                   cache: pnpm
             - run: pnpm install --frozen-lockfile
+            - run: pnpm --filter shared run db:generate
             - run: pnpm -r --if-present run lint
             - run: pnpm -r --if-present run build
             - run: pnpm -r --if-present run test

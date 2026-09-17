@@ -160,3 +160,19 @@ model PaymentOrder {
   @@index([settlementId])
   @@map("payment_orders")
 }
+
+// ----------------------------------------------------------------------------
+// Administrator
+// Login credentials for the Panel Administrador. A single role for now —
+// no per-admin permissions/roles yet.
+// ----------------------------------------------------------------------------
+model Administrator {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("administrators")
+}
