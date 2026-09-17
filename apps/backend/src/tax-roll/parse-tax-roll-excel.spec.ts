@@ -85,6 +85,42 @@ describe('parseTaxRollExcel', () => {
     ]);
   });
 
+  it('rejects a row with no owner document/tax ID', async () => {
+    const buffer = await buildWorkbookBuffer([buildRow({ CCNIT: '' })]);
+    const result = await parseTaxRollExcel(buffer);
+
+    expect(result.validRows).toHaveLength(0);
+    expect(result.invalidRows).toEqual([
+      { row: 2, reason: 'Missing owner document/tax ID (CCNIT)' },
+    ]);
+  });
+
+  it('rejects a row with a non-numeric amount instead of silently treating it as zero', async () => {
+    const buffer = await buildWorkbookBuffer([
+      buildRow({ 'Impuesto Predial': 'N/A', Total: 'ver nota' }),
+    ]);
+    const result = await parseTaxRollExcel(buffer);
+
+    expect(result.validRows).toHaveLength(0);
+    expect(result.invalidRows).toEqual([
+      {
+        row: 2,
+        reason: 'Non-numeric value in column(s): Impuesto Predial, Total',
+      },
+    ]);
+  });
+
+  it('accepts a blank amount cell as zero', async () => {
+    const buffer = await buildWorkbookBuffer([
+      buildRow({ 'Sobretasa Bomberil': '', 'Interes Sobretasa Bomberil': '' }),
+    ]);
+    const result = await parseTaxRollExcel(buffer);
+
+    expect(result.invalidRows).toHaveLength(0);
+    expect(result.validRows[0].fireSurcharge).toBe(0);
+    expect(result.validRows[0].fireSurchargeInterest).toBe(0);
+  });
+
   it('rejects a blank workbook (no header row) with a clear error instead of crashing', async () => {
     const workbook = new ExcelJS.Workbook();
     workbook.addWorksheet('TaxRoll');

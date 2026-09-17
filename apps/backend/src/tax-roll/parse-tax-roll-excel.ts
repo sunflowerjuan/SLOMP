@@ -32,11 +32,31 @@ function cellText(value: ExcelJS.CellValue): string {
   return String(value).trim();
 }
 
-function cellNumber(value: ExcelJS.CellValue): number {
-  if (typeof value === 'number') return value;
-  const parsed = Number(cellText(value));
-  return Number.isFinite(parsed) ? parsed : 0;
+// A blank cell is a legitimate 0 (many rows have no C.A.R. or surcharge to
+// pay); anything non-blank that isn't a finite number is a data problem, not
+// a zero — those two cases must stay distinguishable.
+const INVALID_AMOUNT = Symbol('invalid amount');
+
+function cellAmount(value: ExcelJS.CellValue): number | typeof INVALID_AMOUNT {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === 'number')
+    return Number.isFinite(value) ? value : INVALID_AMOUNT;
+  const text = cellText(value);
+  if (text === '') return 0;
+  const parsed = Number(text);
+  return Number.isFinite(parsed) ? parsed : INVALID_AMOUNT;
 }
+
+const AMOUNT_COLUMNS = [
+  { index: 3, label: 'Avaluo' },
+  { index: 8, label: 'Impuesto Predial' },
+  { index: 9, label: 'Interes Impuesto Predial' },
+  { index: 10, label: 'C.A.R.' },
+  { index: 11, label: 'Interes C.A.R.' },
+  { index: 12, label: 'Sobretasa Bomberil' },
+  { index: 13, label: 'Interes Sobretasa Bomberil' },
+  { index: 14, label: 'Total' },
+] as const;
 
 export async function parseTaxRollExcel(
   buffer: Buffer,
@@ -95,6 +115,34 @@ export async function parseTaxRollExcel(
       continue;
     }
 
+    const taxId = cellText(row.getCell(4).value);
+    if (!taxId) {
+      invalidRows.push({
+        row: rowNumber,
+        reason: 'Missing owner document/tax ID (CCNIT)',
+      });
+      continue;
+    }
+
+    const amounts: Record<(typeof AMOUNT_COLUMNS)[number]['label'], number> =
+      {} as never;
+    const invalidColumns: string[] = [];
+    for (const { index, label } of AMOUNT_COLUMNS) {
+      const amount = cellAmount(row.getCell(index).value);
+      if (amount === INVALID_AMOUNT) {
+        invalidColumns.push(label);
+      } else {
+        amounts[label] = amount;
+      }
+    }
+    if (invalidColumns.length > 0) {
+      invalidRows.push({
+        row: rowNumber,
+        reason: `Non-numeric value in column(s): ${invalidColumns.join(', ')}`,
+      });
+      continue;
+    }
+
     const ownerName = cellText(row.getCell(5).value);
     if (!ownerName) {
       warnings.push({ row: rowNumber, reason: 'Missing owner' });
@@ -103,18 +151,18 @@ export async function parseTaxRollExcel(
     validRows.push({
       cadastralCode,
       landUse: cellText(row.getCell(2).value),
-      appraisalValue: cellNumber(row.getCell(3).value),
-      taxId: cellText(row.getCell(4).value),
+      appraisalValue: amounts['Avaluo'],
+      taxId,
       ownerName: ownerName || null,
       propertyName: cellText(row.getCell(6).value),
       period,
-      propertyTax: cellNumber(row.getCell(8).value),
-      propertyTaxInterest: cellNumber(row.getCell(9).value),
-      environmentalFee: cellNumber(row.getCell(10).value),
-      environmentalFeeInterest: cellNumber(row.getCell(11).value),
-      fireSurcharge: cellNumber(row.getCell(12).value),
-      fireSurchargeInterest: cellNumber(row.getCell(13).value),
-      total: cellNumber(row.getCell(14).value),
+      propertyTax: amounts['Impuesto Predial'],
+      propertyTaxInterest: amounts['Interes Impuesto Predial'],
+      environmentalFee: amounts['C.A.R.'],
+      environmentalFeeInterest: amounts['Interes C.A.R.'],
+      fireSurcharge: amounts['Sobretasa Bomberil'],
+      fireSurchargeInterest: amounts['Interes Sobretasa Bomberil'],
+      total: amounts['Total'],
     });
   }
 

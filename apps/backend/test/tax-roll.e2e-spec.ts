@@ -51,7 +51,7 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
       .attach('file', fileBuffer, 'excel_example.xlsx')
       .expect(201);
 
-    const { validRows, invalidRows, warnings } = response.body;
+    const { validRows, invalidRows, warnings, persisted } = response.body;
 
     expect(validRows.length + invalidRows.length).toBe(totalDataRows);
     expect(Array.isArray(warnings)).toBe(true);
@@ -59,6 +59,11 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
       expect(row.cadastralCode).toBeTruthy();
       expect(Number.isInteger(row.period)).toBe(true);
     }
+    expect(persisted).toEqual({
+      properties: 1004,
+      owners: 809,
+      settlements: validRows.length,
+    });
   });
 
   it('returns 400 (not a 500) for a blank Excel file', async () => {
