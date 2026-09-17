@@ -42,12 +42,14 @@ model Municipality {
 // Property
 // ----------------------------------------------------------------------------
 model Property {
-  id            Int      @id @default(autoincrement())
-  cadastralCode String   @unique
-  address       String
-  area          Decimal? @db.Decimal(12, 2)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id             Int      @id @default(autoincrement())
+  cadastralCode  String   @unique
+  address        String
+  area           Decimal? @db.Decimal(12, 2)
+  landUse        String? // "Destino" in the tax roll file (e.g. urban/rural)
+  appraisalValue Decimal? @db.Decimal(14, 2) // "Avaluo" in the tax roll file
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   municipalityId Int
   municipality   Municipality @relation(fields: [municipalityId], references: [id])
