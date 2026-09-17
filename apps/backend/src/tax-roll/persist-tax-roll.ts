@@ -1,10 +1,20 @@
+import { SettlementStatus } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { TaxRollRowDto } from './tax-roll-row.dto.js';
+
+export interface TaxRollConflict {
+  cadastralCode: string;
+  period: number;
+}
 
 export interface PersistTaxRollResult {
   properties: number;
   owners: number;
   settlements: number;
+  // Property+period pairs that already had an ACTIVE settlement and were
+  // left untouched because the caller didn't pass confirmReplace — the
+  // Administrator has to see these and confirm before they're replaced.
+  conflicts: TaxRollConflict[];
 }
 
 // Order mirrors the source columns; the amounts (interest included) are
@@ -32,9 +42,10 @@ const NO_OWNER_NAME_PLACEHOLDER = 'Propietario sin nombre registrado';
 export async function persistTaxRoll(
   prisma: PrismaService,
   rows: TaxRollRowDto[],
+  confirmReplace: boolean,
 ): Promise<PersistTaxRollResult> {
   if (rows.length === 0) {
-    return { properties: 0, owners: 0, settlements: 0 };
+    return { properties: 0, owners: 0, settlements: 0, conflicts: [] };
   }
 
   const municipality = await prisma.municipality.findFirst();
@@ -48,9 +59,14 @@ export async function persistTaxRoll(
   // occurrence of each so a single upsert per property/owner is enough.
   const rowByCadastralCode = new Map<string, TaxRollRowDto>();
   const rowByTaxId = new Map<string, TaxRollRowDto>();
+  // A property+period should only ever be processed once per import, even
+  // if the source file has a duplicate row for it — otherwise two "new"
+  // settlements could both be created as ACTIVE for the same period.
+  const rowByPropertyPeriod = new Map<string, TaxRollRowDto>();
   for (const row of rows) {
     rowByCadastralCode.set(row.cadastralCode, row);
     rowByTaxId.set(row.taxId, row);
+    rowByPropertyPeriod.set(`${row.cadastralCode}:${row.period}`, row);
   }
 
   await Promise.all(
@@ -109,43 +125,49 @@ export async function persistTaxRoll(
     skipDuplicates: true,
   });
 
-  const settlementKey = (propertyId: number, period: number) =>
-    `${propertyId}:${period}`;
-  const existingSettlements = await prisma.settlement.findMany({
-    where: { propertyId: { in: [...propertyIdByCode.values()] } },
+  // Only an ACTIVE settlement can conflict — an already-replaced (INACTIVE)
+  // one for the same property+period is just history.
+  const activeSettlements = await prisma.settlement.findMany({
+    where: {
+      propertyId: { in: [...propertyIdByCode.values()] },
+      status: SettlementStatus.ACTIVE,
+    },
     select: { id: true, propertyId: true, period: true },
   });
-  const existingSettlementIdByKey = new Map(
-    existingSettlements.map((s) => [
-      settlementKey(s.propertyId, Number(s.period)),
-      s.id,
-    ]),
+  const activeIdByPropertyPeriod = new Map(
+    activeSettlements.map((s) => [`${s.propertyId}:${s.period}`, s.id]),
   );
 
+  const conflicts: TaxRollConflict[] = [];
+  const toInactivate: number[] = [];
   const rowsToCreate: { row: TaxRollRowDto; propertyId: number }[] = [];
-  const rowsToUpdate: {
-    row: TaxRollRowDto;
-    propertyId: number;
-    settlementId: number;
-  }[] = [];
-  for (const row of rows) {
+
+  for (const row of rowByPropertyPeriod.values()) {
     const propertyId = propertyIdByCode.get(row.cadastralCode)!;
-    const existingId = existingSettlementIdByKey.get(
-      settlementKey(propertyId, row.period),
+    const activeId = activeIdByPropertyPeriod.get(
+      `${propertyId}:${row.period}`,
     );
-    if (existingId) {
-      rowsToUpdate.push({ row, propertyId, settlementId: existingId });
-    } else {
+
+    if (!activeId) {
       rowsToCreate.push({ row, propertyId });
+      continue;
     }
+
+    if (!confirmReplace) {
+      conflicts.push({ cadastralCode: row.cadastralCode, period: row.period });
+      continue;
+    }
+
+    toInactivate.push(activeId);
+    rowsToCreate.push({ row, propertyId });
   }
 
-  const detailsFor = (row: TaxRollRowDto, settlementId: number) =>
-    SETTLEMENT_DETAIL_CONCEPTS.map(({ key, concept }) => ({
-      settlementId,
-      concept,
-      amount: row[key],
-    }));
+  if (toInactivate.length > 0) {
+    await prisma.settlement.updateMany({
+      where: { id: { in: toInactivate } },
+      data: { status: SettlementStatus.INACTIVE },
+    });
+  }
 
   if (rowsToCreate.length > 0) {
     const created = await prisma.settlement.createManyAndReturn({
@@ -153,39 +175,31 @@ export async function persistTaxRoll(
         propertyId,
         period: String(row.period),
         totalAmount: row.total,
+        status: SettlementStatus.ACTIVE,
       })),
       select: { id: true, propertyId: true, period: true },
     });
-    const createdIdByKey = new Map(
-      created.map((s) => [settlementKey(s.propertyId, Number(s.period)), s.id]),
+    const createdIdByPropertyPeriod = new Map(
+      created.map((s) => [`${s.propertyId}:${s.period}`, s.id]),
     );
 
     await prisma.settlementDetail.createMany({
       data: rowsToCreate.flatMap(({ row, propertyId }) =>
-        detailsFor(
-          row,
-          createdIdByKey.get(settlementKey(propertyId, row.period))!,
-        ),
+        SETTLEMENT_DETAIL_CONCEPTS.map(({ key, concept }) => ({
+          settlementId: createdIdByPropertyPeriod.get(
+            `${propertyId}:${row.period}`,
+          )!,
+          concept,
+          amount: row[key],
+        })),
       ),
     });
-  }
-
-  for (const { row, settlementId } of rowsToUpdate) {
-    await prisma.$transaction([
-      prisma.settlement.update({
-        where: { id: settlementId },
-        data: { totalAmount: row.total },
-      }),
-      prisma.settlementDetail.deleteMany({ where: { settlementId } }),
-      prisma.settlementDetail.createMany({
-        data: detailsFor(row, settlementId),
-      }),
-    ]);
   }
 
   return {
     properties: rowByCadastralCode.size,
     owners: rowByTaxId.size,
-    settlements: rowsToCreate.length + rowsToUpdate.length,
+    settlements: rowsToCreate.length,
+    conflicts,
   };
 }

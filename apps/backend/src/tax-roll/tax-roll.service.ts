@@ -7,9 +7,13 @@ import { persistTaxRoll } from './persist-tax-roll.js';
 export class TaxRollService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async import(buffer: Buffer) {
+  async import(buffer: Buffer, confirmReplace: boolean) {
     const parsed = await this.parse(buffer);
-    const persisted = await persistTaxRoll(this.prisma, parsed.validRows);
+    const persisted = await persistTaxRoll(
+      this.prisma,
+      parsed.validRows,
+      confirmReplace,
+    );
     return { ...parsed, persisted };
   }
 

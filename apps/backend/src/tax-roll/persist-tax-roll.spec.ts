@@ -1,3 +1,4 @@
+import { SettlementStatus } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
 import type { TaxRollRowDto } from './tax-roll-row.dto.js';
 import { persistTaxRoll } from './persist-tax-roll.js';
@@ -25,6 +26,7 @@ class FakePrisma {
     propertyId: number;
     period: string;
     totalAmount: number;
+    status: SettlementStatus;
   }[] = [];
   settlementDetails: {
     id: number;
@@ -109,9 +111,15 @@ class FakePrisma {
   };
 
   settlement = {
-    findMany: async ({ where }: { where: { propertyId: { in: number[] } } }) =>
-      this.settlements.filter((s) =>
-        where.propertyId.in.includes(s.propertyId),
+    findMany: async ({
+      where,
+    }: {
+      where: { propertyId: { in: number[] }; status?: SettlementStatus };
+    }) =>
+      this.settlements.filter(
+        (s) =>
+          where.propertyId.in.includes(s.propertyId) &&
+          (where.status === undefined || s.status === where.status),
       ),
     createManyAndReturn: async ({
       data,
@@ -122,16 +130,16 @@ class FakePrisma {
       this.settlements.push(...created);
       return created;
     },
-    update: async ({
+    updateMany: async ({
       where,
       data,
     }: {
-      where: { id: number };
+      where: { id: { in: number[] } };
       data: Partial<(typeof this.settlements)[number]>;
     }) => {
-      const settlement = this.settlements.find((s) => s.id === where.id)!;
-      Object.assign(settlement, data);
-      return settlement;
+      for (const s of this.settlements) {
+        if (where.id.in.includes(s.id)) Object.assign(s, data);
+      }
     },
   };
 
@@ -145,16 +153,7 @@ class FakePrisma {
         ...data.map((d) => ({ id: this.nextId++, ...d })),
       );
     },
-    deleteMany: async ({ where }: { where: { settlementId: number } }) => {
-      this.settlementDetails = this.settlementDetails.filter(
-        (d) => d.settlementId !== where.settlementId,
-      );
-    },
   };
-
-  // The fake methods above resolve synchronously, so by the time this runs
-  // every operation has already applied — good enough to test the net effect.
-  $transaction = async <T>(ops: Promise<T>[]) => Promise.all(ops);
 }
 
 function buildRow(overrides: Partial<TaxRollRowDto> = {}): TaxRollRowDto {
@@ -178,12 +177,17 @@ function buildRow(overrides: Partial<TaxRollRowDto> = {}): TaxRollRowDto {
 }
 
 describe('persistTaxRoll', () => {
-  it('creates the property, owner, link, settlement and its 6 detail lines', async () => {
+  it('creates the property, owner, link, an ACTIVE settlement and its 6 detail lines', async () => {
     const prisma = new FakePrisma();
 
-    const result = await persistTaxRoll(prisma as never, [buildRow()]);
+    const result = await persistTaxRoll(prisma as never, [buildRow()], false);
 
-    expect(result).toEqual({ properties: 1, owners: 1, settlements: 1 });
+    expect(result).toEqual({
+      properties: 1,
+      owners: 1,
+      settlements: 1,
+      conflicts: [],
+    });
     expect(prisma.properties).toHaveLength(1);
     expect(prisma.owners).toHaveLength(1);
     expect(prisma.propertyOwners).toEqual([
@@ -195,6 +199,7 @@ describe('persistTaxRoll', () => {
         propertyId: 1,
         period: '2024',
         totalAmount: 54590,
+        status: SettlementStatus.ACTIVE,
       },
     ]);
     expect(prisma.settlementDetails).toHaveLength(6);
@@ -210,47 +215,101 @@ describe('persistTaxRoll', () => {
     // Total intentionally does not equal the sum of the parts.
     const row = buildRow({ total: 999999 });
 
-    await persistTaxRoll(prisma as never, [row]);
+    await persistTaxRoll(prisma as never, [row], false);
 
     expect(prisma.settlements[0].totalAmount).toBe(999999);
   });
 
-  it('re-importing the same property/period updates it instead of duplicating rows', async () => {
+  it('a second import of the same property+period without confirmation is reported as a conflict, untouched', async () => {
     const prisma = new FakePrisma();
-    await persistTaxRoll(prisma as never, [buildRow({ total: 100 })]);
+    await persistTaxRoll(prisma as never, [buildRow({ total: 100 })], false);
 
-    const result = await persistTaxRoll(prisma as never, [
-      buildRow({ total: 200 }),
+    const result = await persistTaxRoll(
+      prisma as never,
+      [buildRow({ total: 200 })],
+      false,
+    );
+
+    expect(result.settlements).toBe(0);
+    expect(result.conflicts).toEqual([
+      { cadastralCode: '000100010001', period: 2024 },
     ]);
+    expect(prisma.settlements).toHaveLength(1);
+    expect(prisma.settlements[0]).toMatchObject({
+      totalAmount: 100,
+      status: SettlementStatus.ACTIVE,
+    });
+  });
+
+  it('a second import of the same property+period WITH confirmation inactivates the old one and creates a new active one — never deletes it', async () => {
+    const prisma = new FakePrisma();
+    await persistTaxRoll(prisma as never, [buildRow({ total: 100 })], false);
+
+    const result = await persistTaxRoll(
+      prisma as never,
+      [buildRow({ total: 200 })],
+      true,
+    );
+
+    expect(result.settlements).toBe(1);
+    expect(result.conflicts).toEqual([]);
+    expect(prisma.settlements).toHaveLength(2);
+    expect(prisma.settlements[0]).toMatchObject({
+      totalAmount: 100,
+      status: SettlementStatus.INACTIVE,
+    });
+    expect(prisma.settlements[1]).toMatchObject({
+      totalAmount: 200,
+      status: SettlementStatus.ACTIVE,
+    });
+  });
+
+  it('a duplicate row for the same property+period within one file only creates one settlement', async () => {
+    const prisma = new FakePrisma();
+
+    const result = await persistTaxRoll(
+      prisma as never,
+      [buildRow({ total: 100 }), buildRow({ total: 200 })],
+      false,
+    );
 
     expect(result.settlements).toBe(1);
     expect(prisma.settlements).toHaveLength(1);
-    expect(prisma.settlements[0].totalAmount).toBe(200);
-    expect(prisma.settlementDetails).toHaveLength(6); // replaced, not appended
+    expect(prisma.settlements[0].totalAmount).toBe(200); // last one wins
   });
 
   it('uses a placeholder name for a brand-new owner with no name in the file', async () => {
     const prisma = new FakePrisma();
 
-    await persistTaxRoll(prisma as never, [buildRow({ ownerName: null })]);
+    await persistTaxRoll(
+      prisma as never,
+      [buildRow({ ownerName: null })],
+      false,
+    );
 
     expect(prisma.owners[0].name).toBe('Propietario sin nombre registrado');
   });
 
   it('keeps an existing owner name when a later row has no name', async () => {
     const prisma = new FakePrisma();
-    await persistTaxRoll(prisma as never, [
-      buildRow({ ownerName: 'Juan Pérez' }),
-    ]);
+    await persistTaxRoll(
+      prisma as never,
+      [buildRow({ ownerName: 'Juan Pérez' })],
+      false,
+    );
 
-    await persistTaxRoll(prisma as never, [
-      buildRow({ ownerName: 'Juan Pérez' }),
-      buildRow({
-        cadastralCode: '000100010002',
-        period: 2025,
-        ownerName: null,
-      }),
-    ]);
+    await persistTaxRoll(
+      prisma as never,
+      [
+        buildRow({ ownerName: 'Juan Pérez' }),
+        buildRow({
+          cadastralCode: '000100010002',
+          period: 2025,
+          ownerName: null,
+        }),
+      ],
+      false,
+    );
 
     expect(prisma.owners[0].name).toBe('Juan Pérez');
   });
@@ -259,17 +318,22 @@ describe('persistTaxRoll', () => {
     const prisma = new FakePrisma();
     prisma.municipalities = [];
 
-    await expect(persistTaxRoll(prisma as never, [buildRow()])).rejects.toThrow(
-      /No municipality is configured/,
-    );
+    await expect(
+      persistTaxRoll(prisma as never, [buildRow()], false),
+    ).rejects.toThrow(/No municipality is configured/);
   });
 
   it('does nothing for an empty row list', async () => {
     const prisma = new FakePrisma();
 
-    const result = await persistTaxRoll(prisma as never, []);
+    const result = await persistTaxRoll(prisma as never, [], false);
 
-    expect(result).toEqual({ properties: 0, owners: 0, settlements: 0 });
+    expect(result).toEqual({
+      properties: 0,
+      owners: 0,
+      settlements: 0,
+      conflicts: [],
+    });
     expect(prisma.properties).toHaveLength(0);
   });
 });

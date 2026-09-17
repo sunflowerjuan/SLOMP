@@ -116,10 +116,7 @@ model Settlement {
   details       SettlementDetail[]
   paymentOrders PaymentOrder[]
 
-  // HU03: "Settlement uniqueness per period" -> one active settlement
-  // per property and period.
-  @@unique([propertyId, period])
-  @@index([propertyId])
+  @@index([propertyId, period])
   @@map("settlements")
 }
 

@@ -63,6 +63,7 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
       properties: 1004,
       owners: 809,
       settlements: validRows.length,
+      conflicts: [],
     });
   });
 
@@ -85,5 +86,90 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
       .post('/tax-roll/import')
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(400);
+  });
+
+  describe('alert and replace (HU18)', () => {
+    const HEADERS = [
+      'Cédula Catastral',
+      'Destino',
+      'Avaluo',
+      'CCNIT',
+      'Propietario',
+      'Nombre Predio',
+      'periodo',
+      'Impuesto Predial',
+      'Interes Impuesto Predial',
+      'C.A.R.',
+      'Interes C.A.R.',
+      'Sobretasa Bomberil',
+      'Interes Sobretasa Bomberil',
+      'Total',
+    ];
+
+    async function buildOneRowWorkbook(total: number): Promise<Buffer> {
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet('TaxRoll');
+      sheet.addRow(HEADERS);
+      sheet.addRow([
+        '000900010001',
+        'urbano',
+        500000,
+        '99988877',
+        'Ana Torres',
+        'Casa Centro',
+        2024,
+        40000,
+        0,
+        1000,
+        0,
+        500,
+        0,
+        total,
+      ]);
+      return Buffer.from(await workbook.xlsx.writeBuffer());
+    }
+
+    it('alerts instead of replacing when a settlement is already active for that property+period', async () => {
+      await request(app.getHttpServer())
+        .post('/tax-roll/import')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .attach('file', await buildOneRowWorkbook(41500), 'first.xlsx')
+        .expect(201);
+
+      const response = await request(app.getHttpServer())
+        .post('/tax-roll/import')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .attach('file', await buildOneRowWorkbook(99999), 'second.xlsx')
+        .expect(201);
+
+      expect(response.body.persisted).toEqual({
+        properties: 1,
+        owners: 1,
+        settlements: 0,
+        conflicts: [{ cadastralCode: '000900010001', period: 2024 }],
+      });
+    });
+
+    it('inactivates the old settlement and creates a new active one once confirmed — never deletes it', async () => {
+      await request(app.getHttpServer())
+        .post('/tax-roll/import')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .attach('file', await buildOneRowWorkbook(41500), 'first.xlsx')
+        .expect(201);
+
+      const response = await request(app.getHttpServer())
+        .post('/tax-roll/import')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .field('confirmReplace', 'true')
+        .attach('file', await buildOneRowWorkbook(99999), 'second.xlsx')
+        .expect(201);
+
+      expect(response.body.persisted).toEqual({
+        properties: 1,
+        owners: 1,
+        settlements: 1,
+        conflicts: [],
+      });
+    });
   });
 });

@@ -27,7 +27,7 @@ describe('TaxRollService', () => {
 
     const service = new TaxRollService(unusedPrisma() as never);
 
-    await expect(service.import(buffer)).rejects.toBeInstanceOf(
+    await expect(service.import(buffer, false)).rejects.toBeInstanceOf(
       BadRequestException,
     );
   });
@@ -69,15 +69,20 @@ describe('TaxRollService', () => {
     ]);
     const buffer = Buffer.from(await workbook.xlsx.writeBuffer());
 
-    const persisted = { properties: 1, owners: 1, settlements: 1 };
+    const persisted = {
+      properties: 1,
+      owners: 1,
+      settlements: 1,
+      conflicts: [],
+    };
     const prisma = {}; // persistTaxRoll is mocked, so its shape doesn't matter here
     vi.mocked(persistTaxRoll).mockResolvedValue(persisted);
 
     const service = new TaxRollService(prisma as never);
-    const result = await service.import(buffer);
+    const result = await service.import(buffer, true);
 
     expect(result.validRows).toHaveLength(1);
     expect(result.persisted).toEqual(persisted);
-    expect(persistTaxRoll).toHaveBeenCalledWith(prisma, result.validRows);
+    expect(persistTaxRoll).toHaveBeenCalledWith(prisma, result.validRows, true);
   });
 });
