@@ -45,17 +45,14 @@ export function LoginPage() {
       <aside className="login-page__institutional">
         <div className="login-page__grid" aria-hidden="true" />
         <div className="login-page__brand">
-          <span className="login-page__brand-name">Tributaria Predial</span>
           <span className="login-page__brand-tag">SLOMP</span>
+          <span className="login-page__brand-name">Tributaria Predial</span>
         </div>
       </aside>
 
       <main className="login-page__content">
         <div className="login-page__card">
           <h1 className="login-page__title">Ingresar</h1>
-          <p className="login-page__subtitle">
-            Panel administrativo — acceso para funcionarios autorizados.
-          </p>
 
           <form className="login-page__form" onSubmit={handleSubmit} noValidate>
             <Input
@@ -75,18 +72,10 @@ export function LoginPage() {
               error={errors.password}
             />
 
-            <a className="login-page__forgot-link" href="#">
-              ¿Olvidaste tu contraseña?
-            </a>
-
             <Button type="submit" size="lg" fullWidth loading={isSubmitting}>
               Ingresar
             </Button>
           </form>
-
-          <a className="login-page__public-link" href="#">
-            Consulta pública
-          </a>
         </div>
       </main>
     </div>

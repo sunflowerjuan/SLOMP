@@ -10,7 +10,7 @@
   max-width: 480px;
   min-height: 100vh;
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   padding: var(--space-48);
   background-color: var(--tinta-700);
   overflow: hidden;
@@ -33,21 +33,21 @@
   gap: var(--space-4);
 }
 
-.login-page__brand-name {
+.login-page__brand-tag {
   font-family: var(--font-sans);
-  font-size: 28px;
+  font-size: 40px;
   font-weight: 700;
   color: #ffffff;
-  letter-spacing: -0.4px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
 }
 
-.login-page__brand-tag {
+.login-page__brand-name {
   font-family: var(--font-sans);
   font-size: 14px;
   font-weight: 500;
   color: var(--tinta-100);
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
+  letter-spacing: 0.2px;
 }
 
 .login-page__content {
@@ -70,54 +70,17 @@
 }
 
 .login-page__title {
-  margin: 0 0 var(--space-8);
+  margin: 0 0 var(--space-24);
   font-family: var(--font-sans);
   font-size: 24px;
   font-weight: 700;
   color: var(--semantic-text);
 }
 
-.login-page__subtitle {
-  margin: 0 0 var(--space-32);
-  font-family: var(--font-sans);
-  font-size: 14px;
-  color: var(--semantic-text-muted);
-}
-
 .login-page__form {
   display: flex;
   flex-direction: column;
   gap: var(--space-20);
-}
-
-.login-page__forgot-link {
-  align-self: flex-end;
-  margin-top: calc(var(--space-8) * -1);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--tinta-500);
-  text-decoration: none;
-}
-
-.login-page__forgot-link:hover {
-  text-decoration: underline;
-}
-
-.login-page__public-link {
-  display: block;
-  margin-top: var(--space-24);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--grafito-500);
-  text-align: center;
-  text-decoration: none;
-}
-
-.login-page__public-link:hover {
-  color: var(--tinta-600);
-  text-decoration: underline;
 }
 
 @media (max-width: 768px) {
@@ -134,8 +97,8 @@
     align-items: center;
   }
 
-  .login-page__brand-name {
-    font-size: 20px;
+  .login-page__brand-tag {
+    font-size: 28px;
   }
 
   .login-page__content {
