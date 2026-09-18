@@ -1,0 +1,63 @@
+:root {
+  /* Tinta */
+  --tinta-50: #eef1f6;
+  --tinta-100: #c3d2e0;
+  --tinta-500: #3d6690;
+  --tinta-600: #2c4f73;
+  --tinta-700: #1e3a57;
+
+  /* Grafito */
+  --grafito-100: #f0f1f2;
+  --grafito-400: #9da1a8;
+  --grafito-500: #74787f;
+  --grafito-900: #131417;
+
+  /* Alerta */
+  --alerta-50: #fbeae8;
+  --alerta-500: #c24e3b;
+  --alerta-600: #a43b2a;
+
+  /* Sello */
+  --sello-50: #e7f3eb;
+  --sello-500: #3f8f60;
+
+  /* Advertencia */
+  --advertencia-50: #fbf2dd;
+  --advertencia-500: #be8e1b;
+
+  /* Semantic */
+  --semantic-primary: var(--tinta-500);
+  --semantic-primary-hover: var(--tinta-600);
+  --semantic-primary-active: var(--tinta-700);
+  --semantic-danger: var(--alerta-500);
+  --semantic-danger-hover: var(--alerta-600);
+  --semantic-danger-bg: var(--alerta-50);
+  --semantic-success: var(--sello-500);
+  --semantic-success-bg: var(--sello-50);
+  --semantic-warning: var(--advertencia-500);
+  --semantic-warning-bg: var(--advertencia-50);
+  --semantic-text: var(--grafito-900);
+  --semantic-text-muted: var(--grafito-500);
+  --semantic-border: var(--grafito-100);
+  --semantic-surface: #ffffff;
+  --semantic-surface-muted: var(--grafito-100);
+
+  /* Typography */
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+
+  /* Spacing */
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-40: 40px;
+  --space-48: 48px;
+  --space-64: 64px;
+
+  /* Radius */
+  --radius-default: 6px;
+  --radius-lg: 8px;
+}
