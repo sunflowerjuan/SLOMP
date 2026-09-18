@@ -1,0 +1,112 @@
+.login-page {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--semantic-surface-muted);
+}
+
+.login-page__institutional {
+  position: relative;
+  flex: 1 1 40%;
+  max-width: 480px;
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  padding: var(--space-48);
+  background-color: var(--tinta-700);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.login-page__grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.login-page__brand {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.login-page__brand-tag {
+  font-family: var(--font-sans);
+  font-size: 40px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.login-page__brand-name {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--tinta-100);
+  letter-spacing: 0.2px;
+}
+
+.login-page__content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-24);
+  box-sizing: border-box;
+}
+
+.login-page__card {
+  width: 100%;
+  max-width: 400px;
+  padding: var(--space-40);
+  background-color: var(--semantic-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 10px 30px rgba(19, 20, 23, 0.08);
+  box-sizing: border-box;
+}
+
+.login-page__title {
+  margin: 0 0 var(--space-24);
+  font-family: var(--font-sans);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--semantic-text);
+}
+
+.login-page__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-20);
+}
+
+@media (max-width: 768px) {
+  .login-page {
+    flex-direction: column;
+  }
+
+  .login-page__institutional {
+    flex: none;
+    max-width: none;
+    min-height: 0;
+    height: 120px;
+    padding: var(--space-24);
+    align-items: center;
+  }
+
+  .login-page__brand-tag {
+    font-size: 28px;
+  }
+
+  .login-page__content {
+    padding: var(--space-16);
+  }
+
+  .login-page__card {
+    padding: var(--space-24);
+    box-shadow: none;
+  }
+}
