@@ -1,0 +1,96 @@
+.liquidaciones-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: var(--space-48) var(--space-24);
+  box-sizing: border-box;
+}
+
+.liquidaciones-page__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.liquidaciones-page__title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--semantic-text);
+}
+
+.liquidaciones-page__subtitle {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--semantic-text-muted);
+}
+
+.liquidaciones-page__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  padding: var(--space-32);
+  background-color: var(--semantic-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 10px 30px rgba(19, 20, 23, 0.06);
+  box-sizing: border-box;
+}
+
+.liquidaciones-page__card-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--semantic-text);
+}
+
+.liquidaciones-page__card-subtitle {
+  margin: calc(var(--space-8) * -1) 0 0;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--semantic-text-muted);
+}
+
+.liquidaciones-page__filters {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-16);
+  flex-wrap: wrap;
+}
+
+.liquidaciones-page__filter-field {
+  flex: 1 1 200px;
+  min-width: 200px;
+}
+
+.liquidaciones-page__filter-action {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 768px) {
+  .liquidaciones-page {
+    padding: var(--space-24) var(--space-16);
+  }
+
+  .liquidaciones-page__card {
+    padding: var(--space-24);
+  }
+
+  .liquidaciones-page__filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .liquidaciones-page__filter-field {
+    flex-basis: auto;
+    min-width: 0;
+  }
+
+  .liquidaciones-page__filter-action .ui-button {
+    width: 100%;
+  }
+}
