@@ -41,6 +41,7 @@
   --semantic-border: var(--grafito-100);
   --semantic-surface: #ffffff;
   --semantic-surface-muted: var(--grafito-100);
+  --semantic-bg-selected: var(--tinta-50);
 
   /* Typography */
   --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
