@@ -27,6 +27,19 @@
   border-bottom: none;
 }
 
+.ui-table__row--clickable {
+  cursor: pointer;
+}
+
+.ui-table__row--clickable:hover {
+  background-color: var(--grafito-100);
+}
+
+.ui-table__row--selected,
+.ui-table__row--selected:hover {
+  background-color: var(--semantic-bg-selected);
+}
+
 .ui-table__cell {
   padding: var(--space-12) var(--space-16);
   color: var(--semantic-text);
