@@ -1,0 +1,26 @@
+name: Infra CI
+on:
+    pull_request:
+        branches: [develop, main]
+        paths:
+            - "infra/**"
+
+jobs:
+    bicep-validate:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v5
+            - name: Build .bicep and check compiled JSON is in sync
+              run: |
+                  set -e
+                  for f in infra/*.bicep; do
+                      az bicep build --file "$f" --outfile /tmp/out.json
+                      diff -u "${f%.bicep}.json" /tmp/out.json
+                  done
+            - name: Build .bicepparam and check compiled JSON is in sync
+              run: |
+                  set -e
+                  for f in infra/*.bicepparam; do
+                      az bicep build-params --file "$f" --outfile /tmp/out.json
+                      diff -u "${f%.bicepparam}.json" /tmp/out.json
+                  done
