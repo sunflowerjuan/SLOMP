@@ -1,0 +1,30 @@
+name: Infra CI
+on:
+    pull_request:
+        branches: [develop, main]
+        paths:
+            - "infra/**"
+
+jobs:
+    bicep-validate:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v5
+            - name: Build .bicep and check compiled JSON is in sync
+              run: |
+                  set -e
+                  for f in infra/*.bicep; do
+                      az bicep build --file "$f" --outfile /tmp/out.json
+                      # Strip the compiler version/templateHash: it changes with the
+                      # Bicep CLI version and isn't part of the actual template.
+                      jq 'del(.metadata._generator)' "${f%.bicep}.json" > /tmp/committed.json
+                      jq 'del(.metadata._generator)' /tmp/out.json > /tmp/fresh.json
+                      diff -u /tmp/committed.json /tmp/fresh.json
+                  done
+            - name: Build .bicepparam and check compiled JSON is in sync
+              run: |
+                  set -e
+                  for f in infra/*.bicepparam; do
+                      az bicep build-params --file "$f" --outfile /tmp/out.json
+                      diff -u "${f%.bicepparam}.json" /tmp/out.json
+                  done

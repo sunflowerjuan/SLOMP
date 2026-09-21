@@ -1,0 +1,36 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "northcentralus"
+    },
+    "vnetName": {
+      "value": "vnet-predial-dev"
+    },
+    "vnetAddressPrefix": {
+      "value": "10.1.0.0/16"
+    },
+    "agwSubnetPrefix": {
+      "value": "10.1.4.0/24"
+    },
+    "appSubnetPrefix": {
+      "value": "10.1.1.0/24"
+    },
+    "fnSubnetPrefix": {
+      "value": "10.1.5.0/24"
+    },
+    "peSubnetPrefix": {
+      "value": "10.1.3.0/24"
+    },
+    "dataSubnetPrefix": {
+      "value": "10.1.2.0/24"
+    },
+    "nsgAppName": {
+      "value": "nsg-app-predial-dev"
+    },
+    "nsgDataName": {
+      "value": "nsg-data-predial-dev"
+    }
+  }
+}

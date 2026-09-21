@@ -1,0 +1,12 @@
+using './network.bicep'
+
+param location = 'northcentralus'
+param vnetName = 'vnet-predial-dev'
+param vnetAddressPrefix = '10.1.0.0/16'
+param agwSubnetPrefix = '10.1.4.0/24'
+param appSubnetPrefix = '10.1.1.0/24'
+param fnSubnetPrefix = '10.1.5.0/24'
+param peSubnetPrefix = '10.1.3.0/24'
+param dataSubnetPrefix = '10.1.2.0/24'
+param nsgAppName = 'nsg-app-predial-dev'
+param nsgDataName = 'nsg-data-predial-dev'
