@@ -1,0 +1,215 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.47.16.16243",
+      "templateHash": "5072434677828272468"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for all resources. Defaults to the resource group location."
+      }
+    },
+    "vnetName": {
+      "type": "string",
+      "defaultValue": "vnet-predial-dev",
+      "metadata": {
+        "description": "VNet name."
+      }
+    },
+    "vnetAddressPrefix": {
+      "type": "string",
+      "defaultValue": "10.1.0.0/16",
+      "metadata": {
+        "description": "VNet address space."
+      }
+    },
+    "agwSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.1.4.0/24",
+      "metadata": {
+        "description": "Address prefix for snet-agw (reserved for the Application Gateway)."
+      }
+    },
+    "appSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.1.1.0/24",
+      "metadata": {
+        "description": "Address prefix for snet-app (backend App Service, VNet Integration)."
+      }
+    },
+    "fnSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.1.5.0/24",
+      "metadata": {
+        "description": "Address prefix for snet-fn (PDF generator Function App)."
+      }
+    },
+    "peSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.1.3.0/24",
+      "metadata": {
+        "description": "Address prefix for snet-pe (Private Endpoints)."
+      }
+    },
+    "dataSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.1.2.0/24",
+      "metadata": {
+        "description": "Address prefix for snet-data (PostgreSQL Flexible Server)."
+      }
+    },
+    "nsgAppName": {
+      "type": "string",
+      "defaultValue": "nsg-app-predial-dev",
+      "metadata": {
+        "description": "Name of the NSG attached to snet-app."
+      }
+    },
+    "nsgDataName": {
+      "type": "string",
+      "defaultValue": "nsg-data-predial-dev",
+      "metadata": {
+        "description": "Name of the NSG attached to snet-data."
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2023-11-01",
+      "name": "[parameters('nsgAppName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "AllowFromAgw",
+            "properties": {
+              "priority": 100,
+              "direction": "Inbound",
+              "access": "Allow",
+              "protocol": "*",
+              "sourceAddressPrefix": "[parameters('agwSubnetPrefix')]",
+              "sourcePortRange": "*",
+              "destinationAddressPrefix": "[parameters('appSubnetPrefix')]",
+              "destinationPortRange": "*"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2023-11-01",
+      "name": "[parameters('nsgDataName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "AllowPostgresFromAppAndFn",
+            "properties": {
+              "priority": 100,
+              "direction": "Inbound",
+              "access": "Allow",
+              "protocol": "Tcp",
+              "sourceAddressPrefixes": [
+                "[parameters('appSubnetPrefix')]",
+                "[parameters('fnSubnetPrefix')]"
+              ],
+              "sourcePortRange": "*",
+              "destinationAddressPrefix": "[parameters('dataSubnetPrefix')]",
+              "destinationPortRange": "5432"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2023-11-01",
+      "name": "[parameters('vnetName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[parameters('vnetAddressPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "snet-agw",
+            "properties": {
+              "addressPrefix": "[parameters('agwSubnetPrefix')]"
+            }
+          },
+          {
+            "name": "snet-app",
+            "properties": {
+              "addressPrefix": "[parameters('appSubnetPrefix')]",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('nsgAppName'))]"
+              }
+            }
+          },
+          {
+            "name": "snet-fn",
+            "properties": {
+              "addressPrefix": "[parameters('fnSubnetPrefix')]",
+              "delegations": [
+                {
+                  "name": "delegation-fn",
+                  "properties": {
+                    "serviceName": "Microsoft.App/environments"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "snet-pe",
+            "properties": {
+              "addressPrefix": "[parameters('peSubnetPrefix')]"
+            }
+          },
+          {
+            "name": "snet-data",
+            "properties": {
+              "addressPrefix": "[parameters('dataSubnetPrefix')]",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('nsgDataName'))]"
+              },
+              "delegations": [
+                {
+                  "name": "delegation-data",
+                  "properties": {
+                    "serviceName": "Microsoft.DBforPostgreSQL/flexibleServers"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('nsgAppName'))]",
+        "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('nsgDataName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "vnetId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+    },
+    "vnetName": {
+      "type": "string",
+      "value": "[parameters('vnetName')]"
+    }
+  }
+}

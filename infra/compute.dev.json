@@ -1,0 +1,42 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "northcentralus"
+    },
+    "appSubnetId": {
+      "value": "/subscriptions/a433cb7c-91a0-4eb6-ac8b-447676229fae/resourceGroups/rg-predial-dev/providers/Microsoft.Network/virtualNetworks/vnet-predial-dev/subnets/snet-app"
+    },
+    "fnSubnetId": {
+      "value": "/subscriptions/a433cb7c-91a0-4eb6-ac8b-447676229fae/resourceGroups/rg-predial-dev/providers/Microsoft.Network/virtualNetworks/vnet-predial-dev/subnets/snet-fn"
+    },
+    "appServicePlanName": {
+      "value": "asp-predial-dev"
+    },
+    "appServicePlanSkuName": {
+      "value": "S1"
+    },
+    "appServicePlanSkuTier": {
+      "value": "Standard"
+    },
+    "appServiceName": {
+      "value": "app-predial-dev"
+    },
+    "functionPlanName": {
+      "value": "plan-fn-predial-dev"
+    },
+    "functionAppName": {
+      "value": "fn-pdf-predial-dev"
+    },
+    "functionAppAlwaysReadyInstanceCount": {
+      "value": 0
+    },
+    "deploymentStorageAccountName": {
+      "value": "stpredialdev"
+    },
+    "deploymentStorageContainerName": {
+      "value": "fn-pdf-deploymentpackage"
+    }
+  }
+}

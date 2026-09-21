@@ -1,0 +1,219 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.47.16.16243",
+      "templateHash": "12387081466110636787"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for all resources. Defaults to the resource group location."
+      }
+    },
+    "appSubnetId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the subnet the backend App Service integrates with (snet-app)."
+      }
+    },
+    "fnSubnetId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the subnet the Function App integrates with (snet-fn)."
+      }
+    },
+    "appServicePlanName": {
+      "type": "string",
+      "defaultValue": "asp-predial-dev",
+      "metadata": {
+        "description": "Name of the App Service Plan (backend)."
+      }
+    },
+    "appServicePlanSkuName": {
+      "type": "string",
+      "defaultValue": "S1",
+      "metadata": {
+        "description": "SKU name of the App Service Plan, e.g. S1."
+      }
+    },
+    "appServicePlanSkuTier": {
+      "type": "string",
+      "defaultValue": "Standard",
+      "metadata": {
+        "description": "SKU tier of the App Service Plan, e.g. Standard."
+      }
+    },
+    "appServiceName": {
+      "type": "string",
+      "defaultValue": "app-predial-dev",
+      "metadata": {
+        "description": "Name of the backend App Service."
+      }
+    },
+    "functionPlanName": {
+      "type": "string",
+      "defaultValue": "plan-fn-predial-dev",
+      "metadata": {
+        "description": "Name of the Function App plan (Flex Consumption)."
+      }
+    },
+    "functionAppName": {
+      "type": "string",
+      "defaultValue": "fn-pdf-predial-dev",
+      "metadata": {
+        "description": "Name of the PDF generator Function App."
+      }
+    },
+    "functionAppAlwaysReadyInstanceCount": {
+      "type": "int",
+      "defaultValue": 0,
+      "metadata": {
+        "description": "Number of \"always ready\" instances for the Function App. Keep at 0 to stay at $0 base cost; production may need 1 to avoid cold start on the PDF generator — see the open ADR-7 point."
+      }
+    },
+    "functionAppAlwaysReadyGroupName": {
+      "type": "string",
+      "defaultValue": "http",
+      "metadata": {
+        "description": "Always-ready scale group name, required only when functionAppAlwaysReadyInstanceCount > 0. Must match the deployed function's trigger group (e.g. \"function:<FunctionName>\" for the PDF QueueTrigger) once that function exists."
+      }
+    },
+    "deploymentStorageAccountName": {
+      "type": "string",
+      "metadata": {
+        "description": "Storage account name backing the Function App deployment package (created in SL-63)."
+      }
+    },
+    "deploymentStorageContainerName": {
+      "type": "string",
+      "defaultValue": "fn-pdf-deploymentpackage",
+      "metadata": {
+        "description": "Blob container name backing the Function App deployment package (created in SL-63)."
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2023-12-01",
+      "name": "[parameters('appServicePlanName')]",
+      "location": "[parameters('location')]",
+      "kind": "linux",
+      "sku": {
+        "name": "[parameters('appServicePlanSkuName')]",
+        "tier": "[parameters('appServicePlanSkuTier')]"
+      },
+      "properties": {
+        "reserved": true
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2023-12-01",
+      "name": "[parameters('appServiceName')]",
+      "location": "[parameters('location')]",
+      "kind": "app,linux",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]",
+        "virtualNetworkSubnetId": "[parameters('appSubnetId')]",
+        "siteConfig": {
+          "linuxFxVersion": "NODE|20-lts",
+          "vnetRouteAllEnabled": true
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2023-12-01",
+      "name": "[parameters('functionPlanName')]",
+      "location": "[parameters('location')]",
+      "kind": "functionapp,linux",
+      "sku": {
+        "name": "FC1",
+        "tier": "FlexConsumption",
+        "capacity": 0
+      },
+      "properties": {
+        "reserved": true
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2023-12-01",
+      "name": "[parameters('functionAppName')]",
+      "location": "[parameters('location')]",
+      "kind": "functionapp,linux",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('functionPlanName'))]",
+        "virtualNetworkSubnetId": "[parameters('fnSubnetId')]",
+        "siteConfig": {
+          "vnetRouteAllEnabled": true
+        },
+        "functionAppConfig": {
+          "deployment": {
+            "storage": {
+              "type": "blobContainer",
+              "value": "[format('https://{0}.blob.{1}/{2}', parameters('deploymentStorageAccountName'), environment().suffixes.storage, parameters('deploymentStorageContainerName'))]",
+              "authentication": {
+                "type": "SystemAssignedIdentity"
+              }
+            }
+          },
+          "scaleAndConcurrency": {
+            "maximumInstanceCount": 100,
+            "instanceMemoryMB": 2048,
+            "alwaysReady": "[if(greater(parameters('functionAppAlwaysReadyInstanceCount'), 0), createArray(createObject('name', parameters('functionAppAlwaysReadyGroupName'), 'instanceCount', parameters('functionAppAlwaysReadyInstanceCount'))), createArray())]"
+          },
+          "runtime": {
+            "name": "node",
+            "version": "20"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverfarms', parameters('functionPlanName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "appServicePlanId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]"
+    },
+    "appServiceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Web/sites', parameters('appServiceName'))]"
+    },
+    "appServiceName": {
+      "type": "string",
+      "value": "[parameters('appServiceName')]"
+    },
+    "functionPlanId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Web/serverfarms', parameters('functionPlanName'))]"
+    },
+    "functionAppId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]"
+    },
+    "functionAppName": {
+      "type": "string",
+      "value": "[parameters('functionAppName')]"
+    }
+  }
+}
