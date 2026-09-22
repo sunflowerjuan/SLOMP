@@ -173,5 +173,37 @@ model Administrator {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  taxRollImports TaxRollImport[]
+
   @@map("administrators")
+}
+
+// ----------------------------------------------------------------------------
+// TaxRollImport
+// One row per POST /tax-roll/import call (HU12 upload history). Each call is
+// a full import attempt, whether or not the caller later confirms replacing
+// the conflicts it reports.
+// ----------------------------------------------------------------------------
+model TaxRollImport {
+  id         Int      @id @default(autoincrement())
+  fileName   String
+  importedAt DateTime @default(now())
+
+  // Counts from ParseTaxRollExcelResult / PersistTaxRollResult — see
+  // apps/backend/src/tax-roll/tax-roll-row.dto.ts and persist-tax-roll.ts.
+  validRows      Int
+  invalidRows    Int
+  warnings       Int
+  properties     Int
+  owners         Int
+  settlements    Int
+  conflicts      Int
+
+  // Nullable so the row survives if the Administrator account is later
+  // deleted — the history entry is still meaningful without it.
+  administratorId Int?
+  administrator   Administrator? @relation(fields: [administratorId], references: [id], onDelete: SetNull)
+
+  @@index([importedAt])
+  @@map("tax_roll_imports")
 }

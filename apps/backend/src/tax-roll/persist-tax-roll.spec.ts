@@ -324,6 +324,61 @@ describe('persistTaxRoll', () => {
     expect(prisma.settlements).toHaveLength(3);
   });
 
+  it('a mixed file (some rows conflict, some do not) persists NOTHING until confirmed — a cancel leaves nothing written', async () => {
+    const prisma = new FakePrisma();
+    await persistTaxRoll(prisma as never, [buildRow({ total: 100 })], false);
+
+    const conflicting = buildRow({ total: 200 }); // same property+period as above
+    const fresh = buildRow({
+      cadastralCode: '000100010002',
+      period: 2025,
+      total: 300,
+    });
+
+    const result = await persistTaxRoll(
+      prisma as never,
+      [conflicting, fresh],
+      false,
+    );
+
+    expect(result.settlements).toBe(0);
+    expect(result.conflicts).toEqual([
+      { cadastralCode: '000100010001', period: 2024 },
+    ]);
+    // `fresh` had no conflict of its own, but nothing gets created for it
+    // either: only the settlement from the first import still exists.
+    expect(prisma.settlements).toHaveLength(1);
+    expect(prisma.settlements[0]).toMatchObject({ totalAmount: 100 });
+  });
+
+  it('once confirmed, a mixed file creates the new rows AND replaces the conflicting ones in the same pass', async () => {
+    const prisma = new FakePrisma();
+    await persistTaxRoll(prisma as never, [buildRow({ total: 100 })], false);
+
+    const conflicting = buildRow({ total: 200 });
+    const fresh = buildRow({
+      cadastralCode: '000100010002',
+      period: 2025,
+      total: 300,
+    });
+
+    const result = await persistTaxRoll(
+      prisma as never,
+      [conflicting, fresh],
+      true,
+    );
+
+    expect(result.settlements).toBe(2);
+    expect(result.conflicts).toEqual([]);
+    const active = prisma.settlements.filter(
+      (s) => s.status === SettlementStatus.ACTIVE,
+    );
+    expect(active.map((s) => s.totalAmount).sort()).toEqual([200, 300]);
+    expect(
+      prisma.settlements.filter((s) => s.status === SettlementStatus.INACTIVE),
+    ).toHaveLength(1);
+  });
+
   it('a duplicate row for the same property+period within one file only creates one settlement', async () => {
     const prisma = new FakePrisma();
 

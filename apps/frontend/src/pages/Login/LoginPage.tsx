@@ -1,5 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { getErrorMessage } from "../../api/ApiError";
+import { useAuth } from "../../auth/useAuth";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import "./LoginPage.css";
@@ -14,6 +16,8 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<LoginFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const { signIn, sessionExpired } = useAuth();
 
   function validate(): LoginFormErrors {
     const nextErrors: LoginFormErrors = {};
@@ -26,18 +30,29 @@ export function LoginPage() {
     return nextErrors;
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextErrors = validate();
     setErrors(nextErrors);
+    setSubmitError(null);
 
     if (Object.keys(nextErrors).length > 0) {
       return;
     }
 
     setIsSubmitting(true);
-    // TODO(SL-49): conectar con POST /login del backend cuando el contrato esté confirmado.
-    setIsSubmitting(false);
+    try {
+      // Si sale bien, AuthProvider marca la sesion y App reemplaza esta
+      // pantalla por el panel.
+      await signIn(email.trim(), password);
+    } catch (error) {
+      setSubmitError(
+        getErrorMessage(error, {
+          unauthorizedMessage: "Correo o contraseña incorrectos.",
+        }),
+      );
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -55,6 +70,16 @@ export function LoginPage() {
           <h1 className="login-page__title">Ingresar</h1>
 
           <form className="login-page__form" onSubmit={handleSubmit} noValidate>
+            {sessionExpired && !submitError && (
+              <p className="login-page__notice" role="status">
+                Tu sesión expiró. Vuelve a iniciar sesión para continuar.
+              </p>
+            )}
+            {submitError && (
+              <p className="login-page__form-error" role="alert">
+                {submitError}
+              </p>
+            )}
             <Input
               label="Correo electrónico"
               type="email"
