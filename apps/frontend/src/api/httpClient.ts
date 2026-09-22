@@ -5,9 +5,17 @@ import {
 } from "./ApiError";
 import { clearToken, getToken } from "./tokenStorage";
 
-const API_URL = (
-  import.meta.env.VITE_API_URL ?? "http://localhost:3000"
-).replace(/\/+$/, "");
+function stripTrailingSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url[end - 1] === "/") {
+    end -= 1;
+  }
+  return url.slice(0, end);
+}
+
+const API_URL = stripTrailingSlashes(
+  import.meta.env.VITE_API_URL ?? "http://localhost:3000",
+);
 
 type UnauthorizedHandler = () => void;
 
