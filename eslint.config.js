@@ -15,6 +15,17 @@ export default defineConfig([
     extends: [js.configs.recommended, tseslint.configs.recommended],
     languageOptions: {
       globals: { ...globals.node, ...globals.browser },
+      parserOptions: {
+        // This fallback only does syntax-level linting (no type-aware
+        // rules), so it never needs a tsconfig. Without an explicit
+        // tsconfigRootDir, @typescript-eslint/parser auto-detects one per
+        // file and errors out ("multiple candidate TSConfigRootDirs") as
+        // soon as a single `eslint --fix` run (lint-staged, on every
+        // commit) touches files under both apps/backend and apps/frontend,
+        // since each resolves to a different tsconfig.json.
+        projectService: false,
+        tsconfigRootDir: import.meta.dirname,
+      },
     },
   },
 ]);

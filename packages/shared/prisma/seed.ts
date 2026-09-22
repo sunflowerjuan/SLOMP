@@ -25,6 +25,7 @@ function round2(value: number): number {
 
 async function main() {
   console.log("Cleaning up existing data...");
+  await prisma.taxRollImport.deleteMany();
   await prisma.paymentOrder.deleteMany();
   await prisma.settlementDetail.deleteMany();
   await prisma.settlement.deleteMany();

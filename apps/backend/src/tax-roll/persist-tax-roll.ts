@@ -10,6 +10,10 @@ export interface TaxRollConflict {
 export interface PersistTaxRollResult {
   properties: number;
   owners: number;
+  // 0 whenever `conflicts` is non-empty and the caller hasn't passed
+  // confirmReplace yet: this pass persists nothing at all -- not even the
+  // rows that don't conflict -- so the Administrator can cancel without
+  // any partial write (HU18).
   settlements: number;
   // Property+period pairs that already had an ACTIVE settlement and were
   // left untouched because the caller didn't pass confirmReplace — the
@@ -138,29 +142,40 @@ export async function persistTaxRoll(
     activeSettlements.map((s) => [`${s.propertyId}:${s.period}`, s.id]),
   );
 
-  const conflicts: TaxRollConflict[] = [];
-  const toInactivate: number[] = [];
-  const rowsToCreate: { row: TaxRollRowDto; propertyId: number }[] = [];
-
-  for (const row of rowByPropertyPeriod.values()) {
+  const classifiedRows = [...rowByPropertyPeriod.values()].map((row) => {
     const propertyId = propertyIdByCode.get(row.cadastralCode)!;
     const activeId = activeIdByPropertyPeriod.get(
       `${propertyId}:${row.period}`,
     );
+    return { row, propertyId, activeId };
+  });
+  const conflictingRows = classifiedRows.filter(
+    (entry) => entry.activeId !== undefined,
+  );
 
-    if (!activeId) {
-      rowsToCreate.push({ row, propertyId });
-      continue;
-    }
+  // Si hay conflictos y quien llama todavia no confirmo el reemplazo, esta
+  // pasada no crea NINGUNA liquidacion -- ni siquiera las de predios y
+  // periodos sin conflicto. El Administrador ve el aviso completo antes de
+  // que se persista cualquier cosa (HU18); solo la llamada que confirma (o
+  // una que de entrada no encuentra ningun conflicto) escribe settlements.
+  const shouldPersistSettlements =
+    confirmReplace || conflictingRows.length === 0;
 
-    if (!confirmReplace) {
-      conflicts.push({ cadastralCode: row.cadastralCode, period: row.period });
-      continue;
-    }
+  // `conflicts` solo reporta pendientes -- una vez confirmado ya no hay
+  // nada esperando confirmacion, aunque esas filas si tenian activeId.
+  const conflicts: TaxRollConflict[] = shouldPersistSettlements
+    ? []
+    : conflictingRows.map((entry) => ({
+        cadastralCode: entry.row.cadastralCode,
+        period: entry.row.period,
+      }));
 
-    toInactivate.push(activeId);
-    rowsToCreate.push({ row, propertyId });
-  }
+  const rowsToCreate = shouldPersistSettlements
+    ? classifiedRows.map(({ row, propertyId }) => ({ row, propertyId }))
+    : [];
+  const toInactivate = shouldPersistSettlements
+    ? conflictingRows.map((entry) => entry.activeId!)
+    : [];
 
   if (toInactivate.length > 0) {
     await prisma.settlement.updateMany({

@@ -83,6 +83,25 @@
   gap: var(--space-20);
 }
 
+.login-page__form-error,
+.login-page__notice {
+  margin: 0;
+  padding: var(--space-12) var(--space-16);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  border-radius: var(--radius-default);
+}
+
+.login-page__form-error {
+  color: var(--semantic-danger-hover);
+  background-color: var(--semantic-danger-bg);
+}
+
+.login-page__notice {
+  color: var(--semantic-text);
+  background-color: var(--semantic-warning-bg);
+}
+
 @media (max-width: 768px) {
   .login-page {
     flex-direction: column;
