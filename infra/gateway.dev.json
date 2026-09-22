@@ -1,0 +1,33 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "northcentralus"
+    },
+    "gatewayName": {
+      "value": "agw-predial-dev"
+    },
+    "publicIpName": {
+      "value": "pip-agw-predial-dev"
+    },
+    "wafPolicyName": {
+      "value": "waf-predial-dev"
+    },
+    "agwSubnetId": {
+      "value": "/subscriptions/a433cb7c-91a0-4eb6-ac8b-447676229fae/resourceGroups/rg-predial-dev/providers/Microsoft.Network/virtualNetworks/vnet-predial-dev/subnets/snet-agw"
+    },
+    "backendFqdn": {
+      "value": "app-predial-dev.azurewebsites.net"
+    },
+    "capacity": {
+      "value": 1
+    },
+    "wafMode": {
+      "value": "Prevention"
+    },
+    "healthProbePath": {
+      "value": "/"
+    }
+  }
+}
