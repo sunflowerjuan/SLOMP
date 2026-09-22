@@ -1,0 +1,33 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "northcentralus"
+    },
+    "storageAccountName": {
+      "value": "stpredialdev"
+    },
+    "storageAccountSku": {
+      "value": "Standard_LRS"
+    },
+    "deploymentPackageContainerName": {
+      "value": "fn-pdf-deploymentpackage"
+    },
+    "templatesContainerName": {
+      "value": "templates"
+    },
+    "pdfQueueName": {
+      "value": "stq-predial-dev"
+    },
+    "keyVaultName": {
+      "value": "kv-predial-dev"
+    },
+    "appServicePrincipalId": {
+      "value": "068de78b-0932-4c6d-bdc0-eeaf05abc445"
+    },
+    "functionAppPrincipalId": {
+      "value": "1d3dd8f4-3bb4-43a9-adc8-69145b77b7ff"
+    }
+  }
+}
