@@ -251,6 +251,7 @@ describe('persistTaxRoll', () => {
   it('a second import of the same property+period without confirmation is reported as a conflict, untouched', async () => {
     const prisma = new FakePrisma();
     await persistTaxRoll(prisma as never, [buildRow({ total: 100 })], false);
+    const originalSettlementId = prisma.settlements[0].id;
 
     const result = await persistTaxRoll(
       prisma as never,
@@ -264,6 +265,7 @@ describe('persistTaxRoll', () => {
     ]);
     expect(prisma.settlements).toHaveLength(1);
     expect(prisma.settlements[0]).toMatchObject({
+      id: originalSettlementId,
       totalAmount: 100,
       status: SettlementStatus.ACTIVE,
     });
@@ -291,6 +293,35 @@ describe('persistTaxRoll', () => {
       status: SettlementStatus.ACTIVE,
     });
     expectAtMostOneActiveSettlementPerPropertyPeriod(prisma);
+  });
+
+  it('HU18 / ADR-6: repeated replacements retain each earlier settlement as inactive history', async () => {
+    const prisma = new FakePrisma();
+    await persistTaxRoll(prisma as never, [buildRow({ total: 100 })], false);
+    const firstSettlementId = prisma.settlements[0].id;
+
+    await persistTaxRoll(prisma as never, [buildRow({ total: 200 })], true);
+    const secondSettlementId = prisma.settlements[1].id;
+
+    await persistTaxRoll(prisma as never, [buildRow({ total: 300 })], true);
+
+    expect(prisma.settlements).toEqual([
+      expect.objectContaining({
+        id: firstSettlementId,
+        totalAmount: 100,
+        status: SettlementStatus.INACTIVE,
+      }),
+      expect.objectContaining({
+        id: secondSettlementId,
+        totalAmount: 200,
+        status: SettlementStatus.INACTIVE,
+      }),
+      expect.objectContaining({
+        totalAmount: 300,
+        status: SettlementStatus.ACTIVE,
+      }),
+    ]);
+    expect(prisma.settlements).toHaveLength(3);
   });
 
   it('a duplicate row for the same property+period within one file only creates one settlement', async () => {
