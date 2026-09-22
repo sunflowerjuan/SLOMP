@@ -8,6 +8,12 @@ on:
 jobs:
     bicep-validate:
         runs-on: ubuntu-latest
+        env:
+            # Only lets `az bicep build-params` resolve data.dev.bicepparam's
+            # readEnvironmentVariable() call and produce a diffable JSON —
+            # never the real PostgreSQL admin password, which is only ever
+            # set at actual deploy time.
+            PSQL_ADMIN_PASSWORD: ci-placeholder-password
         steps:
             - uses: actions/checkout@v5
             - name: Build .bicep and check compiled JSON is in sync
