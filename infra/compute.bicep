@@ -88,6 +88,20 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
   }
 }
 
+// Easy Auth stays off: the backend authenticates requests itself with JWT
+// (CLAUDE.md), it doesn't delegate to App Service Authentication. Declared
+// explicitly so static analysis (SonarQube) sees this is deliberate, not an
+// omission.
+resource appServiceAuthSettings 'Microsoft.Web/sites/config@2023-12-01' = {
+  parent: appService
+  name: 'authsettingsV2'
+  properties: {
+    platform: {
+      enabled: false
+    }
+  }
+}
+
 resource functionPlan 'Microsoft.Web/serverfarms@2023-12-01' = {
   name: functionPlanName
   location: location
@@ -141,6 +155,19 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
           }
         ] : []
       }
+    }
+  }
+}
+
+// Same reasoning as appServiceAuthSettings above: the Function App has no
+// HTTP-facing auth of its own yet (empty infra, no code deployed), Easy Auth
+// off is declared explicitly rather than left implicit.
+resource functionAppAuthSettings 'Microsoft.Web/sites/config@2023-12-01' = {
+  parent: functionApp
+  name: 'authsettingsV2'
+  properties: {
+    platform: {
+      enabled: false
     }
   }
 }
