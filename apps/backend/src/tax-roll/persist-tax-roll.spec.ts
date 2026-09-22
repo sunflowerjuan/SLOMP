@@ -3,37 +3,47 @@ import { describe, expect, it } from 'vitest';
 import type { TaxRollRowDto } from './tax-roll-row.dto.js';
 import { persistTaxRoll } from './persist-tax-roll.js';
 
+type FakeProperty = {
+  id: number;
+  cadastralCode: string;
+  address: string;
+  landUse: string | null;
+  appraisalValue: number;
+};
+
+type FakeOwner = { id: number; documentId: string; name: string };
+
+type FakePropertyOwner = {
+  propertyId: number;
+  ownerId: number;
+  percentage: number;
+};
+
+type FakeSettlement = {
+  id: number;
+  propertyId: number;
+  period: string;
+  totalAmount: number;
+  status: SettlementStatus;
+};
+
+type FakeSettlementDetail = {
+  id: number;
+  settlementId: number;
+  concept: string;
+  amount: number;
+};
+
 // Minimal in-memory stand-in for PrismaService, covering only the calls
 // persistTaxRoll actually makes.
 class FakePrisma {
   private nextId = 1;
   municipalities: { id: number }[] = [{ id: 1 }];
-  properties: {
-    id: number;
-    cadastralCode: string;
-    address: string;
-    landUse: string | null;
-    appraisalValue: number;
-  }[] = [];
-  owners: { id: number; documentId: string; name: string }[] = [];
-  propertyOwners: {
-    propertyId: number;
-    ownerId: number;
-    percentage: number;
-  }[] = [];
-  settlements: {
-    id: number;
-    propertyId: number;
-    period: string;
-    totalAmount: number;
-    status: SettlementStatus;
-  }[] = [];
-  settlementDetails: {
-    id: number;
-    settlementId: number;
-    concept: string;
-    amount: number;
-  }[] = [];
+  properties: FakeProperty[] = [];
+  owners: FakeOwner[] = [];
+  propertyOwners: FakePropertyOwner[] = [];
+  settlements: FakeSettlement[] = [];
+  settlementDetails: FakeSettlementDetail[] = [];
 
   municipality = { findFirst: async () => this.municipalities[0] ?? null };
 
@@ -44,8 +54,8 @@ class FakePrisma {
       update,
     }: {
       where: { cadastralCode: string };
-      create: Omit<(typeof this.properties)[number], 'id'>;
-      update: Partial<(typeof this.properties)[number]>;
+      create: Omit<FakeProperty, 'id'>;
+      update: Partial<FakeProperty>;
     }) => {
       const existing = this.properties.find(
         (p) => p.cadastralCode === where.cadastralCode,
@@ -75,8 +85,8 @@ class FakePrisma {
       update,
     }: {
       where: { documentId: string };
-      create: Omit<(typeof this.owners)[number], 'id'>;
-      update: Partial<(typeof this.owners)[number]>;
+      create: Omit<FakeOwner, 'id'>;
+      update: Partial<FakeOwner>;
     }) => {
       const existing = this.owners.find(
         (o) => o.documentId === where.documentId,
@@ -97,7 +107,7 @@ class FakePrisma {
     createMany: async ({
       data,
     }: {
-      data: (typeof this.propertyOwners)[number][];
+      data: FakePropertyOwner[];
       skipDuplicates?: boolean;
     }) => {
       for (const link of data) {
@@ -124,7 +134,7 @@ class FakePrisma {
     createManyAndReturn: async ({
       data,
     }: {
-      data: Omit<(typeof this.settlements)[number], 'id'>[];
+      data: Omit<FakeSettlement, 'id'>[];
     }) => {
       const created = data.map((d) => ({ id: this.nextId++, ...d }));
       this.settlements.push(...created);
@@ -135,7 +145,7 @@ class FakePrisma {
       data,
     }: {
       where: { id: { in: number[] } };
-      data: Partial<(typeof this.settlements)[number]>;
+      data: Partial<FakeSettlement>;
     }) => {
       for (const s of this.settlements) {
         if (where.id.in.includes(s.id)) Object.assign(s, data);
@@ -147,7 +157,7 @@ class FakePrisma {
     createMany: async ({
       data,
     }: {
-      data: Omit<(typeof this.settlementDetails)[number], 'id'>[];
+      data: Omit<FakeSettlementDetail, 'id'>[];
     }) => {
       this.settlementDetails.push(
         ...data.map((d) => ({ id: this.nextId++, ...d })),
@@ -174,6 +184,24 @@ function buildRow(overrides: Partial<TaxRollRowDto> = {}): TaxRollRowDto {
     total: 54590,
     ...overrides,
   };
+}
+
+function expectAtMostOneActiveSettlementPerPropertyPeriod(prisma: FakePrisma) {
+  const activeSettlementsByPropertyPeriod = new Map<string, number>();
+
+  for (const settlement of prisma.settlements) {
+    if (settlement.status !== SettlementStatus.ACTIVE) continue;
+
+    const key = `${settlement.propertyId}:${settlement.period}`;
+    activeSettlementsByPropertyPeriod.set(
+      key,
+      (activeSettlementsByPropertyPeriod.get(key) ?? 0) + 1,
+    );
+  }
+
+  for (const activeCount of activeSettlementsByPropertyPeriod.values()) {
+    expect(activeCount).toBeLessThanOrEqual(1);
+  }
 }
 
 describe('persistTaxRoll', () => {
@@ -262,6 +290,7 @@ describe('persistTaxRoll', () => {
       totalAmount: 200,
       status: SettlementStatus.ACTIVE,
     });
+    expectAtMostOneActiveSettlementPerPropertyPeriod(prisma);
   });
 
   it('a duplicate row for the same property+period within one file only creates one settlement', async () => {
@@ -276,6 +305,38 @@ describe('persistTaxRoll', () => {
     expect(result.settlements).toBe(1);
     expect(prisma.settlements).toHaveLength(1);
     expect(prisma.settlements[0].totalAmount).toBe(200); // last one wins
+    expectAtMostOneActiveSettlementPerPropertyPeriod(prisma);
+  });
+
+  it('allows distinct periods for one property while preserving one active settlement per period', async () => {
+    const prisma = new FakePrisma();
+
+    const result = await persistTaxRoll(
+      prisma as never,
+      [buildRow({ period: 2024 }), buildRow({ period: 2025 })],
+      false,
+    );
+
+    expect(result).toMatchObject({ settlements: 2, conflicts: [] });
+    expect(prisma.settlements).toHaveLength(2);
+    expectAtMostOneActiveSettlementPerPropertyPeriod(prisma);
+  });
+
+  it('allows the same period for distinct properties while preserving the invariant per property', async () => {
+    const prisma = new FakePrisma();
+
+    const result = await persistTaxRoll(
+      prisma as never,
+      [
+        buildRow({ cadastralCode: '000100010001', period: 2024 }),
+        buildRow({ cadastralCode: '000100010002', period: 2024 }),
+      ],
+      false,
+    );
+
+    expect(result).toMatchObject({ settlements: 2, conflicts: [] });
+    expect(prisma.settlements).toHaveLength(2);
+    expectAtMostOneActiveSettlementPerPropertyPeriod(prisma);
   });
 
   it('uses a placeholder name for a brand-new owner with no name in the file', async () => {
