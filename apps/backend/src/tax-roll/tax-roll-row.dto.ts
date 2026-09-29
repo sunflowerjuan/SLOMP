@@ -2,6 +2,10 @@ export interface TaxRollRowDto {
   cadastralCode: string;
   landUse: string;
   appraisalValue: number;
+  ruralDistrict: string | null;
+  neighborhood: string | null;
+  latitude: number | null;
+  longitude: number | null;
   taxId: string;
   ownerName: string | null;
   propertyName: string;

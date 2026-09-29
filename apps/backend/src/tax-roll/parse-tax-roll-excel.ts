@@ -23,6 +23,13 @@ const EXPECTED_HEADERS = [
   'Total',
 ];
 
+const OPTIONAL_HEADERS = {
+  Vereda: 'ruralDistrict',
+  Barrio: 'neighborhood',
+  Latitud: 'latitude',
+  Longitud: 'longitude',
+} as const;
+
 function cellText(value: ExcelJS.CellValue): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'object') {
@@ -48,14 +55,14 @@ function cellAmount(value: ExcelJS.CellValue): number | typeof INVALID_AMOUNT {
 }
 
 const AMOUNT_COLUMNS = [
-  { index: 3, label: 'Avaluo' },
-  { index: 8, label: 'Impuesto Predial' },
-  { index: 9, label: 'Interes Impuesto Predial' },
-  { index: 10, label: 'C.A.R.' },
-  { index: 11, label: 'Interes C.A.R.' },
-  { index: 12, label: 'Sobretasa Bomberil' },
-  { index: 13, label: 'Interes Sobretasa Bomberil' },
-  { index: 14, label: 'Total' },
+  { header: 'Avaluo', label: 'Avaluo' },
+  { header: 'Impuesto Predial', label: 'Impuesto Predial' },
+  { header: 'Interes Impuesto Predial', label: 'Interes Impuesto Predial' },
+  { header: 'C.A.R.', label: 'C.A.R.' },
+  { header: 'Interes C.A.R.', label: 'Interes C.A.R.' },
+  { header: 'Sobretasa Bomberil', label: 'Sobretasa Bomberil' },
+  { header: 'Interes Sobretasa Bomberil', label: 'Interes Sobretasa Bomberil' },
+  { header: 'Total', label: 'Total' },
 ] as const;
 
 export async function parseTaxRollExcel(
@@ -78,12 +85,19 @@ export async function parseTaxRollExcel(
     );
   }
 
-  const headers = EXPECTED_HEADERS.map((_, i) =>
-    cellText(headerRow.getCell(i + 1).value),
+  const headerIndexes = new Map<string, number>();
+  const headers: string[] = [];
+  for (let column = 1; column <= headerRow.cellCount; column++) {
+    const header = cellText(headerRow.getCell(column).value);
+    headers.push(header);
+    if (header && !headerIndexes.has(header)) headerIndexes.set(header, column);
+  }
+  const requiredHeaders = headers.filter((header) =>
+    EXPECTED_HEADERS.includes(header),
   );
-  const headersMatch = EXPECTED_HEADERS.every(
-    (expected, i) => headers[i] === expected,
-  );
+  const headersMatch =
+    EXPECTED_HEADERS.length === requiredHeaders.length &&
+    EXPECTED_HEADERS.every((expected, i) => requiredHeaders[i] === expected);
   if (!headersMatch) {
     throw new Error(
       `Excel headers do not match what was expected. Expected: [${EXPECTED_HEADERS.join(', ')}]. Received: [${headers.join(', ')}]`,
@@ -93,13 +107,18 @@ export async function parseTaxRollExcel(
   const validRows: TaxRollRowDto[] = [];
   const invalidRows: ParseTaxRollExcelResult['invalidRows'] = [];
   const warnings: ParseTaxRollExcelResult['warnings'] = [];
+  const column = (header: string) => headerIndexes.get(header)!;
+  const optionalColumn = (header: keyof typeof OPTIONAL_HEADERS) =>
+    headerIndexes.get(header);
 
   for (let rowNumber = 2; rowNumber <= sheet.rowCount; rowNumber++) {
     const row = sheet.getRow(rowNumber);
     if (row.actualCellCount === 0) continue;
 
-    const cadastralCode = cellText(row.getCell(1).value);
-    const periodText = cellText(row.getCell(7).value);
+    const cadastralCode = cellText(
+      row.getCell(column('Cédula Catastral')).value,
+    );
+    const periodText = cellText(row.getCell(column('periodo')).value);
 
     if (!cadastralCode) {
       invalidRows.push({ row: rowNumber, reason: 'Missing cadastral code' });
@@ -115,7 +134,7 @@ export async function parseTaxRollExcel(
       continue;
     }
 
-    const taxId = cellText(row.getCell(4).value);
+    const taxId = cellText(row.getCell(column('CCNIT')).value);
     if (!taxId) {
       invalidRows.push({
         row: rowNumber,
@@ -127,8 +146,8 @@ export async function parseTaxRollExcel(
     const amounts: Record<(typeof AMOUNT_COLUMNS)[number]['label'], number> =
       {} as never;
     const invalidColumns: string[] = [];
-    for (const { index, label } of AMOUNT_COLUMNS) {
-      const amount = cellAmount(row.getCell(index).value);
+    for (const { header, label } of AMOUNT_COLUMNS) {
+      const amount = cellAmount(row.getCell(column(header)).value);
       if (amount === INVALID_AMOUNT) {
         invalidColumns.push(label);
       } else {
@@ -143,18 +162,62 @@ export async function parseTaxRollExcel(
       continue;
     }
 
-    const ownerName = cellText(row.getCell(5).value);
+    const optionalValues: Partial<
+      Record<keyof typeof OPTIONAL_HEADERS, string | number | null>
+    > = {};
+    const invalidCoordinates: string[] = [];
+    for (const [header, field] of Object.entries(OPTIONAL_HEADERS) as [
+      keyof typeof OPTIONAL_HEADERS,
+      (typeof OPTIONAL_HEADERS)[keyof typeof OPTIONAL_HEADERS],
+    ][]) {
+      const index = optionalColumn(header);
+      const value =
+        index === undefined ? '' : cellText(row.getCell(index).value);
+      if (field === 'latitude' || field === 'longitude') {
+        if (!value) {
+          optionalValues[header] = null;
+          continue;
+        }
+        const coordinate = Number(value);
+        const min = field === 'latitude' ? -90 : -180;
+        const max = field === 'latitude' ? 90 : 180;
+        if (
+          !Number.isFinite(coordinate) ||
+          coordinate < min ||
+          coordinate > max
+        ) {
+          invalidCoordinates.push(header);
+        } else {
+          optionalValues[header] = coordinate;
+        }
+      } else {
+        optionalValues[header] = value || null;
+      }
+    }
+    if (invalidCoordinates.length > 0) {
+      invalidRows.push({
+        row: rowNumber,
+        reason: `Invalid coordinate value in column(s): ${invalidCoordinates.join(', ')}`,
+      });
+      continue;
+    }
+
+    const ownerName = cellText(row.getCell(column('Propietario')).value);
     if (!ownerName) {
       warnings.push({ row: rowNumber, reason: 'Missing owner' });
     }
 
     validRows.push({
       cadastralCode,
-      landUse: cellText(row.getCell(2).value),
+      landUse: cellText(row.getCell(column('Destino')).value),
       appraisalValue: amounts['Avaluo'],
+      ruralDistrict: optionalValues.Vereda as string | null,
+      neighborhood: optionalValues.Barrio as string | null,
+      latitude: optionalValues.Latitud as number | null,
+      longitude: optionalValues.Longitud as number | null,
       taxId,
       ownerName: ownerName || null,
-      propertyName: cellText(row.getCell(6).value),
+      propertyName: cellText(row.getCell(column('Nombre Predio')).value),
       period,
       propertyTax: amounts['Impuesto Predial'],
       propertyTaxInterest: amounts['Interes Impuesto Predial'],
