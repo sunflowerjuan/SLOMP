@@ -102,6 +102,25 @@
   background-color: var(--semantic-warning-bg);
 }
 
+.login-page__public-link {
+  margin: var(--space-24) 0 0;
+  padding-top: var(--space-20);
+  border-top: 1px solid var(--semantic-border);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--semantic-text-muted);
+  text-align: center;
+}
+
+.login-page__public-link a {
+  color: var(--semantic-primary);
+  font-weight: 500;
+}
+
+.login-page__public-link a:hover {
+  color: var(--semantic-primary-hover);
+}
+
 @media (max-width: 768px) {
   .login-page {
     flex-direction: column;
