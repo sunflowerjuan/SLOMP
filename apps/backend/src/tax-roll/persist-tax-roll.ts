@@ -68,7 +68,16 @@ export async function persistTaxRoll(
   // settlements could both be created as ACTIVE for the same period.
   const rowByPropertyPeriod = new Map<string, TaxRollRowDto>();
   for (const row of rows) {
-    rowByCadastralCode.set(row.cadastralCode, row);
+    const previousPropertyRow = rowByCadastralCode.get(row.cadastralCode);
+    rowByCadastralCode.set(row.cadastralCode, {
+      ...row,
+      ruralDistrict:
+        row.ruralDistrict ?? previousPropertyRow?.ruralDistrict ?? null,
+      neighborhood:
+        row.neighborhood ?? previousPropertyRow?.neighborhood ?? null,
+      latitude: row.latitude ?? previousPropertyRow?.latitude ?? null,
+      longitude: row.longitude ?? previousPropertyRow?.longitude ?? null,
+    });
     rowByTaxId.set(row.taxId, row);
     rowByPropertyPeriod.set(`${row.cadastralCode}:${row.period}`, row);
   }
@@ -80,12 +89,24 @@ export async function persistTaxRoll(
         create: {
           cadastralCode: row.cadastralCode,
           address: row.propertyName,
+          ruralDistrict: row.ruralDistrict,
+          neighborhood: row.neighborhood,
+          latitude: row.latitude,
+          longitude: row.longitude,
           landUse: row.landUse || null,
           appraisalValue: row.appraisalValue,
           municipalityId: municipality.id,
         },
         update: {
           address: row.propertyName,
+          ...(row.ruralDistrict !== null && {
+            ruralDistrict: row.ruralDistrict,
+          }),
+          ...(row.neighborhood !== null && {
+            neighborhood: row.neighborhood,
+          }),
+          ...(row.latitude !== null && { latitude: row.latitude }),
+          ...(row.longitude !== null && { longitude: row.longitude }),
           landUse: row.landUse || null,
           appraisalValue: row.appraisalValue,
         },
