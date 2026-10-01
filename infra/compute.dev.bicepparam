@@ -15,3 +15,6 @@ param functionAppMaximumInstanceCount = 100
 param functionAppInstanceMemoryMB = 2048
 param deploymentStorageAccountName = 'stpredialdev'
 param deploymentStorageContainerName = 'fn-pdf-deploymentpackage'
+param keyVaultName = 'kv-predial-dev'
+param corsOrigin = 'https://stfrontendpredialdev.z14.web.core.windows.net'
+param appInsightsConnectionString = 'InstrumentationKey=8a0039a7-014f-495c-aa5d-b59f06dab550;IngestionEndpoint=https://northcentralus-0.in.applicationinsights.azure.com/;LiveEndpoint=https://northcentralus.livediagnostics.monitor.azure.com/;ApplicationId=947b804e-3624-4691-b67e-ab5f46598633'
