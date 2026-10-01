@@ -63,6 +63,10 @@ module compute 'compute.bicep' = {
     fnSubnetId: fnSubnetId
     deploymentStorageAccountName: deploymentStorageAccountName
     deploymentStorageContainerName: deploymentPackageContainerName
+    // The storage web endpoint ends in '/', but a browser Origin never does —
+    // main.ts matches CORS_ORIGIN exactly, so strip it.
+    corsOrigin: take(staticWebApp.outputs.staticWebsiteEndpoint, length(staticWebApp.outputs.staticWebsiteEndpoint) - 1)
+    appInsightsConnectionString: monitor.outputs.backendAppInsightsConnectionString
   }
 }
 
