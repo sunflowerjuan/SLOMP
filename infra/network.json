@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.47.16.16243",
-      "templateHash": "1081043604660782802"
+      "templateHash": "13036449422040301012"
     }
   },
   "parameters": {
@@ -154,7 +154,15 @@
               "addressPrefix": "[parameters('appSubnetPrefix')]",
               "networkSecurityGroup": {
                 "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('nsgAppName'))]"
-              }
+              },
+              "delegations": [
+                {
+                  "name": "delegation-app",
+                  "properties": {
+                    "serviceName": "Microsoft.Web/serverFarms"
+                  }
+                }
+              ]
             }
           },
           {
@@ -165,7 +173,7 @@
                 {
                   "name": "delegation-fn",
                   "properties": {
-                    "serviceName": "Microsoft.Web/serverFarms"
+                    "serviceName": "Microsoft.App/environments"
                   }
                 }
               ]

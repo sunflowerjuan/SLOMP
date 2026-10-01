@@ -108,6 +108,16 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-11-01' = {
           networkSecurityGroup: {
             id: nsgApp.id
           }
+          delegations: [
+            {
+              name: 'delegation-app'
+              properties: {
+                // Required for regional VNet Integration of a normal (non
+                // Flex Consumption) App Service — see compute.bicep.
+                serviceName: 'Microsoft.Web/serverFarms'
+              }
+            }
+          ]
         }
       }
       {
@@ -118,7 +128,10 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-11-01' = {
             {
               name: 'delegation-fn'
               properties: {
-                serviceName: 'Microsoft.Web/serverFarms'
+                // Flex Consumption Function Apps require this delegation,
+                // not Microsoft.Web/serverFarms (that's for Premium/Dedicated
+                // plans) — see compute.bicep.
+                serviceName: 'Microsoft.App/environments'
               }
             }
           ]

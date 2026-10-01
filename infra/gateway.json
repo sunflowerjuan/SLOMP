@@ -1,0 +1,258 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.47.16.16243",
+      "templateHash": "14099138268484752032"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for all resources. Defaults to the resource group location."
+      }
+    },
+    "gatewayName": {
+      "type": "string",
+      "defaultValue": "agw-predial-dev",
+      "metadata": {
+        "description": "Name of the Application Gateway."
+      }
+    },
+    "publicIpName": {
+      "type": "string",
+      "defaultValue": "pip-agw-predial-dev",
+      "metadata": {
+        "description": "Name of the Gateway's public IP address."
+      }
+    },
+    "wafPolicyName": {
+      "type": "string",
+      "defaultValue": "waf-predial-dev",
+      "metadata": {
+        "description": "Name of the WAF policy."
+      }
+    },
+    "agwSubnetId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the subnet the Gateway deploys into (snet-agw, from network.bicep). Requires a dedicated, otherwise-empty subnet."
+      }
+    },
+    "backendFqdn": {
+      "type": "string",
+      "defaultValue": "app-predial-dev.azurewebsites.net",
+      "metadata": {
+        "description": "Public hostname of the backend App Service (compute.bicep's appServiceName + \".azurewebsites.net\"). The Gateway reaches it over its public FQDN, not a private IP."
+      }
+    },
+    "capacity": {
+      "type": "int",
+      "defaultValue": 1,
+      "metadata": {
+        "description": "Fixed instance count. WAF_v2 bills per hour regardless of traffic — kept at the minimum for a dev/demo environment."
+      }
+    },
+    "wafMode": {
+      "type": "string",
+      "defaultValue": "Prevention",
+      "allowedValues": [
+        "Detection",
+        "Prevention"
+      ],
+      "metadata": {
+        "description": "WAF mode: Detection logs only, Prevention actively blocks."
+      }
+    },
+    "healthProbePath": {
+      "type": "string",
+      "defaultValue": "/",
+      "metadata": {
+        "description": "Path the health probe requests on the backend."
+      }
+    }
+  },
+  "variables": {
+    "gatewayIpConfigName": "gatewayIpConfig",
+    "frontendIpConfigName": "frontendIpConfig",
+    "frontendPortName": "port80",
+    "backendPoolName": "appServicePool",
+    "backendHttpSettingsName": "appServiceHttpSettings",
+    "probeName": "appServiceProbe",
+    "httpListenerName": "httpListener",
+    "routingRuleName": "defaultRoutingRule"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2023-11-01",
+      "name": "[parameters('publicIpName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Static"
+      }
+    },
+    {
+      "type": "Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies",
+      "apiVersion": "2023-11-01",
+      "name": "[parameters('wafPolicyName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "policySettings": {
+          "state": "Enabled",
+          "mode": "[parameters('wafMode')]"
+        },
+        "managedRules": {
+          "managedRuleSets": [
+            {
+              "ruleSetType": "OWASP",
+              "ruleSetVersion": "3.2"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/applicationGateways",
+      "apiVersion": "2023-11-01",
+      "name": "[parameters('gatewayName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "name": "WAF_v2",
+          "tier": "WAF_v2",
+          "capacity": "[parameters('capacity')]"
+        },
+        "firewallPolicy": {
+          "id": "[resourceId('Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies', parameters('wafPolicyName'))]"
+        },
+        "gatewayIPConfigurations": [
+          {
+            "name": "[variables('gatewayIpConfigName')]",
+            "properties": {
+              "subnet": {
+                "id": "[parameters('agwSubnetId')]"
+              }
+            }
+          }
+        ],
+        "frontendIPConfigurations": [
+          {
+            "name": "[variables('frontendIpConfigName')]",
+            "properties": {
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIpName'))]"
+              }
+            }
+          }
+        ],
+        "frontendPorts": [
+          {
+            "name": "[variables('frontendPortName')]",
+            "properties": {
+              "port": 80
+            }
+          }
+        ],
+        "backendAddressPools": [
+          {
+            "name": "[variables('backendPoolName')]",
+            "properties": {
+              "backendAddresses": [
+                {
+                  "fqdn": "[parameters('backendFqdn')]"
+                }
+              ]
+            }
+          }
+        ],
+        "probes": [
+          {
+            "name": "[variables('probeName')]",
+            "properties": {
+              "protocol": "Https",
+              "path": "[parameters('healthProbePath')]",
+              "interval": 30,
+              "timeout": 30,
+              "unhealthyThreshold": 3,
+              "pickHostNameFromBackendHttpSettings": true,
+              "match": {
+                "statusCodes": [
+                  "200-399"
+                ]
+              }
+            }
+          }
+        ],
+        "backendHttpSettingsCollection": [
+          {
+            "name": "[variables('backendHttpSettingsName')]",
+            "properties": {
+              "port": 443,
+              "protocol": "Https",
+              "cookieBasedAffinity": "Disabled",
+              "pickHostNameFromBackendAddress": true,
+              "requestTimeout": 30,
+              "probe": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/probes', parameters('gatewayName'), variables('probeName'))]"
+              }
+            }
+          }
+        ],
+        "httpListeners": [
+          {
+            "name": "[variables('httpListenerName')]",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', parameters('gatewayName'), variables('frontendIpConfigName'))]"
+              },
+              "frontendPort": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/frontendPorts', parameters('gatewayName'), variables('frontendPortName'))]"
+              },
+              "protocol": "Http"
+            }
+          }
+        ],
+        "requestRoutingRules": [
+          {
+            "name": "[variables('routingRuleName')]",
+            "properties": {
+              "ruleType": "Basic",
+              "priority": 100,
+              "httpListener": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/httpListeners', parameters('gatewayName'), variables('httpListenerName'))]"
+              },
+              "backendAddressPool": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/backendAddressPools', parameters('gatewayName'), variables('backendPoolName'))]"
+              },
+              "backendHttpSettings": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection', parameters('gatewayName'), variables('backendHttpSettingsName'))]"
+              }
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIpName'))]",
+        "[resourceId('Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies', parameters('wafPolicyName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "publicIpAddress": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIpName')), '2023-11-01').ipAddress]"
+    },
+    "gatewayId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Network/applicationGateways', parameters('gatewayName'))]"
+    }
+  }
+}

@@ -7,6 +7,7 @@ import { AppService } from './app.service.js';
 import { AuthModule } from './auth/auth.module.js';
 import { JwtAuthGuard } from './auth/jwt-auth.guard.js';
 import { PrismaModule } from './prisma/prisma.module.js';
+import { SettlementsModule } from './settlements/settlements.module.js';
 import { TaxRollModule } from './tax-roll/tax-roll.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
@@ -23,6 +24,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     PrismaModule,
     AuthModule,
     TaxRollModule,
+    SettlementsModule,
   ],
   controllers: [AppController],
   providers: [

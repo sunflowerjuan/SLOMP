@@ -1,0 +1,24 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "northcentralus"
+    },
+    "logAnalyticsWorkspaceName": {
+      "value": "log-predial-dev"
+    },
+    "logAnalyticsSku": {
+      "value": "PerGB2018"
+    },
+    "logAnalyticsRetentionInDays": {
+      "value": 30
+    },
+    "backendAppInsightsName": {
+      "value": "appi-predial-dev"
+    },
+    "functionAppInsightsName": {
+      "value": "appi-fn-predial-dev"
+    }
+  }
+}

@@ -1,5 +1,8 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { getErrorMessage } from "../../api/ApiError";
+import { searchSettlements } from "../../api/settlements";
+import type { SettlementSearchResult } from "../../api/settlements";
 import { Button } from "../../components/ui/Button";
 import { GeneratePdfDialog } from "../../components/ui/GeneratePdfDialog";
 import { Input } from "../../components/ui/Input";
@@ -8,69 +11,20 @@ import { Table } from "../../components/ui/Table";
 import { TableRow } from "../../components/ui/TableRow";
 import "./LiquidacionesPage.css";
 
-type LiquidacionEstado = "Vencida" | "Pendiente" | "En revisión" | "Procesada";
-
-interface LiquidacionFixtureEntry {
-  cedulaCatastral: string;
-  propietario: string;
-  // La dirección no se muestra como columna en el mockup, pero sí es uno de
-  // los 3 criterios de búsqueda -- se guarda igual en el fixture para poder
-  // filtrar por ella en el cliente.
-  direccion: string;
-  periodo: string;
-  estado: LiquidacionEstado;
-}
-
-const ESTADO_VARIANT: Record<
-  LiquidacionEstado,
-  "success" | "warning" | "danger"
-> = {
-  Vencida: "danger",
-  Pendiente: "warning",
-  "En revisión": "warning",
-  Procesada: "success",
+// El backend solo distingue vigente/reemplazada (HU18) -- no existen los 4
+// estados que traia el mockup original (Vencida/Pendiente/En revision/
+// Procesada, sin equivalente en el modelo de datos real).
+const ESTADO_LABEL: Record<SettlementSearchResult["status"], string> = {
+  ACTIVE: "Vigente",
+  INACTIVE: "Reemplazada",
 };
-
-// Datos de fixture para desarrollo -- NO son datos reales de contribuyentes.
-// Sirven solo para ver la tabla de resultados con contenido mientras HU14
-// no expone un endpoint real de búsqueda de liquidaciones.
-const FIXTURE_LIQUIDACIONES: LiquidacionFixtureEntry[] = [
-  {
-    cedulaCatastral: "041-01-0023-000",
-    propietario: "María Fernanda Ríos",
-    direccion: "Calle 45 # 12-30",
-    periodo: "2022 - 2024",
-    estado: "Vencida",
-  },
-  {
-    cedulaCatastral: "041-01-0087-002",
-    propietario: "Carlos Andrés Gómez",
-    direccion: "Carrera 8 # 20-15",
-    periodo: "2024",
-    estado: "Pendiente",
-  },
-  {
-    cedulaCatastral: "041-02-0011-010",
-    propietario: "Inversiones El Roble S.A.S.",
-    direccion: "Avenida 30 # 45-10",
-    periodo: "2023 - 2024",
-    estado: "Vencida",
-  },
-  {
-    cedulaCatastral: "041-02-0155-004",
-    propietario: "Luz Marina Torres",
-    direccion: "Calle 10 # 5-22",
-    periodo: "2024",
-    estado: "En revisión",
-  },
-  {
-    cedulaCatastral: "041-03-0002-000",
-    propietario: "José Manuel Ortiz",
-    direccion: "Transversal 6 # 18-40",
-    periodo: "2021 - 2024",
-    estado: "Vencida",
-  },
-];
+const ESTADO_VARIANT: Record<
+  SettlementSearchResult["status"],
+  "success" | "neutral"
+> = {
+  ACTIVE: "success",
+  INACTIVE: "neutral",
+};
 
 interface Filters {
   cedulaCatastral: string;
@@ -86,12 +40,15 @@ const EMPTY_FILTERS: Filters = {
 
 export function LiquidacionesPage() {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
-  const [results, setResults] = useState<LiquidacionFixtureEntry[]>(
-    FIXTURE_LIQUIDACIONES,
-  );
-  const [selectedCedula, setSelectedCedula] = useState<string | null>(null);
+  const [results, setResults] = useState<SettlementSearchResult[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [selectedSettlementId, setSelectedSettlementId] = useState<
+    number | null
+  >(null);
   const [pdfDialogLiquidacion, setPdfDialogLiquidacion] =
-    useState<LiquidacionFixtureEntry | null>(null);
+    useState<SettlementSearchResult | null>(null);
   const [isPdfDialogOpen, setIsPdfDialogOpen] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
@@ -99,34 +56,40 @@ export function LiquidacionesPage() {
     setFilters((current) => ({ ...current, [field]: value }));
   }
 
-  function handleSearch(event: FormEvent<HTMLFormElement>) {
+  async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    // TODO(SL-53): conectar con el endpoint real de busqueda de HU14 cuando
-    // el contrato esté confirmado. Por ahora solo filtra, en el cliente, el
-    // listado de fixture ya cargado -- no se inventa la forma de esa
-    // respuesta del backend.
-    const cedula = filters.cedulaCatastral.trim().toLowerCase();
-    const propietario = filters.propietario.trim().toLowerCase();
-    const direccion = filters.direccion.trim().toLowerCase();
+    const cedulaCatastral = filters.cedulaCatastral.trim();
+    const propietario = filters.propietario.trim();
+    const direccion = filters.direccion.trim();
 
-    const next = FIXTURE_LIQUIDACIONES.filter((entry) => {
-      const matchesCedula =
-        cedula === "" || entry.cedulaCatastral.toLowerCase().includes(cedula);
-      const matchesPropietario =
-        propietario === "" ||
-        entry.propietario.toLowerCase().includes(propietario);
-      const matchesDireccion =
-        direccion === "" || entry.direccion.toLowerCase().includes(direccion);
-      return matchesCedula && matchesPropietario && matchesDireccion;
-    });
+    if (!cedulaCatastral && !propietario && !direccion) {
+      setSearchError(
+        "Ingresa al menos un criterio (cédula catastral, propietario o dirección).",
+      );
+      return;
+    }
 
-    setResults(next);
-    setSelectedCedula(null);
+    setIsSearching(true);
+    setSearchError(null);
+    try {
+      const found = await searchSettlements({
+        cadastralCode: cedulaCatastral,
+        owner: propietario,
+        address: direccion,
+      });
+      setResults(found);
+      setHasSearched(true);
+      setSelectedSettlementId(null);
+    } catch (caught) {
+      setSearchError(getErrorMessage(caught));
+    } finally {
+      setIsSearching(false);
+    }
   }
 
-  function handleRowClick(entry: LiquidacionFixtureEntry) {
-    setSelectedCedula(entry.cedulaCatastral);
+  function handleRowClick(entry: SettlementSearchResult) {
+    setSelectedSettlementId(entry.settlementId);
     setPdfDialogLiquidacion(entry);
     setIsPdfDialogOpen(true);
   }
@@ -137,10 +100,10 @@ export function LiquidacionesPage() {
 
   function handleGeneratePdf() {
     setIsGeneratingPdf(true);
-    // TODO(SL-53): conectar con el endpoint real de HU14 para generar y
-    // descargar el PDF cuando se confirme el contrato -- no inventar la
-    // forma de esa respuesta, no implementar descarga real de ningún
-    // archivo. El setTimeout de abajo solo simula la carga en el cliente.
+    // TODO(SL-50/SL-51): conectar con el endpoint real de generacion de PDF
+    // (plantilla .docx marcada + LibreOffice headless) cuando exista -- esas
+    // tareas todavia no estan hechas. El setTimeout de abajo solo simula la
+    // carga en el cliente, no genera ni descarga ningun archivo real.
     setTimeout(() => {
       setIsGeneratingPdf(false);
       setIsPdfDialogOpen(false);
@@ -194,45 +157,62 @@ export function LiquidacionesPage() {
             />
           </div>
           <div className="liquidaciones-page__filter-action">
-            <Button type="submit">Buscar</Button>
+            <Button type="submit" loading={isSearching}>
+              Buscar
+            </Button>
           </div>
         </form>
+
+        {searchError && (
+          <p className="liquidaciones-page__error" role="alert">
+            {searchError}
+          </p>
+        )}
       </section>
 
-      <section className="liquidaciones-page__card">
-        <h2 className="liquidaciones-page__card-title">Resultados</h2>
-        <p className="liquidaciones-page__card-subtitle">
-          {results.length} liquidaciones encontradas para los criterios
-          ingresados.
-        </p>
+      {hasSearched && (
+        <section className="liquidaciones-page__card">
+          <h2 className="liquidaciones-page__card-title">Resultados</h2>
+          <p className="liquidaciones-page__card-subtitle">
+            {results.length} liquidaciones encontradas para los criterios
+            ingresados.
+          </p>
 
-        <Table
-          columns={["Cédula catastral", "Propietario", "Periodo", "Estado"]}
-        >
-          {results.map((entry) => (
-            <TableRow
-              key={entry.cedulaCatastral}
-              selected={entry.cedulaCatastral === selectedCedula}
-              onClick={() => handleRowClick(entry)}
-              cells={[
-                entry.cedulaCatastral,
-                entry.propietario,
-                entry.periodo,
-                <StatusBadge
-                  key="estado"
-                  variant={ESTADO_VARIANT[entry.estado]}
-                >
-                  {entry.estado}
-                </StatusBadge>,
-              ]}
-            />
-          ))}
-        </Table>
-      </section>
+          <Table
+            columns={["Cédula catastral", "Propietario", "Periodo", "Estado"]}
+          >
+            {results.map((entry) => (
+              <TableRow
+                key={entry.settlementId}
+                selected={entry.settlementId === selectedSettlementId}
+                onClick={() => handleRowClick(entry)}
+                cells={[
+                  entry.cadastralCode,
+                  entry.ownerName,
+                  entry.period,
+                  <StatusBadge
+                    key="estado"
+                    variant={ESTADO_VARIANT[entry.status]}
+                  >
+                    {ESTADO_LABEL[entry.status]}
+                  </StatusBadge>,
+                ]}
+              />
+            ))}
+          </Table>
+        </section>
+      )}
 
       <GeneratePdfDialog
         open={isPdfDialogOpen}
-        liquidacion={pdfDialogLiquidacion}
+        liquidacion={
+          pdfDialogLiquidacion
+            ? {
+                cedulaCatastral: pdfDialogLiquidacion.cadastralCode,
+                propietario: pdfDialogLiquidacion.ownerName,
+              }
+            : null
+        }
         isGenerating={isGeneratingPdf}
         onCancel={handleCancelPdfDialog}
         onGenerate={handleGeneratePdf}

@@ -1,0 +1,11 @@
+using './storage-security.bicep'
+
+param location = 'northcentralus'
+param storageAccountName = 'stpredialdev'
+param storageAccountSku = 'Standard_LRS'
+param deploymentPackageContainerName = 'fn-pdf-deploymentpackage'
+param templatesContainerName = 'templates'
+param pdfQueueName = 'stq-predial-dev'
+param keyVaultName = 'kv-predial-dev'
+param appServicePrincipalId = '068de78b-0932-4c6d-bdc0-eeaf05abc445'
+param functionAppPrincipalId = '1d3dd8f4-3bb4-43a9-adc8-69145b77b7ff'
