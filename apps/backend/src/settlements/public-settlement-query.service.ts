@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { SettlementStatus } from '@prisma/client';
+import type { SettlementStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 export interface PublicSettlementQueryCriteria {
@@ -14,6 +14,7 @@ export interface PublicSettlementQueryResult {
   address: string;
   ownerName: string;
   period: number;
+  status: SettlementStatus;
   totalAmount: number;
 }
 
@@ -46,7 +47,10 @@ export class PublicSettlementQueryService {
 
     const settlements = await this.prisma.settlement.findMany({
       where: {
-        status: SettlementStatus.ACTIVE,
+        // The current settlement of each property+period, regardless of its
+        // payment status — a citizen must be able to see a pagada/acuerdo de
+        // pago/prescrita settlement too, not just ones literally VIGENTE.
+        replacedAt: null,
         property: {
           ...(cadastralCode
             ? { cadastralCode: { equals: cadastralCode, mode: 'insensitive' } }
@@ -81,6 +85,7 @@ export class PublicSettlementQueryService {
         .map((propertyOwner) => propertyOwner.owner.name)
         .join(', '),
       period: settlement.period,
+      status: settlement.status,
       totalAmount: settlement.totalAmount.toNumber(),
     }));
   }

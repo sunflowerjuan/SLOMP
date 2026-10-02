@@ -15,9 +15,10 @@ export interface PersistTaxRollResult {
   // rows that don't conflict -- so the Administrator can cancel without
   // any partial write (HU18).
   settlements: number;
-  // Property+period pairs that already had an ACTIVE settlement and were
-  // left untouched because the caller didn't pass confirmReplace — the
-  // Administrator has to see these and confirm before they're replaced.
+  // Property+period pairs that already had a current (non-replaced)
+  // settlement and were left untouched because the caller didn't pass
+  // confirmReplace — the Administrator has to see these and confirm before
+  // they're replaced.
   conflicts: TaxRollConflict[];
 }
 
@@ -65,7 +66,7 @@ export async function persistTaxRoll(
   const rowByTaxId = new Map<string, TaxRollRowDto>();
   // A property+period should only ever be processed once per import, even
   // if the source file has a duplicate row for it — otherwise two "new"
-  // settlements could both be created as ACTIVE for the same period.
+  // settlements could both be created as current for the same period.
   const rowByPropertyPeriod = new Map<string, TaxRollRowDto>();
   for (const row of rows) {
     const previousPropertyRow = rowByCadastralCode.get(row.cadastralCode);
@@ -150,28 +151,29 @@ export async function persistTaxRoll(
     skipDuplicates: true,
   });
 
-  // Only an ACTIVE settlement can conflict — an already-replaced (INACTIVE)
-  // one for the same property+period is just history.
-  const activeSettlements = await prisma.settlement.findMany({
+  // Only a current (non-replaced) settlement can conflict — a settlement
+  // already replaced by an earlier import for the same property+period is
+  // just history (replacedAt is set, regardless of its payment status).
+  const currentSettlements = await prisma.settlement.findMany({
     where: {
       propertyId: { in: [...propertyIdByCode.values()] },
-      status: SettlementStatus.ACTIVE,
+      replacedAt: null,
     },
     select: { id: true, propertyId: true, period: true },
   });
-  const activeIdByPropertyPeriod = new Map(
-    activeSettlements.map((s) => [`${s.propertyId}:${s.period}`, s.id]),
+  const currentIdByPropertyPeriod = new Map(
+    currentSettlements.map((s) => [`${s.propertyId}:${s.period}`, s.id]),
   );
 
   const classifiedRows = [...rowByPropertyPeriod.values()].map((row) => {
     const propertyId = propertyIdByCode.get(row.cadastralCode)!;
-    const activeId = activeIdByPropertyPeriod.get(
+    const currentId = currentIdByPropertyPeriod.get(
       `${propertyId}:${row.period}`,
     );
-    return { row, propertyId, activeId };
+    return { row, propertyId, currentId };
   });
   const conflictingRows = classifiedRows.filter(
-    (entry) => entry.activeId !== undefined,
+    (entry) => entry.currentId !== undefined,
   );
 
   // Si hay conflictos y quien llama todavia no confirmo el reemplazo, esta
@@ -194,14 +196,14 @@ export async function persistTaxRoll(
   const rowsToCreate = shouldPersistSettlements
     ? classifiedRows.map(({ row, propertyId }) => ({ row, propertyId }))
     : [];
-  const toInactivate = shouldPersistSettlements
-    ? conflictingRows.map((entry) => entry.activeId!)
+  const toSupersede = shouldPersistSettlements
+    ? conflictingRows.map((entry) => entry.currentId!)
     : [];
 
-  if (toInactivate.length > 0) {
+  if (toSupersede.length > 0) {
     await prisma.settlement.updateMany({
-      where: { id: { in: toInactivate } },
-      data: { status: SettlementStatus.INACTIVE },
+      where: { id: { in: toSupersede } },
+      data: { replacedAt: new Date() },
     });
   }
 
@@ -211,7 +213,7 @@ export async function persistTaxRoll(
         propertyId,
         period: row.period,
         totalAmount: row.total,
-        status: SettlementStatus.ACTIVE,
+        status: SettlementStatus.VIGENTE,
       })),
       select: { id: true, propertyId: true, period: true },
     });

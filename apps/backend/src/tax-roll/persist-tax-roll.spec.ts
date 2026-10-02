@@ -25,6 +25,7 @@ type FakeSettlement = {
   period: number;
   totalAmount: number;
   status: SettlementStatus;
+  replacedAt: Date | null;
 };
 
 type FakeSettlementDetail = {
@@ -124,19 +125,23 @@ class FakePrisma {
     findMany: async ({
       where,
     }: {
-      where: { propertyId: { in: number[] }; status?: SettlementStatus };
+      where: { propertyId: { in: number[] }; replacedAt?: null };
     }) =>
       this.settlements.filter(
         (s) =>
           where.propertyId.in.includes(s.propertyId) &&
-          (where.status === undefined || s.status === where.status),
+          (where.replacedAt === undefined || s.replacedAt == null),
       ),
     createManyAndReturn: async ({
       data,
     }: {
-      data: Omit<FakeSettlement, 'id'>[];
+      data: Omit<FakeSettlement, 'id' | 'replacedAt'>[];
     }) => {
-      const created = data.map((d) => ({ id: this.nextId++, ...d }));
+      const created = data.map((d) => ({
+        id: this.nextId++,
+        replacedAt: null,
+        ...d,
+      }));
       this.settlements.push(...created);
       return created;
     },
@@ -186,26 +191,26 @@ function buildRow(overrides: Partial<TaxRollRowDto> = {}): TaxRollRowDto {
   };
 }
 
-function expectAtMostOneActiveSettlementPerPropertyPeriod(prisma: FakePrisma) {
-  const activeSettlementsByPropertyPeriod = new Map<string, number>();
+function expectAtMostOneCurrentSettlementPerPropertyPeriod(prisma: FakePrisma) {
+  const currentSettlementsByPropertyPeriod = new Map<string, number>();
 
   for (const settlement of prisma.settlements) {
-    if (settlement.status !== SettlementStatus.ACTIVE) continue;
+    if (settlement.replacedAt !== null) continue;
 
     const key = `${settlement.propertyId}:${settlement.period}`;
-    activeSettlementsByPropertyPeriod.set(
+    currentSettlementsByPropertyPeriod.set(
       key,
-      (activeSettlementsByPropertyPeriod.get(key) ?? 0) + 1,
+      (currentSettlementsByPropertyPeriod.get(key) ?? 0) + 1,
     );
   }
 
-  for (const activeCount of activeSettlementsByPropertyPeriod.values()) {
-    expect(activeCount).toBeLessThanOrEqual(1);
+  for (const currentCount of currentSettlementsByPropertyPeriod.values()) {
+    expect(currentCount).toBeLessThanOrEqual(1);
   }
 }
 
 describe('persistTaxRoll', () => {
-  it('creates the property, owner, link, an ACTIVE settlement and its 6 detail lines', async () => {
+  it('creates the property, owner, link, a current settlement and its 6 detail lines', async () => {
     const prisma = new FakePrisma();
 
     const result = await persistTaxRoll(prisma as never, [buildRow()], false);
@@ -227,7 +232,8 @@ describe('persistTaxRoll', () => {
         propertyId: 1,
         period: 2024,
         totalAmount: 54590,
-        status: SettlementStatus.ACTIVE,
+        status: SettlementStatus.VIGENTE,
+        replacedAt: null,
       },
     ]);
     expect(prisma.settlementDetails).toHaveLength(6);
@@ -267,11 +273,11 @@ describe('persistTaxRoll', () => {
     expect(prisma.settlements[0]).toMatchObject({
       id: originalSettlementId,
       totalAmount: 100,
-      status: SettlementStatus.ACTIVE,
+      replacedAt: null,
     });
   });
 
-  it('a second import of the same property+period WITH confirmation inactivates the old one and creates a new active one — never deletes it', async () => {
+  it('a second import of the same property+period WITH confirmation marks the old one as replaced and creates a new current one — never deletes it', async () => {
     const prisma = new FakePrisma();
     await persistTaxRoll(prisma as never, [buildRow({ total: 100 })], false);
 
@@ -286,16 +292,18 @@ describe('persistTaxRoll', () => {
     expect(prisma.settlements).toHaveLength(2);
     expect(prisma.settlements[0]).toMatchObject({
       totalAmount: 100,
-      status: SettlementStatus.INACTIVE,
+      status: SettlementStatus.VIGENTE,
+      replacedAt: expect.any(Date),
     });
     expect(prisma.settlements[1]).toMatchObject({
       totalAmount: 200,
-      status: SettlementStatus.ACTIVE,
+      status: SettlementStatus.VIGENTE,
+      replacedAt: null,
     });
-    expectAtMostOneActiveSettlementPerPropertyPeriod(prisma);
+    expectAtMostOneCurrentSettlementPerPropertyPeriod(prisma);
   });
 
-  it('HU18 / ADR-6: repeated replacements retain each earlier settlement as inactive history', async () => {
+  it('HU18 / ADR-6: repeated replacements retain each earlier settlement as replaced history, without touching its status', async () => {
     const prisma = new FakePrisma();
     await persistTaxRoll(prisma as never, [buildRow({ total: 100 })], false);
     const firstSettlementId = prisma.settlements[0].id;
@@ -309,16 +317,19 @@ describe('persistTaxRoll', () => {
       expect.objectContaining({
         id: firstSettlementId,
         totalAmount: 100,
-        status: SettlementStatus.INACTIVE,
+        status: SettlementStatus.VIGENTE,
+        replacedAt: expect.any(Date),
       }),
       expect.objectContaining({
         id: secondSettlementId,
         totalAmount: 200,
-        status: SettlementStatus.INACTIVE,
+        status: SettlementStatus.VIGENTE,
+        replacedAt: expect.any(Date),
       }),
       expect.objectContaining({
         totalAmount: 300,
-        status: SettlementStatus.ACTIVE,
+        status: SettlementStatus.VIGENTE,
+        replacedAt: null,
       }),
     ]);
     expect(prisma.settlements).toHaveLength(3);
@@ -370,12 +381,10 @@ describe('persistTaxRoll', () => {
 
     expect(result.settlements).toBe(2);
     expect(result.conflicts).toEqual([]);
-    const active = prisma.settlements.filter(
-      (s) => s.status === SettlementStatus.ACTIVE,
-    );
-    expect(active.map((s) => s.totalAmount).sort()).toEqual([200, 300]);
+    const current = prisma.settlements.filter((s) => s.replacedAt === null);
+    expect(current.map((s) => s.totalAmount).sort()).toEqual([200, 300]);
     expect(
-      prisma.settlements.filter((s) => s.status === SettlementStatus.INACTIVE),
+      prisma.settlements.filter((s) => s.replacedAt !== null),
     ).toHaveLength(1);
   });
 
@@ -391,7 +400,7 @@ describe('persistTaxRoll', () => {
     expect(result.settlements).toBe(1);
     expect(prisma.settlements).toHaveLength(1);
     expect(prisma.settlements[0].totalAmount).toBe(200); // last one wins
-    expectAtMostOneActiveSettlementPerPropertyPeriod(prisma);
+    expectAtMostOneCurrentSettlementPerPropertyPeriod(prisma);
   });
 
   it('allows distinct periods for one property while preserving one active settlement per period', async () => {
@@ -405,7 +414,7 @@ describe('persistTaxRoll', () => {
 
     expect(result).toMatchObject({ settlements: 2, conflicts: [] });
     expect(prisma.settlements).toHaveLength(2);
-    expectAtMostOneActiveSettlementPerPropertyPeriod(prisma);
+    expectAtMostOneCurrentSettlementPerPropertyPeriod(prisma);
   });
 
   it('allows the same period for distinct properties while preserving the invariant per property', async () => {
@@ -422,7 +431,7 @@ describe('persistTaxRoll', () => {
 
     expect(result).toMatchObject({ settlements: 2, conflicts: [] });
     expect(prisma.settlements).toHaveLength(2);
-    expectAtMostOneActiveSettlementPerPropertyPeriod(prisma);
+    expectAtMostOneCurrentSettlementPerPropertyPeriod(prisma);
   });
 
   it('uses a placeholder name for a brand-new owner with no name in the file', async () => {

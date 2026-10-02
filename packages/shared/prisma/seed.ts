@@ -208,16 +208,20 @@ async function main() {
       })),
     });
 
-    // Current period (2025)
+    // Current period (2025): freshly issued, nothing paid yet.
     await createSettlement(
       property.id,
       2025,
       propertySeed.baseAmount2025,
-      SettlementStatus.ACTIVE,
+      SettlementStatus.VIGENTE,
       false,
     );
 
-    // Historical (inactive) periods, with a slight year-over-year decrease
+    // Historical periods, with a slight year-over-year decrease. These are
+    // distinct periods, never replacements of one another, so `replacedAt`
+    // stays null on all of them -- only their payment status differs: paid
+    // off by now, unless a mandamiento (PaymentOrder) is still open against
+    // them, in which case the debt is still VIGENTE.
     const factors: Record<number, number> = { 2024: 0.96, 2023: 0.92 };
     for (const period of propertySeed.history) {
       const taxAmount = round2(
@@ -227,7 +231,9 @@ async function main() {
         property.id,
         period,
         taxAmount,
-        SettlementStatus.INACTIVE,
+        propertySeed.hasPaymentOrder
+          ? SettlementStatus.VIGENTE
+          : SettlementStatus.PAGADA,
         propertySeed.hasPaymentOrder,
       );
 
