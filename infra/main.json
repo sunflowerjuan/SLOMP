@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.47.16.16243",
-      "templateHash": "12644622460736048492"
+      "templateHash": "9321918684526715634"
     }
   },
   "parameters": {
@@ -325,6 +325,12 @@
           },
           "deploymentStorageContainerName": {
             "value": "[parameters('deploymentPackageContainerName')]"
+          },
+          "corsOrigin": {
+            "value": "[take(reference(resourceId('Microsoft.Resources/deployments', 'staticWebApp'), '2025-04-01').outputs.staticWebsiteEndpoint.value, sub(length(reference(resourceId('Microsoft.Resources/deployments', 'staticWebApp'), '2025-04-01').outputs.staticWebsiteEndpoint.value), 1))]"
+          },
+          "appInsightsConnectionString": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'monitor'), '2025-04-01').outputs.backendAppInsightsConnectionString.value]"
           }
         },
         "template": {
@@ -334,7 +340,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.47.16.16243",
-              "templateHash": "14053366292149235578"
+              "templateHash": "14385867303565424321"
             }
           },
           "parameters": {
@@ -438,6 +444,26 @@
               "metadata": {
                 "description": "Name of the blob container holding the Function App deployment package (from SL-63, not created here)."
               }
+            },
+            "keyVaultName": {
+              "type": "string",
+              "defaultValue": "kv-predial-dev",
+              "metadata": {
+                "description": "Name of the Key Vault holding the DATABASE-URL/JWT-SECRET secrets (storage-security.bicep, SL-63). Plain name, not a resource reference — referencing storageSecurity's output here would create a circular module dependency in main.bicep, since storageSecurity already depends on this module's identity principalIds."
+              }
+            },
+            "corsOrigin": {
+              "type": "string",
+              "metadata": {
+                "description": "Allowed CORS origin(s) for the backend API, comma-separated. The frontend's public URL (static-web-app.bicep, SL-69 output staticWebsiteEndpoint). Required, no default — the exact host (e.g. the \"z14\" partition in Storage static website URLs) is assigned by Azure per storage account, not derivable from environment() the way blob/queue endpoints are."
+              }
+            },
+            "appInsightsConnectionString": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Application Insights connection string for the backend (monitor.bicep output, SL-65). Not a secret. Empty string is valid — App Insights just stays unconfigured."
+              }
             }
           },
           "resources": [
@@ -486,6 +512,20 @@
                 "platform": {
                   "enabled": false
                 }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('appServiceName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Web/sites/config",
+              "apiVersion": "2023-12-01",
+              "name": "[format('{0}/{1}', parameters('appServiceName'), 'appsettings')]",
+              "properties": {
+                "DATABASE_URL": "[format('@Microsoft.KeyVault(VaultName={0};SecretName=DATABASE-URL)', parameters('keyVaultName'))]",
+                "JWT_SECRET": "[format('@Microsoft.KeyVault(VaultName={0};SecretName=JWT-SECRET)', parameters('keyVaultName'))]",
+                "CORS_ORIGIN": "[parameters('corsOrigin')]",
+                "APPLICATIONINSIGHTS_CONNECTION_STRING": "[parameters('appInsightsConnectionString')]"
               },
               "dependsOn": [
                 "[resourceId('Microsoft.Web/sites', parameters('appServiceName'))]"
@@ -591,7 +631,9 @@
         }
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Resources/deployments', 'network')]"
+        "[resourceId('Microsoft.Resources/deployments', 'monitor')]",
+        "[resourceId('Microsoft.Resources/deployments', 'network')]",
+        "[resourceId('Microsoft.Resources/deployments', 'staticWebApp')]"
       ]
     },
     {
@@ -834,6 +876,194 @@
       },
       "dependsOn": [
         "[resourceId('Microsoft.Resources/deployments', 'compute')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "connectivity",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "vnetId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'network'), '2025-04-01').outputs.vnetId.value]"
+          },
+          "peSubnetId": {
+            "value": "[resourceId('Microsoft.Network/virtualNetworks/subnets', reference(resourceId('Microsoft.Resources/deployments', 'network'), '2025-04-01').outputs.vnetName.value, 'snet-pe')]"
+          },
+          "keyVaultId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'storageSecurity'), '2025-04-01').outputs.keyVaultId.value]"
+          },
+          "storageAccountId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'storageSecurity'), '2025-04-01').outputs.storageAccountId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.47.16.16243",
+              "templateHash": "8865833958560681593"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]",
+              "metadata": {
+                "description": "Location for the Private Endpoints. Defaults to the resource group location."
+              }
+            },
+            "vnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the VNet (network.bicep output vnetId). Every Private DNS zone gets linked to it."
+              }
+            },
+            "peSubnetId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of snet-pe, the subnet the Private Endpoints live in."
+              }
+            },
+            "keyVaultId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the Key Vault (storage-security.bicep output keyVaultId)."
+              }
+            },
+            "storageAccountId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the Storage Account (storage-security.bicep output storageAccountId)."
+              }
+            }
+          },
+          "variables": {
+            "endpoints": [
+              {
+                "name": "pe-keyvault-predial-dev",
+                "targetId": "[parameters('keyVaultId')]",
+                "groupId": "vault",
+                "zoneName": "privatelink.vaultcore.azure.net"
+              },
+              {
+                "name": "pe-storage-blob-predial-dev",
+                "targetId": "[parameters('storageAccountId')]",
+                "groupId": "blob",
+                "zoneName": "[format('privatelink.blob.{0}', environment().suffixes.storage)]"
+              },
+              {
+                "name": "pe-storage-queue-predial-dev",
+                "targetId": "[parameters('storageAccountId')]",
+                "groupId": "queue",
+                "zoneName": "[format('privatelink.queue.{0}', environment().suffixes.storage)]"
+              }
+            ]
+          },
+          "resources": [
+            {
+              "copy": {
+                "name": "privateDnsZones",
+                "count": "[length(variables('endpoints'))]"
+              },
+              "type": "Microsoft.Network/privateDnsZones",
+              "apiVersion": "2020-06-01",
+              "name": "[variables('endpoints')[copyIndex()].zoneName]",
+              "location": "global"
+            },
+            {
+              "copy": {
+                "name": "privateDnsZoneVnetLinks",
+                "count": "[length(variables('endpoints'))]"
+              },
+              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+              "apiVersion": "2020-06-01",
+              "name": "[format('{0}/{1}', variables('endpoints')[copyIndex()].zoneName, format('{0}-link', variables('endpoints')[copyIndex()].zoneName))]",
+              "location": "global",
+              "properties": {
+                "registrationEnabled": false,
+                "virtualNetwork": {
+                  "id": "[parameters('vnetId')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('endpoints')[copyIndex()].zoneName)]"
+              ]
+            },
+            {
+              "copy": {
+                "name": "privateEndpoints",
+                "count": "[length(variables('endpoints'))]"
+              },
+              "type": "Microsoft.Network/privateEndpoints",
+              "apiVersion": "2023-11-01",
+              "name": "[variables('endpoints')[copyIndex()].name]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "subnet": {
+                  "id": "[parameters('peSubnetId')]"
+                },
+                "privateLinkServiceConnections": [
+                  {
+                    "name": "[variables('endpoints')[copyIndex()].name]",
+                    "properties": {
+                      "privateLinkServiceId": "[variables('endpoints')[copyIndex()].targetId]",
+                      "groupIds": [
+                        "[variables('endpoints')[copyIndex()].groupId]"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "copy": {
+                "name": "privateDnsZoneGroups",
+                "count": "[length(variables('endpoints'))]"
+              },
+              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+              "apiVersion": "2023-11-01",
+              "name": "[format('{0}/{1}', variables('endpoints')[copyIndex()].name, 'default')]",
+              "properties": {
+                "privateDnsZoneConfigs": [
+                  {
+                    "name": "config",
+                    "properties": {
+                      "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', variables('endpoints')[copyIndex()].zoneName)]"
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/privateDnsZones', variables('endpoints')[copyIndex()].zoneName)]",
+                "privateDnsZoneVnetLinks",
+                "[resourceId('Microsoft.Network/privateEndpoints', variables('endpoints')[copyIndex()].name)]"
+              ]
+            }
+          ],
+          "outputs": {
+            "privateEndpointNames": {
+              "type": "array",
+              "copy": {
+                "count": "[length(variables('endpoints'))]",
+                "input": "[variables('endpoints')[copyIndex()].name]"
+              }
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'network')]",
+        "[resourceId('Microsoft.Resources/deployments', 'storageSecurity')]"
       ]
     },
     {

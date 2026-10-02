@@ -9,6 +9,14 @@
 // only: both apps are deployed empty and get their code from a separate
 // pipeline.
 //
+// The backend App Service's App Settings (DATABASE_URL/JWT_SECRET via Key
+// Vault references, CORS_ORIGIN, App Insights) were added here as part of
+// SL-67 (deploying the real app for the demo) — a cross-ticket change to
+// this SL-61 module, same as main.bicep's storage-account-name fix was for
+// SL-66. compute.bicep already had the appService resource and the
+// authsettingsV2 pattern to follow; adding a sibling app settings resource
+// here was simpler than inventing a separate module for 4 key-value pairs.
+//
 // Deploy at resource group scope (az deployment group create -g <rg> ...).
 
 @description('Location for all resources. Defaults to the resource group location.')
@@ -56,6 +64,15 @@ param deploymentStorageAccountName string
 @description('Name of the blob container holding the Function App deployment package (from SL-63, not created here).')
 param deploymentStorageContainerName string
 
+@description('Name of the Key Vault holding the DATABASE-URL/JWT-SECRET secrets (storage-security.bicep, SL-63). Plain name, not a resource reference — referencing storageSecurity\'s output here would create a circular module dependency in main.bicep, since storageSecurity already depends on this module\'s identity principalIds.')
+param keyVaultName string = 'kv-predial-dev'
+
+@description('Allowed CORS origin(s) for the backend API, comma-separated. The frontend\'s public URL (static-web-app.bicep, SL-69 output staticWebsiteEndpoint). Required, no default — the exact host (e.g. the "z14" partition in Storage static website URLs) is assigned by Azure per storage account, not derivable from environment() the way blob/queue endpoints are.')
+param corsOrigin string
+
+@description('Application Insights connection string for the backend (monitor.bicep output, SL-65). Not a secret. Empty string is valid — App Insights just stays unconfigured.')
+param appInsightsConnectionString string = ''
+
 resource appServicePlan 'Microsoft.Web/serverfarms@2023-12-01' = {
   name: appServicePlanName
   location: location
@@ -99,6 +116,22 @@ resource appServiceAuthSettings 'Microsoft.Web/sites/config@2023-12-01' = {
     platform: {
       enabled: false
     }
+  }
+}
+
+// DATABASE_URL/JWT_SECRET are Key Vault references, not literal values —
+// resolved at runtime by the App Service using its own System-Assigned
+// identity (already granted Key Vault Secrets User in storage-security.bicep,
+// SL-63). Nothing sensitive ever appears in this template or its compiled
+// JSON.
+resource appServiceAppSettings 'Microsoft.Web/sites/config@2023-12-01' = {
+  parent: appService
+  name: 'appsettings'
+  properties: {
+    DATABASE_URL: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=DATABASE-URL)'
+    JWT_SECRET: '@Microsoft.KeyVault(VaultName=${keyVaultName};SecretName=JWT-SECRET)'
+    CORS_ORIGIN: corsOrigin
+    APPLICATIONINSIGHTS_CONNECTION_STRING: appInsightsConnectionString
   }
 }
 

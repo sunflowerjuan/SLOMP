@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.47.16.16243",
-      "templateHash": "14053366292149235578"
+      "templateHash": "14385867303565424321"
     }
   },
   "parameters": {
@@ -109,6 +109,26 @@
       "metadata": {
         "description": "Name of the blob container holding the Function App deployment package (from SL-63, not created here)."
       }
+    },
+    "keyVaultName": {
+      "type": "string",
+      "defaultValue": "kv-predial-dev",
+      "metadata": {
+        "description": "Name of the Key Vault holding the DATABASE-URL/JWT-SECRET secrets (storage-security.bicep, SL-63). Plain name, not a resource reference — referencing storageSecurity's output here would create a circular module dependency in main.bicep, since storageSecurity already depends on this module's identity principalIds."
+      }
+    },
+    "corsOrigin": {
+      "type": "string",
+      "metadata": {
+        "description": "Allowed CORS origin(s) for the backend API, comma-separated. The frontend's public URL (static-web-app.bicep, SL-69 output staticWebsiteEndpoint). Required, no default — the exact host (e.g. the \"z14\" partition in Storage static website URLs) is assigned by Azure per storage account, not derivable from environment() the way blob/queue endpoints are."
+      }
+    },
+    "appInsightsConnectionString": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Application Insights connection string for the backend (monitor.bicep output, SL-65). Not a secret. Empty string is valid — App Insights just stays unconfigured."
+      }
     }
   },
   "resources": [
@@ -157,6 +177,20 @@
         "platform": {
           "enabled": false
         }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', parameters('appServiceName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Web/sites/config",
+      "apiVersion": "2023-12-01",
+      "name": "[format('{0}/{1}', parameters('appServiceName'), 'appsettings')]",
+      "properties": {
+        "DATABASE_URL": "[format('@Microsoft.KeyVault(VaultName={0};SecretName=DATABASE-URL)', parameters('keyVaultName'))]",
+        "JWT_SECRET": "[format('@Microsoft.KeyVault(VaultName={0};SecretName=JWT-SECRET)', parameters('keyVaultName'))]",
+        "CORS_ORIGIN": "[parameters('corsOrigin')]",
+        "APPLICATIONINSIGHTS_CONNECTION_STRING": "[parameters('appInsightsConnectionString')]"
       },
       "dependsOn": [
         "[resourceId('Microsoft.Web/sites', parameters('appServiceName'))]"
