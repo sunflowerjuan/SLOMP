@@ -15,7 +15,7 @@ export interface SettlementSearchResult {
   // Co-owned properties join every owner's name — the panel shows one row
   // per settlement, not one per owner.
   ownerName: string;
-  period: string;
+  period: number;
   status: SettlementStatus;
   totalAmount: number;
 }

@@ -7,7 +7,7 @@ export interface SettlementSearchResult {
   cadastralCode: string;
   address: string;
   ownerName: string;
-  period: string;
+  period: number;
   status: "ACTIVE" | "INACTIVE";
   totalAmount: number;
 }

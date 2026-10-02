@@ -14,7 +14,7 @@ function decimal(value: number) {
 
 const ONE_SETTLEMENT = {
   id: 1,
-  period: '2024',
+  period: 2024,
   status: SettlementStatus.ACTIVE,
   totalAmount: decimal(54590),
   property: {
@@ -58,7 +58,7 @@ describe('SettlementsService', () => {
         cadastralCode: '000100010001',
         address: 'Finca La Esperanza',
         ownerName: 'Juan Pérez, María Gómez',
-        period: '2024',
+        period: 2024,
         status: SettlementStatus.ACTIVE,
         totalAmount: 54590,
       },

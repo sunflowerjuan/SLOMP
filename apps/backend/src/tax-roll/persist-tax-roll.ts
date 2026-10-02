@@ -209,7 +209,7 @@ export async function persistTaxRoll(
     const created = await prisma.settlement.createManyAndReturn({
       data: rowsToCreate.map(({ row, propertyId }) => ({
         propertyId,
-        period: String(row.period),
+        period: row.period,
         totalAmount: row.total,
         status: SettlementStatus.ACTIVE,
       })),

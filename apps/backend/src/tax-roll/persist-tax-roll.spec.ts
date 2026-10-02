@@ -22,7 +22,7 @@ type FakePropertyOwner = {
 type FakeSettlement = {
   id: number;
   propertyId: number;
-  period: string;
+  period: number;
   totalAmount: number;
   status: SettlementStatus;
 };
@@ -225,7 +225,7 @@ describe('persistTaxRoll', () => {
       {
         id: expect.any(Number),
         propertyId: 1,
-        period: '2024',
+        period: 2024,
         totalAmount: 54590,
         status: SettlementStatus.ACTIVE,
       },
