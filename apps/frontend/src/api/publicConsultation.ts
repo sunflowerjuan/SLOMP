@@ -1,33 +1,32 @@
 import { request, requestBlob } from "./httpClient";
 
-// Consulta publica del contribuyente (HU24 / SL-73) -- canal SIN
-// autenticacion: todas las llamadas van con `authenticated: false`, asi que
-// nunca se adjunta el JWT del Administrador ni un 401 cierra su sesion.
+// Taxpayer public consultation (HU24 / SL-73) -- an UNAUTHENTICATED channel:
+// every call uses `authenticated: false`, so the Administrator's JWT is never
+// attached and a 401 never ends their session.
 //
-// CONTRATO PROPUESTO, PENDIENTE DE CONFIRMAR CON SL-84: el endpoint publico
-// todavia no existe en apps/backend. Las rutas y formas de abajo siguen las
-// convenciones del backend actual (rutas en ingles como /tax-roll, nombres
-// de campo del schema.prisma: cadastralCode, address, period, totalAmount,
-// issuedAt). Si SL-84 define algo distinto, este es el UNICO archivo que hay
-// que ajustar -- la pantalla solo depende de estos tipos.
+// PROPOSED CONTRACT, written before the SL-84 backend endpoint existed. The
+// routes and shapes below follow the backend conventions (English routes like
+// /tax-roll, schema.prisma field names: cadastralCode, address, period,
+// totalAmount, issuedAt). If the backend differs, this is the ONLY file to
+// adjust -- the page depends only on these types.
 
 export const PUBLIC_CONSULTATION_PATH = "/public-consultation";
 
-// RF-15: se envian 2 o 3 de estos datos. Los que el contribuyente deja
-// vacios NO se envian (ni como string vacio). El frontend solo hace trim();
-// la coincidencia EXACTA (RNF-04) la decide el backend.
+// RF-15: 2 or 3 of these fields are sent. Fields the taxpayer leaves empty
+// are NOT sent (not even as an empty string). The frontend only trims;
+// the EXACT match (RNF-04) is decided by the backend.
 export interface PublicConsultationCriteria {
   cadastralCode?: string;
   ownerName?: string;
   address?: string;
 }
 
-// Una liquidacion vigente (Settlement con status ACTIVE) del predio.
+// A current settlement of the property (Settlement with status ACTIVE).
 export interface PublicSettlement {
   id: number;
   period: string;
   issuedAt: string;
-  // Prisma serializa Decimal como string -- se formatea en la UI.
+  // Prisma serializes Decimal as a string -- formatted in the UI.
   totalAmount: string;
 }
 
@@ -39,8 +38,8 @@ export interface PublicConsultationResult {
   settlements: PublicSettlement[];
 }
 
-// Sin coincidencia exacta se espera un 404 (o 200 con `settlements: []`);
-// la pantalla trata ambos casos igual y nunca muestra sugerencias.
+// With no exact match a 404 is expected (or a 200 with `settlements: []`);
+// the page treats both the same and never shows suggestions.
 export function consultSettlements(
   criteria: PublicConsultationCriteria,
   signal?: AbortSignal,
@@ -53,12 +52,12 @@ export function consultSettlements(
   });
 }
 
-// RF-16: el PDF se genera bajo demanda (nunca se guarda en el servidor).
+// RF-16: the PDF is generated on demand (never stored on the server).
 //
-// Se pide por POST reenviando los MISMOS datos de la consulta, no con un
-// GET /.../:id/pdf: asi el backend puede volver a validar la coincidencia
-// de 2 de 3 datos antes de generar el PDF y nadie puede descargar
-// liquidaciones ajenas recorriendo ids secuenciales.
+// It is requested via POST, resending the SAME consultation data, rather
+// than with a GET /.../:id/pdf: this lets the backend re-validate the
+// 2-of-3 match before generating the PDF, so nobody can download other
+// people's settlements by walking sequential ids.
 export function downloadSettlementPdf(
   criteria: PublicConsultationCriteria,
   settlementId: number,

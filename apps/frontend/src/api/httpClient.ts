@@ -102,9 +102,9 @@ export async function request<T>(
   return data as T;
 }
 
-// Igual que request(), pero para respuestas binarias (PDF). No se parsea el
-// cuerpo como JSON en caso de exito: se devuelve el Blob tal cual, junto con
-// el nombre de archivo que sugiera el backend en Content-Disposition.
+// Same as request(), but for binary responses (PDF). On success the body is
+// not parsed as JSON: the Blob is returned as-is, along with the file name
+// the backend suggests in Content-Disposition.
 export interface BlobResponse {
   blob: Blob;
   fileName: string | null;
@@ -119,7 +119,7 @@ function parseContentDispositionFileName(header: string | null): string | null {
     try {
       return decodeURIComponent(utf8Match[1].trim());
     } catch {
-      // Cae al filename simple de abajo.
+      // Falls back to the plain filename below.
     }
   }
   const plainMatch = /filename="?([^";]+)"?/i.exec(header);
@@ -163,8 +163,8 @@ export async function requestBlob(
   }
 
   if (!response.ok) {
-    // Los errores de NestJS siguen llegando como JSON aunque el endpoint
-    // normalmente devuelva un PDF.
+    // NestJS errors still arrive as JSON even when the endpoint normally
+    // returns a PDF.
     const data = await parseBody(response);
     if (response.status === 401 && authenticated) {
       clearToken();

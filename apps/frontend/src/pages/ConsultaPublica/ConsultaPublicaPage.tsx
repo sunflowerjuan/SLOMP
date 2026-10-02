@@ -18,7 +18,7 @@ import { TableRow } from "../../components/ui/TableRow";
 import { ADMIN_HREF } from "../../routes";
 import "./ConsultaPublicaPage.css";
 
-// RF-15: coincidencia exacta de al menos 2 de los 3 datos.
+// RF-15: exact match on at least 2 of the 3 fields.
 const MIN_FILLED_FIELDS = 2;
 
 interface FormValues {
@@ -41,15 +41,15 @@ type SearchState =
   | {
       kind: "found";
       result: PublicConsultationResult;
-      // Datos EXACTOS con los que el backend encontro el predio: la descarga
-      // del PDF los reenvia para que el backend vuelva a validarlos, aunque
-      // el contribuyente haya editado los campos despues de buscar.
+      // The EXACT data the backend matched the property with: the PDF
+      // download resends it so the backend can re-validate it, even if the
+      // taxpayer edited the fields after searching.
       criteria: PublicConsultationCriteria;
     };
 
 function toCriteria(values: FormValues): PublicConsultationCriteria {
-  // Solo se envian los campos llenos. trim() es la unica normalizacion del
-  // frontend: la coincidencia exacta (RNF-04) es responsabilidad del backend.
+  // Only filled-in fields are sent. trim() is the frontend's only
+  // normalization: the exact match (RNF-04) is the backend's responsibility.
   const criteria: PublicConsultationCriteria = {};
   const cadastralCode = values.cadastralCode.trim();
   const ownerName = values.ownerName.trim();
@@ -60,8 +60,8 @@ function toCriteria(values: FormValues): PublicConsultationCriteria {
   return criteria;
 }
 
-// Pesos enteros sin decimales ($ 1.284.500); con centavos, siempre dos
-// ($ 1.376.200,50) -- nunca un solo decimal.
+// Whole pesos without decimals ($ 1.284.500); with cents, always two
+// ($ 1.376.200,50) -- never a single decimal.
 const currencyFormatter = new Intl.NumberFormat("es-CO", {
   style: "currency",
   currency: "COP",
@@ -98,8 +98,8 @@ function formatDate(iso: string): string {
 }
 
 function triggerBrowserDownload(blob: Blob, fileName: string) {
-  // El PDF vive solo en memoria del navegador: nunca se guarda en el
-  // servidor (regla de negocio confirmada con el cliente).
+  // The PDF only lives in the browser's memory: it is never stored on the
+  // server (business rule confirmed with the client).
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -107,7 +107,7 @@ function triggerBrowserDownload(blob: Blob, fileName: string) {
   document.body.appendChild(link);
   link.click();
   link.remove();
-  // Se libera despues del click para no cortar la descarga en Safari.
+  // Revoked after the click so Safari doesn't cut the download short.
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
@@ -160,9 +160,9 @@ export function ConsultaPublicaPage() {
       if (error instanceof DOMException && error.name === "AbortError") {
         return;
       }
-      // 404 = sin coincidencia exacta. Se muestra igual que "sin
-      // resultados" y sin decir cual dato fallo (RNF-04: nada de pistas ni
-      // sugerencias que permitan adivinar datos de terceros).
+      // 404 = no exact match. Shown the same as "no results", without
+      // saying which field failed (RNF-04: no hints or suggestions that
+      // would let someone guess third parties' data).
       if (error instanceof ApiError && error.status === 404) {
         setSearch({ kind: "not-found" });
         return;
@@ -404,9 +404,9 @@ export function ConsultaPublicaPage() {
                 </p>
               )}
 
-              {/* Escritorio: tabla. Movil: tarjetas apiladas, para que el
-                  boton de descarga nunca quede escondido tras un scroll
-                  horizontal (la accion principal del contribuyente). */}
+              {/* Desktop: table. Mobile: stacked cards, so the download
+                  button (the taxpayer's main action) is never hidden behind
+                  a horizontal scroll. */}
               <div className="consulta-publica__table">
                 <Table
                   columns={[

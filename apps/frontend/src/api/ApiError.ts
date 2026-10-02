@@ -56,7 +56,7 @@ export function getErrorMessage(
     return "No tienes permisos para realizar esta acción.";
   }
   if (error.status === 429) {
-    // Limite de tasa por IP de la consulta publica (RNF-03 / SL-85).
+    // Per-IP rate limit of the public consultation (RNF-03 / SL-85).
     return "Realizaste demasiadas consultas en poco tiempo. Espera unos minutos e intenta de nuevo.";
   }
   if (error.status === 413) {

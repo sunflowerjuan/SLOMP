@@ -3,7 +3,7 @@
   background-color: var(--semantic-surface-muted);
 }
 
-/* Franja institucional: mismo lenguaje visual que el panel lateral del Login. */
+/* Institutional band: same visual language as the Login side panel. */
 .consulta-publica__topbar {
   position: relative;
   background-color: var(--tinta-700);

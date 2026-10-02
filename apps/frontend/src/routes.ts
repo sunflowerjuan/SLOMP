@@ -1,13 +1,14 @@
 import { useSyncExternalStore } from "react";
 
-// Enrutamiento minimo por hash (sin react-router): el frontend hoy tiene un
-// solo punto de entrada publico, la consulta del contribuyente (SL-86).
+// Minimal hash-based routing (no react-router): today the frontend has a
+// single public entry point, the taxpayer consultation (SL-86).
 //
-// Se usa hash (`/#/consulta`) y no una ruta real (`/consulta`) porque el
-// frontend se sirve desde un Storage static website (infra/static-web-app.bicep)
-// cuyo documento 404 se configura a mano por CLI: con hash, el enlace directo
-// que se comparta con los contribuyentes funciona aunque esa configuracion
-// falte (RNF-08: la consulta publica debe estar siempre disponible).
+// A hash (`/#/consulta`) is used instead of a real path (`/consulta`) because
+// the frontend is served from a Storage static website
+// (infra/static-web-app.bicep) whose 404 document is configured by hand via
+// CLI: with a hash, a direct link shared with taxpayers works even if that
+// setting is missing (RNF-08: the public consultation must always be
+// available).
 export const PUBLIC_CONSULTATION_HREF = "#/consulta";
 export const ADMIN_HREF = "#/";
 

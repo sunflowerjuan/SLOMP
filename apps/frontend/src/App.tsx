@@ -42,8 +42,8 @@ function AppRoutes() {
 function App() {
   const isPublicConsultation = useIsPublicConsultationRoute();
 
-  // La consulta publica (HU24) queda FUERA de AuthProvider y del flujo de
-  // Login: no depende de la sesion del Administrador ni la toca.
+  // The public consultation (HU24) lives OUTSIDE AuthProvider and the login
+  // flow: it neither depends on nor touches the Administrator's session.
   if (isPublicConsultation) {
     return <ConsultaPublicaPage />;
   }
