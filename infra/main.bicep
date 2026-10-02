@@ -4,10 +4,6 @@
 // from the module references below (compute → storageSecurity →
 // gateway/monitor, etc.) — no manual `dependsOn` needed except where noted.
 //
-// connectivity.bicep (SL-64, Private Endpoints + Private DNS Zones) is NOT
-// wired in here — that module doesn't exist yet (still "Tareas por hacer"),
-// so there's nothing to reference. Add it here once SL-64 lands.
-//
 // Everything else defaults to each module's own dev-appropriate parameter
 // values (declared in that module's .bicep file) — this orchestrator only
 // re-exposes the handful of values that either have no default (required
@@ -54,6 +50,7 @@ var appSubnetId = resourceId('Microsoft.Network/virtualNetworks/subnets', networ
 var fnSubnetId = resourceId('Microsoft.Network/virtualNetworks/subnets', network.outputs.vnetName, 'snet-fn')
 var dataSubnetId = resourceId('Microsoft.Network/virtualNetworks/subnets', network.outputs.vnetName, 'snet-data')
 var agwSubnetId = resourceId('Microsoft.Network/virtualNetworks/subnets', network.outputs.vnetName, 'snet-agw')
+var peSubnetId = resourceId('Microsoft.Network/virtualNetworks/subnets', network.outputs.vnetName, 'snet-pe')
 
 module compute 'compute.bicep' = {
   name: 'compute'
@@ -78,6 +75,17 @@ module storageSecurity 'storage-security.bicep' = {
     deploymentPackageContainerName: deploymentPackageContainerName
     appServicePrincipalId: compute.outputs.appServicePrincipalId
     functionAppPrincipalId: compute.outputs.functionAppPrincipalId
+  }
+}
+
+module connectivity 'connectivity.bicep' = {
+  name: 'connectivity'
+  params: {
+    location: location
+    vnetId: network.outputs.vnetId
+    peSubnetId: peSubnetId
+    keyVaultId: storageSecurity.outputs.keyVaultId
+    storageAccountId: storageSecurity.outputs.storageAccountId
   }
 }
 
