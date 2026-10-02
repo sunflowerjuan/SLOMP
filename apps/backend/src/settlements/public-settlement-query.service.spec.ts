@@ -14,7 +14,7 @@ function decimal(value: number) {
 
 const ONE_SETTLEMENT = {
   id: 1,
-  period: '2024',
+  period: 2024,
   status: SettlementStatus.ACTIVE,
   totalAmount: decimal(54590),
   property: {
@@ -65,7 +65,7 @@ describe('PublicSettlementQueryService', () => {
         cadastralCode: '000100010001',
         address: 'Finca La Esperanza',
         ownerName: 'Juan Pérez',
-        period: '2024',
+        period: 2024,
         totalAmount: 54590,
       },
     ]);
@@ -102,7 +102,7 @@ describe('PublicSettlementQueryService', () => {
     const otherPeriod = {
       ...ONE_SETTLEMENT,
       id: 2,
-      period: '2025',
+      period: 2025,
     };
     const prisma = buildPrisma([ONE_SETTLEMENT, otherPeriod]);
     const service = new PublicSettlementQueryService(prisma as never);
@@ -119,7 +119,7 @@ describe('PublicSettlementQueryService', () => {
       }),
     );
     expect(result).toHaveLength(2);
-    expect(result.map((r) => r.period)).toEqual(['2024', '2025']);
+    expect(result.map((r) => r.period)).toEqual([2024, 2025]);
   });
 
   it('returns nothing when the given fields do not all match the same predio (RNF-04: no partial or suggested results)', async () => {

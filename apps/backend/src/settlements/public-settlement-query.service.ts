@@ -13,7 +13,7 @@ export interface PublicSettlementQueryResult {
   cadastralCode: string;
   address: string;
   ownerName: string;
-  period: string;
+  period: number;
   totalAmount: number;
 }
 

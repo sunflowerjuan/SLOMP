@@ -107,7 +107,7 @@ model PropertyOwner {
 // ----------------------------------------------------------------------------
 model Settlement {
   id          Int              @id @default(autoincrement())
-  period      String // e.g. "2026-01" (year-month or year, depending on periodicity)
+  period      Int // Calendar year, e.g. 2026 (the tax roll only has annual periods)
   status      SettlementStatus @default(ACTIVE)
   issuedAt    DateTime         @default(now())
   totalAmount Decimal          @db.Decimal(14, 2)

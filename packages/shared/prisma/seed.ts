@@ -112,7 +112,7 @@ async function main() {
     area: number;
     baseAmount2025: number; // unified property tax for the current period
     owners: { ownerId: number; percentage: number }[];
-    history: string[]; // additional (inactive) periods
+    history: number[]; // additional (inactive) periods
     hasPaymentOrder: boolean;
   };
 
@@ -123,7 +123,7 @@ async function main() {
       area: 45000.0,
       baseAmount2025: 680000,
       owners: [{ ownerId: rincon.id, percentage: 100 }],
-      history: ["2024", "2023"],
+      history: [2024, 2023],
       hasPaymentOrder: true,
     },
     {
@@ -135,7 +135,7 @@ async function main() {
         { ownerId: rincon.id, percentage: 50 },
         { ownerId: lopez.id, percentage: 50 },
       ],
-      history: ["2024"],
+      history: [2024],
       hasPaymentOrder: false,
     },
     {
@@ -144,7 +144,7 @@ async function main() {
       area: 180.0,
       baseAmount2025: 210000,
       owners: [{ ownerId: lopez.id, percentage: 100 }],
-      history: ["2024"],
+      history: [2024],
       hasPaymentOrder: false,
     },
     {
@@ -153,7 +153,7 @@ async function main() {
       area: 220.75,
       baseAmount2025: 265000,
       owners: [{ ownerId: gomez.id, percentage: 100 }],
-      history: ["2024"],
+      history: [2024],
       hasPaymentOrder: false,
     },
     {
@@ -165,7 +165,7 @@ async function main() {
         { ownerId: gomez.id, percentage: 40 },
         { ownerId: agropecuaria.id, percentage: 60 },
       ],
-      history: ["2024", "2023"],
+      history: [2024, 2023],
       hasPaymentOrder: true,
     },
     {
@@ -174,7 +174,7 @@ async function main() {
       area: 15500.25,
       baseAmount2025: 395000,
       owners: [{ ownerId: torres.id, percentage: 100 }],
-      history: ["2024"],
+      history: [2024],
       hasPaymentOrder: false,
     },
     {
@@ -211,14 +211,14 @@ async function main() {
     // Current period (2025)
     await createSettlement(
       property.id,
-      "2025",
+      2025,
       propertySeed.baseAmount2025,
       SettlementStatus.ACTIVE,
       false,
     );
 
     // Historical (inactive) periods, with a slight year-over-year decrease
-    const factors: Record<string, number> = { "2024": 0.96, "2023": 0.92 };
+    const factors: Record<number, number> = { 2024: 0.96, 2023: 0.92 };
     for (const period of propertySeed.history) {
       const taxAmount = round2(
         propertySeed.baseAmount2025 * (factors[period] ?? 1),
@@ -237,7 +237,7 @@ async function main() {
         await prisma.paymentOrder.create({
           data: {
             number,
-            issuedAt: new Date(`${Number(period) + 1}-03-15`),
+            issuedAt: new Date(`${period + 1}-03-15`),
             settlementId,
           },
         });
@@ -250,7 +250,7 @@ async function main() {
 
 async function createSettlement(
   propertyId: number,
-  period: string,
+  period: number,
   propertyTaxAmount: number,
   status: SettlementStatus,
   isOverdue: boolean,
