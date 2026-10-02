@@ -4,8 +4,10 @@ import type { AdminNavItem } from "./components/layout/AdminLayout";
 import { AuthProvider } from "./auth/AuthProvider";
 import { useAuth } from "./auth/useAuth";
 import { CargaExcelPage } from "./pages/CargaExcel/CargaExcelPage";
+import { ConsultaPublicaPage } from "./pages/ConsultaPublica/ConsultaPublicaPage";
 import { LiquidacionesPage } from "./pages/Liquidaciones/LiquidacionesPage";
 import { LoginPage } from "./pages/Login/LoginPage";
+import { useIsPublicConsultationRoute } from "./routes";
 
 const NAV_ITEMS: AdminNavItem[] = [
   { id: "carga-excel", label: "Carga de Excel" },
@@ -38,6 +40,14 @@ function AppRoutes() {
 }
 
 function App() {
+  const isPublicConsultation = useIsPublicConsultationRoute();
+
+  // The public consultation (HU24) lives OUTSIDE AuthProvider and the login
+  // flow: it neither depends on nor touches the Administrator's session.
+  if (isPublicConsultation) {
+    return <ConsultaPublicaPage />;
+  }
+
   return (
     <AuthProvider>
       <AppRoutes />

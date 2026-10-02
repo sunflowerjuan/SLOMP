@@ -4,6 +4,7 @@ import { getErrorMessage } from "../../api/ApiError";
 import { useAuth } from "../../auth/useAuth";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
+import { PUBLIC_CONSULTATION_HREF } from "../../routes";
 import "./LoginPage.css";
 
 interface LoginFormErrors {
@@ -101,6 +102,13 @@ export function LoginPage() {
               Ingresar
             </Button>
           </form>
+
+          <p className="login-page__public-link">
+            ¿Eres contribuyente?{" "}
+            <a href={PUBLIC_CONSULTATION_HREF}>
+              Consulta tus liquidaciones sin iniciar sesión
+            </a>
+          </p>
         </div>
       </main>
     </div>
