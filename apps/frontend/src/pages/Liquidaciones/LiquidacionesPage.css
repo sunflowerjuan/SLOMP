@@ -71,6 +71,28 @@
   flex: 0 0 auto;
 }
 
+.liquidaciones-page__status-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}
+
+.liquidaciones-page__status-select {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--semantic-text);
+  background-color: var(--semantic-surface);
+  border: 1px solid var(--semantic-border);
+  border-radius: var(--radius-default);
+  padding: var(--space-4) var(--space-8);
+}
+
+.liquidaciones-page__status-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .liquidaciones-page__error {
   margin: 0;
   padding: var(--space-12) var(--space-16);

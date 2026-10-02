@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { SettlementStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -6,6 +11,11 @@ export interface SettlementSearchCriteria {
   cadastralCode?: string;
   owner?: string;
   address?: string;
+}
+
+export interface SettlementStatusChangeResult {
+  settlementId: number;
+  status: SettlementStatus;
 }
 
 export interface SettlementSearchResult {
@@ -44,9 +54,11 @@ export class SettlementsService {
 
     const settlements = await this.prisma.settlement.findMany({
       where: {
-        // Only vigentes: an INACTIVE settlement was already replaced (HU18),
-        // generating an official PDF from one wouldn't make sense.
-        status: SettlementStatus.ACTIVE,
+        // Only the current settlement of each property+period: one already
+        // replaced (HU18, replacedAt set) is history, regardless of its
+        // payment status — generating an official PDF from one wouldn't
+        // make sense.
+        replacedAt: null,
         property: {
           ...(cadastralCode
             ? {
@@ -87,5 +99,41 @@ export class SettlementsService {
       status: settlement.status,
       totalAmount: settlement.totalAmount.toNumber(),
     }));
+  }
+
+  // RF-10: the Administrator can force any of the 4 ERS states manually.
+  // Only a current settlement can be changed — one already replaced (HU18)
+  // isn't "the" settlement of its property+period anymore.
+  async changeStatus(
+    id: number,
+    status: unknown,
+  ): Promise<SettlementStatusChangeResult> {
+    if (
+      typeof status !== 'string' ||
+      !Object.values(SettlementStatus).includes(status as SettlementStatus)
+    ) {
+      throw new BadRequestException(
+        `"status" must be one of: ${Object.values(SettlementStatus).join(', ')}.`,
+      );
+    }
+
+    const settlement = await this.prisma.settlement.findUnique({
+      where: { id },
+    });
+    if (!settlement) {
+      throw new NotFoundException(`Settlement ${id} not found.`);
+    }
+    if (settlement.replacedAt !== null) {
+      throw new ConflictException(
+        'Cannot change the status of a settlement that was already replaced.',
+      );
+    }
+
+    const updated = await this.prisma.settlement.update({
+      where: { id },
+      data: { status: status as SettlementStatus },
+    });
+
+    return { settlementId: updated.id, status: updated.status };
   }
 }

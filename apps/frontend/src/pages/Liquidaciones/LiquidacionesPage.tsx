@@ -1,8 +1,14 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { getErrorMessage } from "../../api/ApiError";
-import { searchSettlements } from "../../api/settlements";
-import type { SettlementSearchResult } from "../../api/settlements";
+import {
+  changeSettlementStatus,
+  searchSettlements,
+} from "../../api/settlements";
+import type {
+  SettlementSearchResult,
+  SettlementStatus,
+} from "../../api/settlements";
 import { Button } from "../../components/ui/Button";
 import { GeneratePdfDialog } from "../../components/ui/GeneratePdfDialog";
 import { Input } from "../../components/ui/Input";
@@ -11,20 +17,29 @@ import { Table } from "../../components/ui/Table";
 import { TableRow } from "../../components/ui/TableRow";
 import "./LiquidacionesPage.css";
 
-// El backend solo distingue vigente/reemplazada (HU18) -- no existen los 4
-// estados que traia el mockup original (Vencida/Pendiente/En revision/
-// Procesada, sin equivalente en el modelo de datos real).
-const ESTADO_LABEL: Record<SettlementSearchResult["status"], string> = {
-  ACTIVE: "Vigente",
-  INACTIVE: "Reemplazada",
+// Los 4 estados reales del ERS v1.0 (RF-10). "Inactiva" no existe -- una
+// liquidacion reemplazada (HU18) no cambia de estado, ver ADR-10.
+const ESTADO_LABEL: Record<SettlementStatus, string> = {
+  VIGENTE: "Vigente",
+  PAGADA: "Pagada",
+  ACUERDO_DE_PAGO: "Acuerdo de pago",
+  PRESCRITA: "Prescrita",
 };
 const ESTADO_VARIANT: Record<
-  SettlementSearchResult["status"],
-  "success" | "neutral"
+  SettlementStatus,
+  "success" | "warning" | "danger" | "neutral"
 > = {
-  ACTIVE: "success",
-  INACTIVE: "neutral",
+  VIGENTE: "warning",
+  PAGADA: "success",
+  ACUERDO_DE_PAGO: "neutral",
+  PRESCRITA: "danger",
 };
+const ESTADOS: SettlementStatus[] = [
+  "VIGENTE",
+  "PAGADA",
+  "ACUERDO_DE_PAGO",
+  "PRESCRITA",
+];
 
 interface Filters {
   cedulaCatastral: string;
@@ -51,6 +66,10 @@ export function LiquidacionesPage() {
     useState<SettlementSearchResult | null>(null);
   const [isPdfDialogOpen, setIsPdfDialogOpen] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [statusChangeId, setStatusChangeId] = useState<number | null>(null);
+  const [statusChangeError, setStatusChangeError] = useState<string | null>(
+    null,
+  );
 
   function handleFilterChange(field: keyof Filters, value: string) {
     setFilters((current) => ({ ...current, [field]: value }));
@@ -85,6 +104,28 @@ export function LiquidacionesPage() {
       setSearchError(getErrorMessage(caught));
     } finally {
       setIsSearching(false);
+    }
+  }
+
+  async function handleStatusChange(
+    entry: SettlementSearchResult,
+    status: SettlementStatus,
+  ) {
+    if (status === entry.status) return;
+
+    setStatusChangeId(entry.settlementId);
+    setStatusChangeError(null);
+    try {
+      await changeSettlementStatus(entry.settlementId, status);
+      setResults((current) =>
+        current.map((row) =>
+          row.settlementId === entry.settlementId ? { ...row, status } : row,
+        ),
+      );
+    } catch (caught) {
+      setStatusChangeError(getErrorMessage(caught));
+    } finally {
+      setStatusChangeId(null);
     }
   }
 
@@ -178,6 +219,12 @@ export function LiquidacionesPage() {
             ingresados.
           </p>
 
+          {statusChangeError && (
+            <p className="liquidaciones-page__error" role="alert">
+              {statusChangeError}
+            </p>
+          )}
+
           <Table
             columns={["Cédula catastral", "Propietario", "Periodo", "Estado"]}
           >
@@ -190,12 +237,33 @@ export function LiquidacionesPage() {
                   entry.cadastralCode,
                   entry.ownerName,
                   entry.period,
-                  <StatusBadge
+                  <div
                     key="estado"
-                    variant={ESTADO_VARIANT[entry.status]}
+                    className="liquidaciones-page__status-cell"
+                    onClick={(event) => event.stopPropagation()}
                   >
-                    {ESTADO_LABEL[entry.status]}
-                  </StatusBadge>,
+                    <StatusBadge variant={ESTADO_VARIANT[entry.status]}>
+                      {ESTADO_LABEL[entry.status]}
+                    </StatusBadge>
+                    <select
+                      aria-label={`Cambiar estado de la liquidación de ${entry.cadastralCode}, periodo ${entry.period}`}
+                      className="liquidaciones-page__status-select"
+                      value={entry.status}
+                      disabled={statusChangeId === entry.settlementId}
+                      onChange={(event) =>
+                        handleStatusChange(
+                          entry,
+                          event.target.value as SettlementStatus,
+                        )
+                      }
+                    >
+                      {ESTADOS.map((estado) => (
+                        <option key={estado} value={estado}>
+                          {ESTADO_LABEL[estado]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>,
                 ]}
               />
             ))}

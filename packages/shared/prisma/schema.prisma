@@ -15,11 +15,16 @@ datasource db {
 }
 
 // ----------------------------------------------------------------------------
-// Possible states of a Settlement (HU03: active/inactive lifecycle)
+// Possible states of a Settlement (ERS v1.0 RF-10 — the only 4 real states;
+// "Inactiva" does NOT exist here, see ADR-6/RF-10 resolution in Confluence
+// (ADR-10): a replaced settlement doesn't change status, `replacedAt` below
+// marks that instead. The Administrator can force any of these 4 manually.
 // ----------------------------------------------------------------------------
 enum SettlementStatus {
-  ACTIVE
-  INACTIVE
+  VIGENTE
+  PAGADA
+  ACUERDO_DE_PAGO
+  PRESCRITA
 }
 
 // ----------------------------------------------------------------------------
@@ -103,12 +108,17 @@ model PropertyOwner {
 
 // ----------------------------------------------------------------------------
 // Settlement
-// HU03: unique per property+period, with active/inactive status.
+// HU03: unique per property+period (app-level, see persist-tax-roll.ts).
+// `status` is the real ERS payment-lifecycle state (RF-10) and is never
+// touched by the replace flow (SL-58/HU18) — `replacedAt` is what marks a
+// settlement as no longer the current one for its property+period. A full
+// archive of replaced settlements is ADR-10 / SL-79, not implemented yet.
 // ----------------------------------------------------------------------------
 model Settlement {
   id          Int              @id @default(autoincrement())
   period      Int // Calendar year, e.g. 2026 (the tax roll only has annual periods)
-  status      SettlementStatus @default(ACTIVE)
+  status      SettlementStatus @default(VIGENTE)
+  replacedAt  DateTime? // Non-null once a newer import superseded this row (HU18)
   issuedAt    DateTime         @default(now())
   totalAmount Decimal          @db.Decimal(14, 2)
   createdAt   DateTime         @default(now())

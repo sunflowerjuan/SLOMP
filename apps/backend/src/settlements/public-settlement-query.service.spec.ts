@@ -15,7 +15,8 @@ function decimal(value: number) {
 const ONE_SETTLEMENT = {
   id: 1,
   period: 2024,
-  status: SettlementStatus.ACTIVE,
+  status: SettlementStatus.VIGENTE,
+  replacedAt: null,
   totalAmount: decimal(54590),
   property: {
     cadastralCode: '000100010001',
@@ -51,7 +52,7 @@ describe('PublicSettlementQueryService', () => {
     expect(prisma.settlement.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          status: SettlementStatus.ACTIVE,
+          replacedAt: null,
           property: {
             cadastralCode: { equals: '000100010001', mode: 'insensitive' },
             address: { equals: 'Finca La Esperanza', mode: 'insensitive' },
@@ -66,6 +67,7 @@ describe('PublicSettlementQueryService', () => {
         address: 'Finca La Esperanza',
         ownerName: 'Juan Pérez',
         period: 2024,
+        status: SettlementStatus.VIGENTE,
         totalAmount: 54590,
       },
     ]);
@@ -98,11 +100,12 @@ describe('PublicSettlementQueryService', () => {
     );
   });
 
-  it('only returns ACTIVE settlements, one row per period', async () => {
+  it('only returns the current (non-replaced) settlement, one row per period, regardless of payment status', async () => {
     const otherPeriod = {
       ...ONE_SETTLEMENT,
       id: 2,
       period: 2025,
+      status: SettlementStatus.PAGADA,
     };
     const prisma = buildPrisma([ONE_SETTLEMENT, otherPeriod]);
     const service = new PublicSettlementQueryService(prisma as never);
@@ -114,12 +117,16 @@ describe('PublicSettlementQueryService', () => {
 
     expect(prisma.settlement.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ status: SettlementStatus.ACTIVE }),
+        where: expect.objectContaining({ replacedAt: null }),
         orderBy: { period: 'asc' },
       }),
     );
     expect(result).toHaveLength(2);
     expect(result.map((r) => r.period)).toEqual([2024, 2025]);
+    expect(result.map((r) => r.status)).toEqual([
+      SettlementStatus.VIGENTE,
+      SettlementStatus.PAGADA,
+    ]);
   });
 
   it('returns nothing when the given fields do not all match the same predio (RNF-04: no partial or suggested results)', async () => {
