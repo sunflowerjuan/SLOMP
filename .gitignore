@@ -7,3 +7,5 @@ build/
 *.tsbuildinfo
 .DS_Store
 .claude/
+# Official municipal templates are client material (Azure Blob, SL-91), not versioned
+apps/backend/templates/*.docx
