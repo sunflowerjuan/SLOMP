@@ -58,6 +58,9 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
     for (const row of validRows) {
       expect(row.cadastralCode).toBeTruthy();
       expect(Number.isInteger(row.period)).toBe(true);
+      // SL-81: no period outside 1980..current year may get through.
+      expect(row.period).toBeGreaterThanOrEqual(1980);
+      expect(row.period).toBeLessThanOrEqual(new Date().getFullYear());
     }
     expect(persisted).toEqual({
       properties: 1004,
@@ -65,7 +68,8 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
       settlements: validRows.length,
       conflicts: [],
     });
-  });
+    // Persisting 11,202 rows takes ~15 s locally, far over the 5 s default.
+  }, 60_000);
 
   it('returns 400 (not a 500) for a blank Excel file', async () => {
     const workbook = new ExcelJS.Workbook();
@@ -86,6 +90,56 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
       .post('/tax-roll/import')
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(400);
+  });
+
+  describe('upload restrictions checklist (SL-81)', () => {
+    it('returns 400 with a clear message for a CSV renamed to .xlsx', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/tax-roll/import')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .attach('file', Buffer.from('a,b\n1,2\n'), 'renamed.xlsx')
+        .expect(400);
+
+      expect(response.body.message).toMatch(
+        /not a valid Excel \(\.xlsx\) workbook/,
+      );
+    });
+
+    it('returns 400 for a 0-byte file', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/tax-roll/import')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .attach('file', Buffer.alloc(0), 'empty.xlsx')
+        .expect(400);
+
+      expect(response.body.message).toMatch(/0 bytes|attach an Excel file/);
+    });
+
+    it('returns 400 naming the missing columns for incomplete headers', async () => {
+      const workbook = new ExcelJS.Workbook();
+      workbook.addWorksheet('TaxRoll').addRow(['Cédula Catastral', 'Destino']);
+      const response = await request(app.getHttpServer())
+        .post('/tax-roll/import')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .attach(
+          'file',
+          Buffer.from(await workbook.xlsx.writeBuffer()),
+          'headers.xlsx',
+        )
+        .expect(400);
+
+      expect(response.body.message).toMatch(/Missing required column\(s\)/);
+    });
+
+    it('returns 400 for a file over the size limit', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/tax-roll/import')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .attach('file', Buffer.alloc(10 * 1024 * 1024 + 1), 'huge.xlsx')
+        .expect(400);
+
+      expect(response.body.message).toMatch(/maximum allowed size/);
+    });
   });
 
   describe('alert and replace (HU18)', () => {
