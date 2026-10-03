@@ -1,8 +1,26 @@
 import ExcelJS from 'exceljs';
+import {
+  PROPERTY_TAX_START_YEAR,
+  currentYearInColombia,
+  isValidPeriod,
+} from './period-rules.js';
 import type {
   ParseTaxRollExcelResult,
   TaxRollRowDto,
 } from './tax-roll-row.dto.js';
+
+export interface ParseTaxRollExcelOptions {
+  // Injected so the period range check is deterministic in tests.
+  currentYear?: number;
+}
+
+// Every .xlsx is a ZIP container, and every ZIP starts with "PK\x03\x04".
+// Checking it up front turns "renamed CSV/XLS/PDF" into a clear message
+// instead of a low-level unzip error.
+const ZIP_SIGNATURE = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
+
+const NOT_AN_XLSX_MESSAGE =
+  'The file is not a valid Excel (.xlsx) workbook. It may be a different format renamed to .xlsx (CSV, old .xls, PDF, etc.) or a damaged file. Open it in Excel and save it again as "Excel Workbook (.xlsx)".';
 
 // Literal column headers of the source file, as provided by the municipality of
 // Páez — must stay in Spanish and in this exact order, they are not our naming choice.
@@ -67,15 +85,32 @@ const AMOUNT_COLUMNS = [
 
 export async function parseTaxRollExcel(
   buffer: Buffer,
+  options: ParseTaxRollExcelOptions = {},
 ): Promise<ParseTaxRollExcelResult> {
+  const currentYear = options.currentYear ?? currentYearInColombia();
+
+  if (buffer.length === 0) {
+    throw new Error('The uploaded file is empty (0 bytes).');
+  }
+  if (!buffer.subarray(0, ZIP_SIGNATURE.length).equals(ZIP_SIGNATURE)) {
+    throw new Error(NOT_AN_XLSX_MESSAGE);
+  }
+
   const workbook = new ExcelJS.Workbook();
-  // ponytail: exceljs's own .d.ts declares a local `Buffer extends ArrayBuffer` shim that a
-  // real Node Buffer never structurally satisfies — upstream typings bug, not a runtime issue.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await workbook.xlsx.load(buffer as any);
+  try {
+    // ponytail: exceljs's own .d.ts declares a local `Buffer extends ArrayBuffer` shim that a
+    // real Node Buffer never structurally satisfies — upstream typings bug, not a runtime issue.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await workbook.xlsx.load(buffer as any);
+  } catch {
+    // Truncated or corrupted ZIP: the library message is not useful to the
+    // Administrator.
+    throw new Error(NOT_AN_XLSX_MESSAGE);
+  }
   const sheet = workbook.worksheets[0];
   if (!sheet) {
-    throw new Error('The Excel file does not contain any sheets.');
+    // A ZIP that is not a workbook (e.g. a .docx renamed to .xlsx).
+    throw new Error(NOT_AN_XLSX_MESSAGE);
   }
 
   const headerRow = sheet.getRow(1);
@@ -99,8 +134,15 @@ export async function parseTaxRollExcel(
     EXPECTED_HEADERS.length === requiredHeaders.length &&
     EXPECTED_HEADERS.every((expected, i) => requiredHeaders[i] === expected);
   if (!headersMatch) {
+    const missingHeaders = EXPECTED_HEADERS.filter(
+      (expected) => !headerIndexes.has(expected),
+    );
+    const detail =
+      missingHeaders.length > 0
+        ? `Missing required column(s): ${missingHeaders.join(', ')}.`
+        : 'All required columns are present but not in the expected order.';
     throw new Error(
-      `Excel headers do not match what was expected. Expected: [${EXPECTED_HEADERS.join(', ')}]. Received: [${headers.join(', ')}]`,
+      `Excel headers do not match what was expected. ${detail} Expected order: [${EXPECTED_HEADERS.join(', ')}]. Received: [${headers.join(', ')}]`,
     );
   }
 
@@ -110,10 +152,16 @@ export async function parseTaxRollExcel(
   const column = (header: string) => headerIndexes.get(header)!;
   const optionalColumn = (header: keyof typeof OPTIONAL_HEADERS) =>
     headerIndexes.get(header);
+  // Business key of a row: cadastral code + period. The first valid row that
+  // uses a key wins; later ones are reported instead of silently overwriting
+  // it (persistTaxRoll would otherwise keep only the last one).
+  const firstRowByKey = new Map<string, number>();
+  let dataRowCount = 0;
 
   for (let rowNumber = 2; rowNumber <= sheet.rowCount; rowNumber++) {
     const row = sheet.getRow(rowNumber);
     if (row.actualCellCount === 0) continue;
+    dataRowCount++;
 
     const cadastralCode = cellText(
       row.getCell(column('Cédula Catastral')).value,
@@ -130,6 +178,13 @@ export async function parseTaxRollExcel(
       invalidRows.push({
         row: rowNumber,
         reason: 'Missing period or not a valid integer',
+      });
+      continue;
+    }
+    if (!isValidPeriod(period, currentYear)) {
+      invalidRows.push({
+        row: rowNumber,
+        reason: `Period ${period} is out of range: it must be between ${PROPERTY_TAX_START_YEAR} and ${currentYear}`,
       });
       continue;
     }
@@ -202,6 +257,20 @@ export async function parseTaxRollExcel(
       continue;
     }
 
+    // Checked last so a key is only taken by a row that is otherwise valid.
+    const businessKey = `${cadastralCode}:${period}`;
+    const firstRow = firstRowByKey.get(businessKey);
+    if (firstRow !== undefined) {
+      invalidRows.push({
+        row: rowNumber,
+        reason: `Duplicate cadastral code + period (${cadastralCode}, ${period}): already in row ${firstRow}`,
+      });
+      continue;
+    }
+    firstRowByKey.set(businessKey, rowNumber);
+
+    // cellText trims, so the padded blanks of the real file ('   ') end up
+    // as an empty owner: a warning, never a rejected row.
     const ownerName = cellText(row.getCell(column('Propietario')).value);
     if (!ownerName) {
       warnings.push({ row: rowNumber, reason: 'Missing owner' });
@@ -227,6 +296,12 @@ export async function parseTaxRollExcel(
       fireSurchargeInterest: amounts['Interes Sobretasa Bomberil'],
       total: amounts['Total'],
     });
+  }
+
+  if (dataRowCount === 0) {
+    throw new Error(
+      'The Excel file has the expected headers but no data rows.',
+    );
   }
 
   return { validRows, invalidRows, warnings };
