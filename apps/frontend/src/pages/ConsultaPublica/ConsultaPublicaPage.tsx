@@ -15,7 +15,7 @@ import { TableRow } from "../../components/ui/TableRow";
 import { ADMIN_HREF } from "../../routes";
 import "./ConsultaPublicaPage.css";
 
-// Coincidencia exacta de al menos 2 de los 3 datos.
+// Exact match on at least 2 of the 3 fields.
 const MIN_FILLED_FIELDS = 2;
 
 interface FormValues {
@@ -38,8 +38,8 @@ type SearchState =
   | { kind: "found"; results: PublicSettlement[] };
 
 function toCriteria(values: FormValues) {
-  // Solo se envian los campos llenos. trim() es la unica normalizacion del
-  // frontend: la coincidencia exacta es responsabilidad del backend.
+  // Only filled-in fields are sent. trim() is the frontend's only
+  // normalization: the exact match is the backend's responsibility.
   const criteria: {
     cadastralCode?: string;
     ownerName?: string;
@@ -54,8 +54,8 @@ function toCriteria(values: FormValues) {
   return criteria;
 }
 
-// Pesos enteros sin decimales ($ 1.284.500); con centavos, siempre dos
-// ($ 1.376.200,50) -- nunca un solo decimal.
+// Whole pesos without decimals ($ 1.284.500); with cents, always two
+// ($ 1.376.200,50) -- never a single decimal.
 const currencyFormatter = new Intl.NumberFormat("es-CO", {
   style: "currency",
   currency: "COP",
@@ -127,9 +127,9 @@ export function ConsultaPublicaPage() {
 
     try {
       const results = await consultSettlements(criteria, controller.signal);
-      // Sin coincidencia exacta el backend responde 200 con `[]`: nunca un
-      // 404 que distinga "no existe" de "dato incorrecto", y nunca una
-      // sugerencia de cual dato fallo.
+      // Without an exact match the backend responds 200 with `[]`: never a
+      // 404 that would distinguish "doesn't exist" from "wrong data", and
+      // never a hint at which field failed.
       setSearch(
         results.length === 0
           ? { kind: "not-found" }
@@ -293,10 +293,9 @@ export function ConsultaPublicaPage() {
             </p>
           )}
 
-          {/* TODO: sin boton de descarga de PDF todavia -- el backend no
-              expone esa generacion para el canal publico. Agregarlo cuando
-              exista el endpoint real, en vez de apuntar a uno que no
-              existe. */}
+          {/* TODO: no PDF download button yet -- the backend doesn't expose
+              that generation for the public channel. Add it once the real
+              endpoint exists, instead of pointing at one that doesn't. */}
           {search.kind === "found" && (
             <section
               className="consulta-publica__card"
@@ -324,7 +323,7 @@ export function ConsultaPublicaPage() {
                 </div>
               </dl>
 
-              {/* Escritorio: tabla. Movil: tarjetas apiladas. */}
+              {/* Desktop: table. Mobile: stacked cards. */}
               <div className="consulta-publica__table">
                 <Table
                   columns={[

@@ -13,7 +13,7 @@ import { Table } from "../../components/ui/Table";
 import { TableRow } from "../../components/ui/TableRow";
 import "./CargaExcelPage.css";
 
-// Cuantas filas con problemas se listan antes de resumir el resto.
+// How many problem rows get listed before summarizing the rest.
 const MAX_LISTED_ISSUES = 10;
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("es-CO", {
@@ -21,9 +21,9 @@ const DATE_FORMATTER = new Intl.DateTimeFormat("es-CO", {
   timeStyle: "short",
 });
 
-// El backend no guarda un "estado" por carga (tax_roll_imports solo tiene
-// conteos); se deriva aqui, con el mismo criterio que la seccion de
-// resultado de una carga recien hecha.
+// The backend doesn't store a "status" per upload (tax_roll_imports only
+// has counts); it's derived here, with the same criteria as the result
+// section of a just-finished upload.
 function historyEntryStatus(entry: TaxRollImportHistoryEntry) {
   if (entry.invalidRows > 0) {
     return { label: "Con filas inválidas", variant: "danger" as const };
@@ -48,9 +48,9 @@ export function CargaExcelPage() {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
 
-  // isHistoryLoading arranca en true (useState arriba) para el primer
-  // fetch; no se vuelve a poner en true en refrescos posteriores (tras un
-  // import) para no ocultar la tabla que ya esta en pantalla.
+  // isHistoryLoading starts true (useState above) for the first fetch; it's
+  // not set back to true on later refreshes (after an import) so the table
+  // already on screen doesn't get hidden.
   async function refreshHistory() {
     setHistoryError(null);
     try {
@@ -63,9 +63,9 @@ export function CargaExcelPage() {
   }
 
   useEffect(() => {
-    // No se reusa refreshHistory aqui: esta regla de lint exige que un
-    // efecto no dispare un setState de forma sincrona en su cuerpo, y
-    // refreshHistory empieza por limpiar el error de forma sincrona.
+    // refreshHistory isn't reused here: this lint rule requires an effect
+    // to not synchronously trigger a setState in its body, and
+    // refreshHistory starts by synchronously clearing the error.
     listTaxRollImports()
       .then(setHistory)
       .catch((caught: unknown) => setHistoryError(getErrorMessage(caught)))
@@ -88,8 +88,8 @@ export function CargaExcelPage() {
       const response = await importTaxRoll(file, false);
       setResult(response);
       refreshHistory();
-      // El backend deja sin tocar los predios/periodos que ya tenian una
-      // liquidacion vigente y los reporta en `conflicts`.
+      // The backend leaves properties/periods that already had a current
+      // settlement untouched and reports them in `conflicts`.
       if (response.persisted.conflicts.length > 0) {
         setIsReplaceDialogOpen(true);
       }
@@ -108,9 +108,9 @@ export function CargaExcelPage() {
     setError(null);
     setIsConfirmingReplace(true);
     try {
-      // Se pasa el importId de la carga que reporto los conflictos para
-      // que el backend actualice ese mismo registro del historial en vez
-      // de dejarlo como "Con conflictos" y crear uno nuevo aparte.
+      // Passes the importId of the upload that reported the conflicts so
+      // the backend updates that same history entry instead of leaving it
+      // as "With conflicts" and creating a separate new one.
       setResult(await importTaxRoll(file, true, result?.importId));
       refreshHistory();
       setIsReplaceDialogOpen(false);

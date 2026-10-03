@@ -1,8 +1,8 @@
-// Los 4 estados reales de una liquidacion. "Inactiva" no existe -- una
-// liquidacion reemplazada no cambia de estado, ver
-// packages/shared/prisma/schema.prisma. Compartido entre el panel admin
-// (Liquidaciones) y la consulta publica: ambos muestran el mismo estado,
-// solo cambia quien puede modificarlo.
+// The 4 real states of a settlement. "Inactiva" doesn't exist -- a
+// replaced settlement doesn't change state, see
+// packages/shared/prisma/schema.prisma. Shared between the admin panel
+// (Liquidaciones) and the public consultation: both show the same state,
+// only who can change it differs.
 export type SettlementStatus =
   "VIGENTE" | "PAGADA" | "ACUERDO_DE_PAGO" | "PRESCRITA";
 

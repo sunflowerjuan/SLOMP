@@ -117,8 +117,7 @@ export class TaxRollController {
     @UploadedFile() file?: Express.Multer.File,
     // Multipart form fields always arrive as strings.
     @Body('confirmReplace') confirmReplace?: string,
-    // Id del TaxRollImport que se esta confirmando -- ver
-    // TaxRollService.import.
+    // Id of the TaxRollImport being confirmed -- see TaxRollService.import.
     @Body('previousImportId') previousImportId?: string,
   ) {
     if (!file) {

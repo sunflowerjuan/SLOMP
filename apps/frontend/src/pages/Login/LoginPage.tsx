@@ -43,8 +43,8 @@ export function LoginPage() {
 
     setIsSubmitting(true);
     try {
-      // Si sale bien, AuthProvider marca la sesion y App reemplaza esta
-      // pantalla por el panel.
+      // On success, AuthProvider marks the session and App replaces this
+      // screen with the panel.
       await signIn(email.trim(), password);
     } catch (error) {
       setSubmitError(

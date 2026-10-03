@@ -3,7 +3,7 @@ import { request } from "./httpClient";
 
 export type { SettlementStatus };
 
-// Espejo de la respuesta de GET /settlements/search
+// Mirrors the response of GET /settlements/search
 // (apps/backend/src/settlements/settlements.service.ts).
 export interface SettlementSearchResult {
   settlementId: number;
@@ -39,8 +39,8 @@ export function searchSettlements(criteria: SettlementSearchCriteria) {
   );
 }
 
-// RF-10: el Administrador puede forzar manualmente cualquiera de los 4
-// estados sobre una liquidacion vigente (no reemplazada).
+// The Administrator can force any of the 4 states manually on a current
+// (non-replaced) settlement.
 export function changeSettlementStatus(
   settlementId: number,
   status: SettlementStatus,

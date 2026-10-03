@@ -13,7 +13,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [sessionExpired, setSessionExpired] = useState(false);
 
   useEffect(() => {
-    // El cliente HTTP ya borro el token; aqui solo se sincroniza la UI.
+    // The HTTP client already cleared the token; this just syncs the UI.
     setUnauthorizedHandler(() => {
       setIsAuthenticated(false);
       setSessionExpired(true);

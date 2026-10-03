@@ -120,10 +120,10 @@ export function LiquidacionesPage() {
 
   function handleGeneratePdf() {
     setIsGeneratingPdf(true);
-    // TODO(SL-50/SL-51): conectar con el endpoint real de generacion de PDF
-    // (plantilla .docx marcada + LibreOffice headless) cuando exista -- esas
-    // tareas todavia no estan hechas. El setTimeout de abajo solo simula la
-    // carga en el cliente, no genera ni descarga ningun archivo real.
+    // TODO: connect to the real PDF generation endpoint (marked .docx
+    // template + headless LibreOffice) once it exists. The setTimeout below
+    // only simulates the client-side loading state, it doesn't generate or
+    // download any real file.
     setTimeout(() => {
       setIsGeneratingPdf(false);
       setIsPdfDialogOpen(false);

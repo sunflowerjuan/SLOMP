@@ -19,10 +19,10 @@ export interface PublicSettlementQueryResult {
   totalAmount: number;
 }
 
-// RNF-04: this is an anonymous, public endpoint — it must never leak which
-// part of a guess was right or suggest close matches. Every given field is
-// matched with `equals` (never `contains`) and AND-ed together, so a query
-// either identifies one real predio or returns nothing at all.
+// This is an anonymous, public endpoint — it must never leak which part of
+// a guess was right or suggest close matches. Every given field is matched
+// with `equals` (never `contains`) and AND-ed together, so a query either
+// identifies one real predio or returns nothing at all.
 @Injectable()
 export class PublicSettlementQueryService {
   constructor(private readonly prisma: PrismaService) {}
@@ -34,9 +34,9 @@ export class PublicSettlementQueryService {
     const ownerName = criteria.ownerName?.trim();
     const address = criteria.address?.trim();
 
-    // RF-15: the citizen must corroborate at least 2 of the 3 identifying
-    // facts about the predio — a single field is not enough to prove they
-    // are entitled to see its settlements.
+    // The citizen must corroborate at least 2 of the 3 identifying facts
+    // about the predio — a single field is not enough to prove they are
+    // entitled to see its settlements.
     const providedCount = [cadastralCode, ownerName, address].filter(
       (value) => !!value,
     ).length;

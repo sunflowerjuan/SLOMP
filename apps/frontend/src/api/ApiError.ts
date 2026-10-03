@@ -1,5 +1,5 @@
-// status === 0 significa que la peticion nunca obtuvo respuesta (red caida,
-// backend apagado, CORS).
+// status === 0 means the request never got a response (network down,
+// backend off, CORS).
 export const NETWORK_ERROR_STATUS = 0;
 
 export class ApiError extends Error {
@@ -12,8 +12,8 @@ export class ApiError extends Error {
   }
 }
 
-// NestJS responde los errores como { statusCode, message, error }, donde
-// `message` es un string o un arreglo de strings (validaciones).
+// NestJS responds to errors as { statusCode, message, error }, where
+// `message` is a string or an array of strings (validation errors).
 export function extractServerMessage(payload: unknown): string | null {
   if (typeof payload !== "object" || payload === null) {
     return null;
@@ -29,12 +29,12 @@ export function extractServerMessage(payload: unknown): string | null {
 }
 
 interface ErrorMessageOptions {
-  // Un 401 en un endpoint autenticado es "sesion expirada"; en el login es
-  // "credenciales invalidas".
+  // A 401 on an authenticated endpoint is "session expired"; on login it's
+  // "invalid credentials".
   unauthorizedMessage?: string;
 }
 
-// Punto unico para convertir cualquier error en el texto que ve el usuario.
+// Single point that turns any error into the text the user sees.
 export function getErrorMessage(
   error: unknown,
   { unauthorizedMessage }: ErrorMessageOptions = {},

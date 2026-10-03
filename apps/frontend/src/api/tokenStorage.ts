@@ -1,7 +1,7 @@
 const TOKEN_KEY = "slomp.accessToken";
 
-// sessionStorage puede lanzar (modo privado, almacenamiento bloqueado); sin
-// el, la sesion simplemente no sobrevive a una recarga.
+// sessionStorage can throw (private mode, blocked storage); without it, the
+// session just doesn't survive a reload.
 export function getToken(): string | null {
   try {
     return sessionStorage.getItem(TOKEN_KEY);
@@ -14,7 +14,7 @@ export function setToken(token: string): void {
   try {
     sessionStorage.setItem(TOKEN_KEY, token);
   } catch {
-    // Ignorado: ver comentario arriba.
+    // Ignored: see comment above.
   }
 }
 
@@ -22,6 +22,6 @@ export function clearToken(): void {
   try {
     sessionStorage.removeItem(TOKEN_KEY);
   } catch {
-    // Ignorado: ver comentario arriba.
+    // Ignored: see comment above.
   }
 }
