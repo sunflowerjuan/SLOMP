@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.47.16.16243",
-      "templateHash": "9321918684526715634"
+      "templateHash": "12870065117249893587"
     }
   },
   "parameters": {
@@ -27,7 +27,7 @@
       "type": "bool",
       "defaultValue": true,
       "metadata": {
-        "description": "Whether to deploy the Application Gateway + WAF (gateway.bicep, SL-68). It bills a fixed hourly rate regardless of traffic (unlike every other module here) — default true so \"one command deploys everything from scratch\" holds, but set to false to skip it and redeploy on demand right before a demo. See .claude/review.md (SL-68) for the exact teardown commands."
+        "description": "Whether to deploy the Application Gateway + WAF (gateway.bicep, SL-68). It bills a fixed hourly rate regardless of traffic (unlike every other module here) — default true so \"one command deploys everything from scratch\" holds, but set to false to skip it and redeploy on demand right before a demo. See the \"Despliegue y CI/CD hacia Azure\" wiki page for the exact teardown commands."
       }
     },
     "deploymentStorageAccountName": {

@@ -1,7 +1,7 @@
 // Public hosting for apps/frontend (SL-69).
 //
-// DEVIATION FROM THE TICKET/arquitectura.md (documented, not silent): the
-// ticket and arquitectura.md 3.3/3.8 call for an actual Azure Static Web
+// DEVIATION FROM THE TICKET/architecture page (documented, not silent): the
+// ticket and the architecture page (sections 4 and 8) call for an actual Azure Static Web
 // App (Microsoft.Web/staticSites, stapp-predial-dev). That resource type is
 // only available in centralus/eastus2/westus2/westeurope/eastasia — and
 // this subscription's region-restriction policy (sys.regionrestriction)
@@ -24,8 +24,9 @@
 // Microsoft.Storage ARM API — Bicep can only create the storage account.
 // Enabling it and uploading the built frontend both happen via
 // `az storage blob service-properties update --static-website` /
-// `az storage blob upload-batch` after this deploys — see
-// .claude/review.md for the exact commands.
+// `az storage blob upload-batch` after this deploys, e.g.
+// `az storage blob service-properties update --account-name <name> --static-website --index-document index.html`
+// and `az storage blob upload-batch -s apps/frontend/dist -d '$web' --account-name <name>`.
 //
 // Out of scope (SL-69 ticket): wiring the frontend to the real backend API
 // (SL-54), a custom domain, any CI/CD pipeline for future deploys.
