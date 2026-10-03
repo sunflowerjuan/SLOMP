@@ -5,6 +5,7 @@ import {
   Get,
   Post,
   UploadedFile,
+  UseFilters,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -19,6 +20,11 @@ import {
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import type { AuthenticatedUser } from '../auth/jwt.strategy.js';
 import { TaxRollService } from './tax-roll.service.js';
+import {
+  MAX_TAX_ROLL_FILE_SIZE_MB,
+  TAX_ROLL_UPLOAD_LIMITS,
+  TaxRollFileTooLargeFilter,
+} from './tax-roll-upload.js';
 
 @ApiTags('tax-roll')
 @ApiBearerAuth()
@@ -27,7 +33,8 @@ export class TaxRollController {
   constructor(private readonly taxRollService: TaxRollService) {}
 
   @Post('import')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', { limits: TAX_ROLL_UPLOAD_LIMITS }))
+  @UseFilters(TaxRollFileTooLargeFilter)
   @ApiOperation({
     summary:
       'Importa el Excel de predios y deudas del periodo, y persiste las liquidaciones resultantes.',
@@ -40,8 +47,7 @@ export class TaxRollController {
         file: {
           type: 'string',
           format: 'binary',
-          description:
-            'Archivo Excel (.xlsx) con el reporte de predios y deudas.',
+          description: `Archivo Excel (.xlsx) con el reporte de predios y deudas. Tamaño máximo: ${MAX_TAX_ROLL_FILE_SIZE_MB} MB.`,
         },
         confirmReplace: {
           type: 'string',
@@ -82,7 +88,14 @@ export class TaxRollController {
             total: 357000,
           },
         ],
-        invalidRows: [{ row: 8, reason: 'Missing cadastral code' }],
+        invalidRows: [
+          { row: 8, reason: 'Missing cadastral code' },
+          {
+            row: 9,
+            reason:
+              'Period 1979 is out of range: it must be between 1980 and 2026',
+          },
+        ],
         warnings: [{ row: 12, reason: 'Missing owner' }],
         persisted: {
           properties: 1,
@@ -97,7 +110,7 @@ export class TaxRollController {
   @ApiResponse({
     status: 400,
     description:
-      'No se adjuntó ningún archivo en el campo "file", el archivo no tiene extensión .xlsx, o el contenido del Excel no se pudo leer (hoja vacía, encabezados distintos a los esperados, etc.).',
+      'No se adjuntó ningún archivo en el campo "file", el archivo no tiene extensión .xlsx, supera el tamaño máximo, no es un .xlsx real (renombrado o dañado), o su contenido no se pudo usar (archivo vacío, encabezados faltantes o fuera de orden, sin filas de datos).',
   })
   import(
     @CurrentUser() user: AuthenticatedUser,

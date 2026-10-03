@@ -8,7 +8,7 @@
 // demo — TLS/custom domain is explicitly out of scope), the Gateway talks
 // HTTPS to the backend over its public hostname (App Service has no private
 // IP to route to directly; Private Endpoints for App Service are not part
-// of this design — arquitectura.md's Private Endpoints are for Key
+// of this design — the architecture page's Private Endpoints are for Key
 // Vault/Storage/OpenAI only).
 //
 // Out of scope (SL-68 ticket):

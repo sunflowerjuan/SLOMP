@@ -23,6 +23,11 @@ enum SettlementStatus {
   PRESCRITA
 }
 
+enum ResolutionKind {
+  PRESCRIPTION_RISK
+  NORMAL
+}
+
 // ----------------------------------------------------------------------------
 // Municipality
 // ----------------------------------------------------------------------------
@@ -63,6 +68,7 @@ model Property {
   owners PropertyOwner[]
 
   settlements Settlement[]
+  resolutions Resolution[]
 
   @@index([municipalityId])
   @@map("properties")
@@ -123,11 +129,49 @@ model Settlement {
   propertyId Int
   property   Property @relation(fields: [propertyId], references: [id])
 
+  resolutionId Int?
+  resolution   Resolution? @relation(fields: [resolutionId], references: [id], onDelete: Restrict)
+
   details       SettlementDetail[]
   paymentOrders PaymentOrder[]
 
   @@index([propertyId, period])
+  @@index([resolutionId])
   @@map("settlements")
+}
+
+// ----------------------------------------------------------------------------
+// Resolution
+// ----------------------------------------------------------------------------
+model Resolution {
+  id        Int              @id @default(autoincrement())
+  number    String           @unique
+  year      Int
+  sequence  Int
+  kind      ResolutionKind
+  status    SettlementStatus @default(VIGENTE)
+  issuedAt  DateTime         @default(now())
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  propertyId Int
+  property   Property @relation(fields: [propertyId], references: [id])
+
+  settlements Settlement[]
+
+  @@unique([year, sequence])
+  @@index([propertyId])
+  @@map("resolutions")
+}
+
+// ----------------------------------------------------------------------------
+// ResolutionCounter
+// ----------------------------------------------------------------------------
+model ResolutionCounter {
+  year         Int @id
+  lastSequence Int @default(0)
+
+  @@map("resolution_counters")
 }
 
 // ----------------------------------------------------------------------------

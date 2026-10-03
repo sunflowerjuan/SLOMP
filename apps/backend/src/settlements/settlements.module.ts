@@ -1,10 +1,20 @@
 import { Module } from '@nestjs/common';
-import { PublicSettlementQueryController } from './public-settlement-query.controller.js';
+import { ThrottlerModule } from '@nestjs/throttler';
+import {
+  PUBLIC_QUERY_LIMIT,
+  PUBLIC_QUERY_TTL_MS,
+  PublicSettlementQueryController,
+} from './public-settlement-query.controller.js';
 import { PublicSettlementQueryService } from './public-settlement-query.service.js';
 import { SettlementsController } from './settlements.controller.js';
 import { SettlementsService } from './settlements.service.js';
 
 @Module({
+  imports: [
+    ThrottlerModule.forRoot([
+      { ttl: PUBLIC_QUERY_TTL_MS, limit: PUBLIC_QUERY_LIMIT },
+    ]),
+  ],
   controllers: [SettlementsController, PublicSettlementQueryController],
   providers: [SettlementsService, PublicSettlementQueryService],
 })

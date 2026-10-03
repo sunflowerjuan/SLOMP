@@ -106,7 +106,7 @@ resource appService 'Microsoft.Web/sites@2023-12-01' = {
 }
 
 // Easy Auth stays off: the backend authenticates requests itself with JWT
-// (CLAUDE.md), it doesn't delegate to App Service Authentication. Declared
+// (project coding conventions), it doesn't delegate to App Service Authentication. Declared
 // explicitly so static analysis (SonarQube) sees this is deliberate, not an
 // omission.
 resource appServiceAuthSettings 'Microsoft.Web/sites/config@2023-12-01' = {
