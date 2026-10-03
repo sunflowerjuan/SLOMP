@@ -34,7 +34,7 @@ export interface TaxRollImportResult {
 export function importTaxRoll(
   file: File,
   confirmReplace: boolean,
-  // Id de la carga anterior que se esta confirmando (HU18): si se pasa, el
+  // Id de la carga anterior que se esta confirmando: si se pasa, el
   // backend actualiza ese registro del historial en vez de crear uno
   // nuevo, para que no quede una fila "Con conflictos" ya resuelta.
   previousImportId?: number,

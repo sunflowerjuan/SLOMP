@@ -1,9 +1,5 @@
 // ============================================================================
 // schema.prisma
-// Generated from the entity-relationship model validated in Jira:
-//   - SCRUM-21 / SCRUM-20 (HU05 - Conceptual data model)
-//   - SCRUM-14 / SCRUM-13 (HU03 - Business rules)
-//   - SCRUM-30 / SCRUM-44 (HU11 - Data model in Prisma)
 // ============================================================================
 
 generator client {
@@ -15,10 +11,10 @@ datasource db {
 }
 
 // ----------------------------------------------------------------------------
-// Possible states of a Settlement (ERS v1.0 RF-10 — the only 4 real states;
-// "Inactiva" does NOT exist here, see ADR-6/RF-10 resolution in Confluence
-// (ADR-10): a replaced settlement doesn't change status, `replacedAt` below
-// marks that instead. The Administrator can force any of these 4 manually.
+// Possible states of a Settlement -- the only 4 real states; "Inactiva"
+// does NOT exist here: a replaced settlement doesn't change status,
+// `replacedAt` below marks that instead. The Administrator can force any
+// of these 4 manually.
 // ----------------------------------------------------------------------------
 enum SettlementStatus {
   VIGENTE
@@ -108,17 +104,17 @@ model PropertyOwner {
 
 // ----------------------------------------------------------------------------
 // Settlement
-// HU03: unique per property+period (app-level, see persist-tax-roll.ts).
-// `status` is the real ERS payment-lifecycle state (RF-10) and is never
-// touched by the replace flow (SL-58/HU18) — `replacedAt` is what marks a
-// settlement as no longer the current one for its property+period. A full
-// archive of replaced settlements is ADR-10 / SL-79, not implemented yet.
+// Unique per property+period (app-level, see persist-tax-roll.ts). `status`
+// is the real payment-lifecycle state and is never touched by the replace
+// flow -- `replacedAt` is what marks a settlement as no longer the current
+// one for its property+period. A full archive of replaced settlements is
+// not implemented yet.
 // ----------------------------------------------------------------------------
 model Settlement {
   id          Int              @id @default(autoincrement())
   period      Int // Calendar year, e.g. 2026 (the tax roll only has annual periods)
   status      SettlementStatus @default(VIGENTE)
-  replacedAt  DateTime? // Non-null once a newer import superseded this row (HU18)
+  replacedAt  DateTime? // Non-null once a newer import superseded this row
   issuedAt    DateTime         @default(now())
   totalAmount Decimal          @db.Decimal(14, 2)
   createdAt   DateTime         @default(now())
@@ -153,12 +149,11 @@ model SettlementDetail {
 // ----------------------------------------------------------------------------
 // PaymentOrder
 //
-// NOTE (HU03 / SCRUM-13): the rule for what happens to a payment order when
-// its associated settlement is replaced was flagged as a high-complexity
-// edge case, PENDING validation with the client. That's why the relation is
-// left in restrictive mode (onDelete: Restrict), so payment orders are not
-// lost or automatically reassigned until that rule is confirmed. Revisit
-// this relation once HU03 closes that point.
+// NOTE: the rule for what happens to a payment order when its associated
+// settlement is replaced was flagged as a high-complexity edge case,
+// PENDING validation with the client. That's why the relation is left in
+// restrictive mode (onDelete: Restrict), so payment orders are not lost or
+// automatically reassigned until that rule is confirmed.
 // ----------------------------------------------------------------------------
 model PaymentOrder {
   id       Int      @id @default(autoincrement())
@@ -194,8 +189,8 @@ model Administrator {
 
 // ----------------------------------------------------------------------------
 // TaxRollImport
-// One row per POST /tax-roll/import call (HU12 upload history). Each call is
-// a full import attempt, whether or not the caller later confirms replacing
+// One row per POST /tax-roll/import call (upload history). Each call is a
+// full import attempt, whether or not the caller later confirms replacing
 // the conflicts it reports.
 // ----------------------------------------------------------------------------
 model TaxRollImport {

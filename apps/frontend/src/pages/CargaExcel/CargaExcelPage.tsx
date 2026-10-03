@@ -89,7 +89,7 @@ export function CargaExcelPage() {
       setResult(response);
       refreshHistory();
       // El backend deja sin tocar los predios/periodos que ya tenian una
-      // liquidacion vigente y los reporta en `conflicts` (HU18).
+      // liquidacion vigente y los reporta en `conflicts`.
       if (response.persisted.conflicts.length > 0) {
         setIsReplaceDialogOpen(true);
       }

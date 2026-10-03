@@ -13,7 +13,7 @@ export interface PersistTaxRollResult {
   // 0 whenever `conflicts` is non-empty and the caller hasn't passed
   // confirmReplace yet: this pass persists nothing at all -- not even the
   // rows that don't conflict -- so the Administrator can cancel without
-  // any partial write (HU18).
+  // any partial write.
   settlements: number;
   // Property+period pairs that already had a current (non-replaced)
   // settlement and were left untouched because the caller didn't pass
@@ -179,8 +179,8 @@ export async function persistTaxRoll(
   // Si hay conflictos y quien llama todavia no confirmo el reemplazo, esta
   // pasada no crea NINGUNA liquidacion -- ni siquiera las de predios y
   // periodos sin conflicto. El Administrador ve el aviso completo antes de
-  // que se persista cualquier cosa (HU18); solo la llamada que confirma (o
-  // una que de entrada no encuentra ningun conflicto) escribe settlements.
+  // que se persista cualquier cosa; solo la llamada que confirma (o una que
+  // de entrada no encuentra ningun conflicto) escribe settlements.
   const shouldPersistSettlements =
     confirmReplace || conflictingRows.length === 0;
 

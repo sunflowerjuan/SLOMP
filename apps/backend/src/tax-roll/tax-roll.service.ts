@@ -14,9 +14,9 @@ export class TaxRollService {
     confirmReplace: boolean,
     fileName: string,
     administratorId: number,
-    // Id de un TaxRollImport anterior (HU18): cuando el Administrador
-    // confirma el reemplazo de un archivo que reporto conflictos, esta
-    // llamada continua ese intento en vez de ser una carga nueva.
+    // Id de un TaxRollImport anterior: cuando el Administrador confirma el
+    // reemplazo de un archivo que reporto conflictos, esta llamada continua
+    // ese intento en vez de ser una carga nueva.
     previousImportId?: number,
   ) {
     const parsed = await this.parse(buffer);
