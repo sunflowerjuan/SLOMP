@@ -12,11 +12,14 @@ function decimal(value: number) {
   return { toNumber: () => value };
 }
 
+const ISSUED_AT = new Date('2024-02-01T00:00:00.000Z');
+
 const ONE_SETTLEMENT = {
   id: 1,
   period: 2024,
   status: SettlementStatus.VIGENTE,
   replacedAt: null,
+  issuedAt: ISSUED_AT,
   totalAmount: decimal(54590),
   property: {
     cadastralCode: '000100010001',
@@ -68,6 +71,7 @@ describe('PublicSettlementQueryService', () => {
         ownerName: 'Juan Pérez',
         period: 2024,
         status: SettlementStatus.VIGENTE,
+        issuedAt: ISSUED_AT,
         totalAmount: 54590,
       },
     ]);

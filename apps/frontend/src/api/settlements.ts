@@ -1,9 +1,7 @@
+import type { SettlementStatus } from "../domain/settlementStatus";
 import { request } from "./httpClient";
 
-// Los 4 estados del ERS v1.0 (RF-10). "Inactiva" no existe -- ver
-// packages/shared/prisma/schema.prisma y ADR-10 en Confluence.
-export type SettlementStatus =
-  "VIGENTE" | "PAGADA" | "ACUERDO_DE_PAGO" | "PRESCRITA";
+export type { SettlementStatus };
 
 // Espejo de la respuesta de GET /settlements/search
 // (apps/backend/src/settlements/settlements.service.ts).

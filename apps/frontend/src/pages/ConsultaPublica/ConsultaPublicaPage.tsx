@@ -1,15 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { ApiError, getErrorMessage } from "../../api/ApiError";
+import { getErrorMessage } from "../../api/ApiError";
+import { consultSettlements } from "../../api/publicConsultation";
+import type { PublicSettlement } from "../../api/publicConsultation";
 import {
-  consultSettlements,
-  downloadSettlementPdf,
-} from "../../api/publicConsultation";
-import type {
-  PublicConsultationCriteria,
-  PublicConsultationResult,
-  PublicSettlement,
-} from "../../api/publicConsultation";
+  SETTLEMENT_STATUS_LABEL,
+  SETTLEMENT_STATUS_VARIANT,
+} from "../../domain/settlementStatus";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { StatusBadge } from "../../components/ui/StatusBadge";
@@ -18,7 +15,7 @@ import { TableRow } from "../../components/ui/TableRow";
 import { ADMIN_HREF } from "../../routes";
 import "./ConsultaPublicaPage.css";
 
-// RF-15: exact match on at least 2 of the 3 fields.
+// Coincidencia exacta de al menos 2 de los 3 datos.
 const MIN_FILLED_FIELDS = 2;
 
 interface FormValues {
@@ -38,19 +35,16 @@ type SearchState =
   | { kind: "loading" }
   | { kind: "not-found" }
   | { kind: "error"; message: string }
-  | {
-      kind: "found";
-      result: PublicConsultationResult;
-      // The EXACT data the backend matched the property with: the PDF
-      // download resends it so the backend can re-validate it, even if the
-      // taxpayer edited the fields after searching.
-      criteria: PublicConsultationCriteria;
-    };
+  | { kind: "found"; results: PublicSettlement[] };
 
-function toCriteria(values: FormValues): PublicConsultationCriteria {
-  // Only filled-in fields are sent. trim() is the frontend's only
-  // normalization: the exact match (RNF-04) is the backend's responsibility.
-  const criteria: PublicConsultationCriteria = {};
+function toCriteria(values: FormValues) {
+  // Solo se envian los campos llenos. trim() es la unica normalizacion del
+  // frontend: la coincidencia exacta es responsabilidad del backend.
+  const criteria: {
+    cadastralCode?: string;
+    ownerName?: string;
+    address?: string;
+  } = {};
   const cadastralCode = values.cadastralCode.trim();
   const ownerName = values.ownerName.trim();
   const address = values.address.trim();
@@ -60,8 +54,8 @@ function toCriteria(values: FormValues): PublicConsultationCriteria {
   return criteria;
 }
 
-// Whole pesos without decimals ($ 1.284.500); with cents, always two
-// ($ 1.376.200,50) -- never a single decimal.
+// Pesos enteros sin decimales ($ 1.284.500); con centavos, siempre dos
+// ($ 1.376.200,50) -- nunca un solo decimal.
 const currencyFormatter = new Intl.NumberFormat("es-CO", {
   style: "currency",
   currency: "COP",
@@ -82,14 +76,13 @@ const dateFormatter = new Intl.DateTimeFormat("es-CO", {
   year: "numeric",
 });
 
-function formatAmount(amount: string): string {
-  const value = Number(amount);
-  if (!Number.isFinite(value)) {
-    return amount;
+function formatAmount(amount: number): string {
+  if (!Number.isFinite(amount)) {
+    return String(amount);
   }
-  return Number.isInteger(value)
-    ? currencyFormatter.format(value)
-    : currencyWithCentsFormatter.format(value);
+  return Number.isInteger(amount)
+    ? currencyFormatter.format(amount)
+    : currencyWithCentsFormatter.format(amount);
 }
 
 function formatDate(iso: string): string {
@@ -97,26 +90,10 @@ function formatDate(iso: string): string {
   return Number.isNaN(date.getTime()) ? iso : dateFormatter.format(date);
 }
 
-function triggerBrowserDownload(blob: Blob, fileName: string) {
-  // The PDF only lives in the browser's memory: it is never stored on the
-  // server (business rule confirmed with the client).
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = fileName;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  // Revoked after the click so Safari doesn't cut the download short.
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
 export function ConsultaPublicaPage() {
   const [values, setValues] = useState<FormValues>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [search, setSearch] = useState<SearchState>({ kind: "idle" });
-  const [downloadingId, setDownloadingId] = useState<number | null>(null);
-  const [downloadError, setDownloadError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -146,25 +123,20 @@ export function ConsultaPublicaPage() {
     abortRef.current = controller;
 
     setFormError(null);
-    setDownloadError(null);
     setSearch({ kind: "loading" });
 
     try {
-      const result = await consultSettlements(criteria, controller.signal);
-      if (result.settlements.length === 0) {
-        setSearch({ kind: "not-found" });
-      } else {
-        setSearch({ kind: "found", result, criteria });
-      }
+      const results = await consultSettlements(criteria, controller.signal);
+      // Sin coincidencia exacta el backend responde 200 con `[]`: nunca un
+      // 404 que distinga "no existe" de "dato incorrecto", y nunca una
+      // sugerencia de cual dato fallo.
+      setSearch(
+        results.length === 0
+          ? { kind: "not-found" }
+          : { kind: "found", results },
+      );
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
-        return;
-      }
-      // 404 = no exact match. Shown the same as "no results", without
-      // saying which field failed (RNF-04: no hints or suggestions that
-      // would let someone guess third parties' data).
-      if (error instanceof ApiError && error.status === 404) {
-        setSearch({ kind: "not-found" });
         return;
       }
       setSearch({ kind: "error", message: getErrorMessage(error) });
@@ -175,54 +147,7 @@ export function ConsultaPublicaPage() {
     abortRef.current?.abort();
     setValues(EMPTY_FORM);
     setFormError(null);
-    setDownloadError(null);
     setSearch({ kind: "idle" });
-  }
-
-  async function handleDownload(
-    settlement: PublicSettlement,
-    criteria: PublicConsultationCriteria,
-    cadastralCode: string,
-  ) {
-    setDownloadingId(settlement.id);
-    setDownloadError(null);
-    try {
-      const { blob, fileName } = await downloadSettlementPdf(
-        criteria,
-        settlement.id,
-      );
-      triggerBrowserDownload(
-        blob,
-        fileName ?? `liquidacion-${cadastralCode}-${settlement.period}.pdf`,
-      );
-    } catch (error) {
-      setDownloadError(
-        `No se pudo descargar la liquidación del periodo ${settlement.period}. ${getErrorMessage(error)}`,
-      );
-    } finally {
-      setDownloadingId(null);
-    }
-  }
-
-  function renderDownloadButton(
-    settlement: PublicSettlement,
-    criteria: PublicConsultationCriteria,
-    cadastralCode: string,
-    fullWidth = false,
-  ) {
-    return (
-      <Button
-        key="pdf"
-        variant="secondary"
-        fullWidth={fullWidth}
-        loading={downloadingId === settlement.id}
-        disabled={downloadingId !== null && downloadingId !== settlement.id}
-        onClick={() => handleDownload(settlement, criteria, cadastralCode)}
-        aria-label={`Descargar PDF de la liquidación del periodo ${settlement.period}`}
-      >
-        Descargar PDF
-      </Button>
-    );
   }
 
   return (
@@ -247,8 +172,8 @@ export function ConsultaPublicaPage() {
             Consulta de liquidaciones del impuesto predial
           </h1>
           <p className="consulta-publica__subtitle">
-            Consulta y descarga las liquidaciones oficiales vigentes de tu
-            predio. No necesitas crear una cuenta.
+            Consulta las liquidaciones oficiales de tu predio. No necesitas
+            crear una cuenta.
           </p>
         </header>
 
@@ -368,6 +293,10 @@ export function ConsultaPublicaPage() {
             </p>
           )}
 
+          {/* TODO: sin boton de descarga de PDF todavia -- el backend no
+              expone esa generacion para el canal publico. Agregarlo cuando
+              exista el endpoint real, en vez de apuntar a uno que no
+              existe. */}
           {search.kind === "found" && (
             <section
               className="consulta-publica__card"
@@ -377,36 +306,25 @@ export function ConsultaPublicaPage() {
                 id="consulta-publica-results-title"
                 className="consulta-publica__card-title"
               >
-                Liquidaciones vigentes
+                Liquidaciones del predio
               </h2>
 
               <dl className="consulta-publica__property">
                 <div>
                   <dt>Cédula catastral</dt>
-                  <dd>{search.result.property.cadastralCode}</dd>
+                  <dd>{search.results[0].cadastralCode}</dd>
                 </div>
                 <div>
                   <dt>Dirección</dt>
-                  <dd>{search.result.property.address}</dd>
+                  <dd>{search.results[0].address}</dd>
                 </div>
                 <div>
                   <dt>Liquidaciones encontradas</dt>
-                  <dd>{search.result.settlements.length}</dd>
+                  <dd>{search.results.length}</dd>
                 </div>
               </dl>
 
-              {downloadError && (
-                <p
-                  className="consulta-publica__message consulta-publica__message--danger"
-                  role="alert"
-                >
-                  {downloadError}
-                </p>
-              )}
-
-              {/* Desktop: table. Mobile: stacked cards, so the download
-                  button (the taxpayer's main action) is never hidden behind
-                  a horizontal scroll. */}
+              {/* Escritorio: tabla. Movil: tarjetas apiladas. */}
               <div className="consulta-publica__table">
                 <Table
                   columns={[
@@ -414,24 +332,21 @@ export function ConsultaPublicaPage() {
                     "Fecha de expedición",
                     "Valor total",
                     "Estado",
-                    "PDF",
                   ]}
                 >
-                  {search.result.settlements.map((settlement) => (
+                  {search.results.map((settlement) => (
                     <TableRow
-                      key={settlement.id}
+                      key={settlement.settlementId}
                       cells={[
                         settlement.period,
                         formatDate(settlement.issuedAt),
                         formatAmount(settlement.totalAmount),
-                        <StatusBadge key="estado" variant="success">
-                          Vigente
+                        <StatusBadge
+                          key="estado"
+                          variant={SETTLEMENT_STATUS_VARIANT[settlement.status]}
+                        >
+                          {SETTLEMENT_STATUS_LABEL[settlement.status]}
                         </StatusBadge>,
-                        renderDownloadButton(
-                          settlement,
-                          search.criteria,
-                          search.result.property.cadastralCode,
-                        ),
                       ]}
                     />
                   ))}
@@ -439,13 +354,20 @@ export function ConsultaPublicaPage() {
               </div>
 
               <ul className="consulta-publica__list">
-                {search.result.settlements.map((settlement) => (
-                  <li key={settlement.id} className="consulta-publica__item">
+                {search.results.map((settlement) => (
+                  <li
+                    key={settlement.settlementId}
+                    className="consulta-publica__item"
+                  >
                     <div className="consulta-publica__item-head">
                       <span className="consulta-publica__item-period">
                         Periodo {settlement.period}
                       </span>
-                      <StatusBadge variant="success">Vigente</StatusBadge>
+                      <StatusBadge
+                        variant={SETTLEMENT_STATUS_VARIANT[settlement.status]}
+                      >
+                        {SETTLEMENT_STATUS_LABEL[settlement.status]}
+                      </StatusBadge>
                     </div>
                     <dl className="consulta-publica__item-data">
                       <div>
@@ -457,12 +379,6 @@ export function ConsultaPublicaPage() {
                         <dd>{formatAmount(settlement.totalAmount)}</dd>
                       </div>
                     </dl>
-                    {renderDownloadButton(
-                      settlement,
-                      search.criteria,
-                      search.result.property.cadastralCode,
-                      true,
-                    )}
                   </li>
                 ))}
               </ul>

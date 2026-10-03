@@ -15,6 +15,7 @@ export interface PublicSettlementQueryResult {
   ownerName: string;
   period: number;
   status: SettlementStatus;
+  issuedAt: Date;
   totalAmount: number;
 }
 
@@ -86,6 +87,7 @@ export class PublicSettlementQueryService {
         .join(', '),
       period: settlement.period,
       status: settlement.status,
+      issuedAt: settlement.issuedAt,
       totalAmount: settlement.totalAmount.toNumber(),
     }));
   }
