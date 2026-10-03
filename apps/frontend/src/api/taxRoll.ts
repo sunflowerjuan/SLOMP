@@ -1,6 +1,6 @@
 import { request } from "./httpClient";
 
-// Espejo de la respuesta de POST /tax-roll/import
+// Mirrors the response of POST /tax-roll/import
 // (apps/backend/src/tax-roll/tax-roll.service.ts).
 
 export interface TaxRollRowIssue {
@@ -21,22 +21,22 @@ export interface TaxRollPersisted {
 }
 
 export interface TaxRollImportResult {
-  // Las filas validas no se tipan campo a campo: la UI solo usa los conteos.
+  // Valid rows aren't typed field by field: the UI only uses the counts.
   validRows: unknown[];
   invalidRows: TaxRollRowIssue[];
   warnings: TaxRollRowIssue[];
   persisted: TaxRollPersisted;
-  // Id del registro en el historial (GET /tax-roll/imports) que esta carga
-  // creo o actualizo.
+  // Id of the history entry (GET /tax-roll/imports) this upload created or
+  // updated.
   importId: number;
 }
 
 export function importTaxRoll(
   file: File,
   confirmReplace: boolean,
-  // Id de la carga anterior que se esta confirmando (HU18): si se pasa, el
-  // backend actualiza ese registro del historial en vez de crear uno
-  // nuevo, para que no quede una fila "Con conflictos" ya resuelta.
+  // Id of the previous upload being confirmed: if passed, the backend
+  // updates that history entry instead of creating a new one, so an
+  // already-resolved row doesn't stay stuck as "With conflicts".
   previousImportId?: number,
 ) {
   const form = new FormData();
@@ -52,7 +52,7 @@ export function importTaxRoll(
   });
 }
 
-// Espejo de la respuesta de GET /tax-roll/imports
+// Mirrors the response of GET /tax-roll/imports
 // (apps/backend/src/tax-roll/tax-roll.service.ts#listImports).
 export interface TaxRollImportHistoryEntry {
   id: number;

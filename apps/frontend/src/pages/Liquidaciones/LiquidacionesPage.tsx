@@ -5,10 +5,13 @@ import {
   changeSettlementStatus,
   searchSettlements,
 } from "../../api/settlements";
-import type {
-  SettlementSearchResult,
-  SettlementStatus,
-} from "../../api/settlements";
+import type { SettlementSearchResult } from "../../api/settlements";
+import {
+  SETTLEMENT_STATUSES,
+  SETTLEMENT_STATUS_LABEL,
+  SETTLEMENT_STATUS_VARIANT,
+} from "../../domain/settlementStatus";
+import type { SettlementStatus } from "../../domain/settlementStatus";
 import { Button } from "../../components/ui/Button";
 import { GeneratePdfDialog } from "../../components/ui/GeneratePdfDialog";
 import { Input } from "../../components/ui/Input";
@@ -16,30 +19,6 @@ import { StatusBadge } from "../../components/ui/StatusBadge";
 import { Table } from "../../components/ui/Table";
 import { TableRow } from "../../components/ui/TableRow";
 import "./LiquidacionesPage.css";
-
-// Los 4 estados reales del ERS v1.0 (RF-10). "Inactiva" no existe -- una
-// liquidacion reemplazada (HU18) no cambia de estado, ver ADR-10.
-const ESTADO_LABEL: Record<SettlementStatus, string> = {
-  VIGENTE: "Vigente",
-  PAGADA: "Pagada",
-  ACUERDO_DE_PAGO: "Acuerdo de pago",
-  PRESCRITA: "Prescrita",
-};
-const ESTADO_VARIANT: Record<
-  SettlementStatus,
-  "success" | "warning" | "danger" | "neutral"
-> = {
-  VIGENTE: "warning",
-  PAGADA: "success",
-  ACUERDO_DE_PAGO: "neutral",
-  PRESCRITA: "danger",
-};
-const ESTADOS: SettlementStatus[] = [
-  "VIGENTE",
-  "PAGADA",
-  "ACUERDO_DE_PAGO",
-  "PRESCRITA",
-];
 
 interface Filters {
   cedulaCatastral: string;
@@ -141,10 +120,10 @@ export function LiquidacionesPage() {
 
   function handleGeneratePdf() {
     setIsGeneratingPdf(true);
-    // TODO(SL-50/SL-51): conectar con el endpoint real de generacion de PDF
-    // (plantilla .docx marcada + LibreOffice headless) cuando exista -- esas
-    // tareas todavia no estan hechas. El setTimeout de abajo solo simula la
-    // carga en el cliente, no genera ni descarga ningun archivo real.
+    // TODO: connect to the real PDF generation endpoint (marked .docx
+    // template + headless LibreOffice) once it exists. The setTimeout below
+    // only simulates the client-side loading state, it doesn't generate or
+    // download any real file.
     setTimeout(() => {
       setIsGeneratingPdf(false);
       setIsPdfDialogOpen(false);
@@ -242,8 +221,10 @@ export function LiquidacionesPage() {
                     className="liquidaciones-page__status-cell"
                     onClick={(event) => event.stopPropagation()}
                   >
-                    <StatusBadge variant={ESTADO_VARIANT[entry.status]}>
-                      {ESTADO_LABEL[entry.status]}
+                    <StatusBadge
+                      variant={SETTLEMENT_STATUS_VARIANT[entry.status]}
+                    >
+                      {SETTLEMENT_STATUS_LABEL[entry.status]}
                     </StatusBadge>
                     <select
                       aria-label={`Cambiar estado de la liquidación de ${entry.cadastralCode}, periodo ${entry.period}`}
@@ -257,9 +238,9 @@ export function LiquidacionesPage() {
                         )
                       }
                     >
-                      {ESTADOS.map((estado) => (
+                      {SETTLEMENT_STATUSES.map((estado) => (
                         <option key={estado} value={estado}>
-                          {ESTADO_LABEL[estado]}
+                          {SETTLEMENT_STATUS_LABEL[estado]}
                         </option>
                       ))}
                     </select>

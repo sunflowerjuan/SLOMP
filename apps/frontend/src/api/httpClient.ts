@@ -21,19 +21,19 @@ type UnauthorizedHandler = () => void;
 
 let unauthorizedHandler: UnauthorizedHandler | null = null;
 
-// AuthProvider se registra aqui para enterarse cuando el backend rechaza el
-// token (expirado o invalido) y cerrar la sesion en un solo lugar.
+// AuthProvider registers here to find out when the backend rejects the
+// token (expired or invalid) and close the session from a single place.
 export function setUnauthorizedHandler(handler: UnauthorizedHandler | null) {
   unauthorizedHandler = handler;
 }
 
 interface RequestOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-  // Objeto JSON o FormData (multipart). Con FormData no se fija Content-Type:
-  // el navegador agrega el boundary.
+  // JSON object or FormData (multipart). With FormData, Content-Type isn't
+  // set: the browser adds the boundary.
   body?: unknown;
-  // false para endpoints publicos (login): no se adjunta el token y un 401
-  // no cierra la sesion.
+  // false for public endpoints (login): the token isn't attached and a 401
+  // doesn't close the session.
   authenticated?: boolean;
   signal?: AbortSignal;
 }

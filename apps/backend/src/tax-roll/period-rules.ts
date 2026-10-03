@@ -1,6 +1,6 @@
-// Domain rules for the tax roll "periodo" (a calendar year, see the
-// Settlement.period decision in SL-77). They are pure functions: the current
-// year is always injected so tests never depend on the system clock.
+// Domain rules for the tax roll "periodo" (a calendar year). They are pure
+// functions: the current year is always injected so tests never depend on
+// the system clock.
 
 // The municipal property tax (impuesto predial) in its current form starts in
 // 1980; no valid debt can be older than that.

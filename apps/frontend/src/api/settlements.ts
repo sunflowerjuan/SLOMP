@@ -1,11 +1,9 @@
+import type { SettlementStatus } from "../domain/settlementStatus";
 import { request } from "./httpClient";
 
-// Los 4 estados del ERS v1.0 (RF-10). "Inactiva" no existe -- ver
-// packages/shared/prisma/schema.prisma y ADR-10 en Confluence.
-export type SettlementStatus =
-  "VIGENTE" | "PAGADA" | "ACUERDO_DE_PAGO" | "PRESCRITA";
+export type { SettlementStatus };
 
-// Espejo de la respuesta de GET /settlements/search
+// Mirrors the response of GET /settlements/search
 // (apps/backend/src/settlements/settlements.service.ts).
 export interface SettlementSearchResult {
   settlementId: number;
@@ -41,8 +39,8 @@ export function searchSettlements(criteria: SettlementSearchCriteria) {
   );
 }
 
-// RF-10: el Administrador puede forzar manualmente cualquiera de los 4
-// estados sobre una liquidacion vigente (no reemplazada).
+// The Administrator can force any of the 4 states manually on a current
+// (non-replaced) settlement.
 export function changeSettlementStatus(
   settlementId: number,
   status: SettlementStatus,

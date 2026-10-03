@@ -58,7 +58,7 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
     for (const row of validRows) {
       expect(row.cadastralCode).toBeTruthy();
       expect(Number.isInteger(row.period)).toBe(true);
-      // SL-81: no period outside 1980..current year may get through.
+      // No period outside 1980..current year may get through.
       expect(row.period).toBeGreaterThanOrEqual(1980);
       expect(row.period).toBeLessThanOrEqual(new Date().getFullYear());
     }

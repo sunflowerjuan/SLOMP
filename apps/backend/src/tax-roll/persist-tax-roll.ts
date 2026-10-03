@@ -13,7 +13,7 @@ export interface PersistTaxRollResult {
   // 0 whenever `conflicts` is non-empty and the caller hasn't passed
   // confirmReplace yet: this pass persists nothing at all -- not even the
   // rows that don't conflict -- so the Administrator can cancel without
-  // any partial write (HU18).
+  // any partial write.
   settlements: number;
   // Property+period pairs that already had a current (non-replaced)
   // settlement and were left untouched because the caller didn't pass
@@ -176,16 +176,17 @@ export async function persistTaxRoll(
     (entry) => entry.currentId !== undefined,
   );
 
-  // Si hay conflictos y quien llama todavia no confirmo el reemplazo, esta
-  // pasada no crea NINGUNA liquidacion -- ni siquiera las de predios y
-  // periodos sin conflicto. El Administrador ve el aviso completo antes de
-  // que se persista cualquier cosa (HU18); solo la llamada que confirma (o
-  // una que de entrada no encuentra ningun conflicto) escribe settlements.
+  // If there are conflicts and the caller hasn't confirmed the replacement
+  // yet, this pass creates NO settlement at all -- not even the ones for
+  // properties/periods without conflicts. The Administrator sees the full
+  // warning before anything gets persisted; only the call that confirms
+  // (or one that finds no conflict at all) writes settlements.
   const shouldPersistSettlements =
     confirmReplace || conflictingRows.length === 0;
 
-  // `conflicts` solo reporta pendientes -- una vez confirmado ya no hay
-  // nada esperando confirmacion, aunque esas filas si tenian activeId.
+  // `conflicts` only reports what's still pending -- once confirmed there's
+  // nothing left waiting for confirmation, even though those rows did have
+  // a currentId.
   const conflicts: TaxRollConflict[] = shouldPersistSettlements
     ? []
     : conflictingRows.map((entry) => ({

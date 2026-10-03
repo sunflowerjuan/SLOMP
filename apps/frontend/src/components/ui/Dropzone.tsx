@@ -18,13 +18,13 @@ function formatFileSize(bytes: number): string {
   return `${(kb / 1024).toFixed(1)} MB`;
 }
 
-// Estado visual del Dropzone. Nombres tomados directo del componente en Figma.
-// "idle" esta verificado contra el nodo 10:12 del archivo "Tributaria Predial".
-// "dragover" / "uploaded" / "error" NO se pudieron verificar en esta tarea (el
-// MCP de Figma llego a su limite de llamadas del plan Starter): el layout y
-// el copy de esos tres estados son un criterio razonable, consistente con el
-// tono de "idle", pero alguien del equipo debe revisarlos contra el diseño
-// real en Figma cuando el limite del plan se libere.
+// Dropzone visual state. Names taken straight from the Figma component.
+// "idle" is verified against node 10:12 of the "Tributaria Predial" file.
+// "dragover" / "uploaded" / "error" could NOT be verified in this task (the
+// Figma MCP hit its call limit on the Starter plan): the layout and copy
+// for those three states are a reasonable guess, consistent with "idle"'s
+// tone, but someone on the team should check them against the real design
+// in Figma once the plan limit resets.
 type DropzoneState = "idle" | "dragover" | "uploaded" | "error";
 
 export function Dropzone({

@@ -9,12 +9,11 @@ interface ReplaceConfirmDialogProps {
   onConfirm: () => void;
 }
 
-// El copy de este dialogo NO debe decir a que estado pasa la liquidacion que
-// se reemplaza. Resuelto (ADR-6 vs RF-10, ver ADR-10 en Confluence, SL-78):
-// "Inactiva" no existe como estado -- el reemplazo no cambia el status (los
-// 4 del ERS), solo marca replacedAt. El archivo real de reemplazadas es
-// ADR-10 / SL-79, todavia no implementado -- por eso el copy sigue sin
-// prometer un lugar donde consultarla despues.
+// This dialog's copy must NOT say which state the settlement being replaced
+// moves to. "Inactiva" doesn't exist as a state -- the replacement doesn't
+// change the status (the 4 real states), it only marks replacedAt. The real
+// archive of replaced settlements isn't implemented yet -- that's why the
+// copy still avoids promising a place to look it up afterward.
 export function ReplaceConfirmDialog({
   open,
   isConfirming = false,

@@ -55,9 +55,8 @@ export class SettlementsService {
     const settlements = await this.prisma.settlement.findMany({
       where: {
         // Only the current settlement of each property+period: one already
-        // replaced (HU18, replacedAt set) is history, regardless of its
-        // payment status — generating an official PDF from one wouldn't
-        // make sense.
+        // replaced (replacedAt set) is history, regardless of its payment
+        // status — generating an official PDF from one wouldn't make sense.
         replacedAt: null,
         property: {
           ...(cadastralCode
@@ -101,9 +100,9 @@ export class SettlementsService {
     }));
   }
 
-  // RF-10: the Administrator can force any of the 4 ERS states manually.
-  // Only a current settlement can be changed — one already replaced (HU18)
-  // isn't "the" settlement of its property+period anymore.
+  // The Administrator can force any of the 4 states manually. Only a
+  // current settlement can be changed — one already replaced isn't "the"
+  // settlement of its property+period anymore.
   async changeStatus(
     id: number,
     status: unknown,

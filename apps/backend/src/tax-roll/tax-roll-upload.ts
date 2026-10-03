@@ -20,8 +20,8 @@ export const TAX_ROLL_UPLOAD_LIMITS = {
 
 // Multer aborts the upload as soon as the limit is crossed and Nest turns it
 // into a 413 with multer's generic "File too large". The import endpoint
-// reports every input problem as a 400 with a specific message (HU23), so
-// this filter rewrites just that case.
+// reports every input problem as a 400 with a specific message, so this
+// filter rewrites just that case.
 @Catch(PayloadTooLargeException)
 export class TaxRollFileTooLargeFilter implements ExceptionFilter {
   catch(_exception: PayloadTooLargeException, host: ArgumentsHost) {

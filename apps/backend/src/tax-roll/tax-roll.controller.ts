@@ -53,12 +53,12 @@ export class TaxRollController {
           type: 'string',
           enum: ['true', 'false'],
           description:
-            'Confirma el reemplazo de una liquidación ACTIVA ya existente para el mismo predio y periodo (HU18). Si se omite o es "false" y hay conflictos, esos pares predio/periodo quedan reportados en "persisted.conflicts" sin modificarse.',
+            'Confirma el reemplazo de una liquidación vigente ya existente para el mismo predio y periodo. Si se omite o es "false" y hay conflictos, esos pares predio/periodo quedan reportados en "persisted.conflicts" sin modificarse.',
         },
         previousImportId: {
           type: 'string',
           description:
-            'Id del TaxRollImport que se está confirmando (HU18). Si se envía y corresponde al mismo archivo y administrador, esta carga actualiza ese registro de historial en vez de crear uno nuevo.',
+            'Id del TaxRollImport que se está confirmando. Si se envía y corresponde al mismo archivo y administrador, esta carga actualiza ese registro de historial en vez de crear uno nuevo.',
         },
       },
       required: ['file'],
@@ -117,8 +117,7 @@ export class TaxRollController {
     @UploadedFile() file?: Express.Multer.File,
     // Multipart form fields always arrive as strings.
     @Body('confirmReplace') confirmReplace?: string,
-    // Id del TaxRollImport que se esta confirmando (HU18) -- ver
-    // TaxRollService.import.
+    // Id of the TaxRollImport being confirmed -- see TaxRollService.import.
     @Body('previousImportId') previousImportId?: string,
   ) {
     if (!file) {

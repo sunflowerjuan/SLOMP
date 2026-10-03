@@ -14,9 +14,9 @@ export class TaxRollService {
     confirmReplace: boolean,
     fileName: string,
     administratorId: number,
-    // Id de un TaxRollImport anterior (HU18): cuando el Administrador
-    // confirma el reemplazo de un archivo que reporto conflictos, esta
-    // llamada continua ese intento en vez de ser una carga nueva.
+    // Id of a previous TaxRollImport: when the Administrator confirms the
+    // replacement of a file that reported conflicts, this call continues
+    // that attempt instead of being a new upload.
     previousImportId?: number,
   ) {
     const parsed = await this.parse(buffer);
@@ -35,8 +35,8 @@ export class TaxRollService {
     return { ...parsed, persisted, importId };
   }
 
-  // Un historial en /tax-roll/imports, mas reciente primero. Sin paginacion
-  // por ahora: el limite basta para lo que el panel necesita mostrar.
+  // A history at /tax-roll/imports, newest first. No pagination for now:
+  // the limit is enough for what the panel needs to show.
   async listImports() {
     const imports = await this.prisma.taxRollImport.findMany({
       orderBy: { importedAt: 'desc' },
@@ -79,9 +79,10 @@ export class TaxRollService {
     };
 
     if (previousImportId !== undefined) {
-      // El where incluye fileName/administratorId ademas del id como
-      // resguardo minimo: si el id no corresponde a ese archivo y ese
-      // admin, no se actualiza nada y se cae al create de abajo.
+      // The where includes fileName/administratorId besides the id as a
+      // minimal safeguard: if the id doesn't match that file and that
+      // admin, nothing gets updated and it falls through to the create
+      // below.
       const updated = await this.prisma.taxRollImport.updateMany({
         where: { id: previousImportId, fileName, administratorId },
         data,
