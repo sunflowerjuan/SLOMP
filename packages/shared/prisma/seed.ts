@@ -13,10 +13,16 @@ const SEED_ADMIN_EMAIL =
   process.env.SEED_ADMIN_EMAIL ?? "admin@paez-boyaca.gov.co";
 const SEED_ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? "changeme123";
 
-// "Firefighter surcharge": standard 5% surcharge on top of the unified
-// property tax, as billed in most municipalities in Boyacá.
-const FIREFIGHTER_SURCHARGE_RATE = 0.05;
-// Late-payment interest applied to overdue periods with a payment order.
+// Standard surcharges on top of the unified property tax, as billed in most
+// municipalities in Boyacá. Same 3 capital concepts the real tax-roll import
+// creates (persist-tax-roll.ts) -- see the concept names in createSettlement
+// below, which must match those exactly for anything (e.g. the liquidation
+// PDF) that reads SettlementDetail.concept.
+const FIREFIGHTER_SURCHARGE_RATE = 0.05; // "Sobretasa Bomberil"
+const ENVIRONMENTAL_FEE_RATE = 0.02; // "C.A.R."
+// Late-payment interest applied to overdue periods with a payment order,
+// computed per concept (not on the combined total) -- again matching how
+// the real import stores one "Interés X" row per capital concept.
 const LATE_PAYMENT_INTEREST_RATE = 0.03;
 
 function round2(value: number): number {
@@ -29,6 +35,10 @@ async function main() {
   await prisma.paymentOrder.deleteMany();
   await prisma.settlementDetail.deleteMany();
   await prisma.settlement.deleteMany();
+  // Resolutions hold an onDelete: Restrict FK to properties -- must go
+  // before property.deleteMany(), same reason settlements go first above.
+  await prisma.resolution.deleteMany();
+  await prisma.resolutionCounter.deleteMany();
   await prisma.propertyOwner.deleteMany();
   await prisma.property.deleteMany();
   await prisma.owner.deleteMany();
@@ -254,6 +264,10 @@ async function main() {
   console.log("Seed completed.");
 }
 
+function interestOn(amount: number, isOverdue: boolean): number {
+  return isOverdue ? round2(amount * LATE_PAYMENT_INTEREST_RATE) : 0;
+}
+
 async function createSettlement(
   propertyId: number,
   period: number,
@@ -264,11 +278,20 @@ async function createSettlement(
   const firefighterSurcharge = round2(
     propertyTaxAmount * FIREFIGHTER_SURCHARGE_RATE,
   );
-  const latePaymentInterest = isOverdue
-    ? round2(propertyTaxAmount * LATE_PAYMENT_INTEREST_RATE)
-    : 0;
+  const environmentalFee = round2(propertyTaxAmount * ENVIRONMENTAL_FEE_RATE);
+  const propertyTaxInterest = interestOn(propertyTaxAmount, isOverdue);
+  const environmentalFeeInterest = interestOn(environmentalFee, isOverdue);
+  const firefighterSurchargeInterest = interestOn(
+    firefighterSurcharge,
+    isOverdue,
+  );
   const totalAmount = round2(
-    propertyTaxAmount + firefighterSurcharge + latePaymentInterest,
+    propertyTaxAmount +
+      environmentalFee +
+      firefighterSurcharge +
+      propertyTaxInterest +
+      environmentalFeeInterest +
+      firefighterSurchargeInterest,
   );
 
   const settlement = await prisma.settlement.create({
@@ -281,16 +304,20 @@ async function createSettlement(
     },
   });
 
+  // Same 6 concepts, in the same order, as persist-tax-roll.ts -- a blank/0
+  // amount is a legitimate value (e.g. no interest on a current, non-overdue
+  // period), not something omitted here.
   const details = [
-    { concept: "Unified property tax", amount: propertyTaxAmount },
-    { concept: "Firefighter surcharge", amount: firefighterSurcharge },
+    { concept: "Impuesto Predial", amount: propertyTaxAmount },
+    { concept: "Interés Impuesto Predial", amount: propertyTaxInterest },
+    { concept: "C.A.R.", amount: environmentalFee },
+    { concept: "Interés C.A.R.", amount: environmentalFeeInterest },
+    { concept: "Sobretasa Bomberil", amount: firefighterSurcharge },
+    {
+      concept: "Interés Sobretasa Bomberil",
+      amount: firefighterSurchargeInterest,
+    },
   ];
-  if (isOverdue) {
-    details.push({
-      concept: "Late payment interest",
-      amount: latePaymentInterest,
-    });
-  }
 
   await prisma.settlementDetail.createMany({
     data: details.map((d) => ({ ...d, settlementId: settlement.id })),
