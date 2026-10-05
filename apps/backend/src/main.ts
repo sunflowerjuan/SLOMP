@@ -39,6 +39,10 @@ async function bootstrap() {
   // comma-separated list of allowed origins.
   app.enableCors({
     origin: (process.env.CORS_ORIGIN ?? 'http://localhost:5173').split(','),
+    // Without this, the browser silently drops Content-Disposition from a
+    // cross-origin response -- the frontend would never see the suggested
+    // PDF file name and would always fall back to a generic one.
+    exposedHeaders: ['Content-Disposition'],
   });
 
   const swaggerConfig = new DocumentBuilder()

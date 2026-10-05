@@ -3,9 +3,11 @@ import type { FormEvent } from "react";
 import { getErrorMessage } from "../../api/ApiError";
 import {
   changeSettlementStatus,
+  generateLiquidationPdf,
   searchSettlements,
 } from "../../api/settlements";
 import type { SettlementSearchResult } from "../../api/settlements";
+import { triggerBrowserDownload } from "../../utils/downloadBlob";
 import {
   SETTLEMENT_STATUSES,
   SETTLEMENT_STATUS_LABEL,
@@ -45,6 +47,7 @@ export function LiquidacionesPage() {
     useState<SettlementSearchResult | null>(null);
   const [isPdfDialogOpen, setIsPdfDialogOpen] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
   const [statusChangeId, setStatusChangeId] = useState<number | null>(null);
   const [statusChangeError, setStatusChangeError] = useState<string | null>(
     null,
@@ -111,6 +114,7 @@ export function LiquidacionesPage() {
   function handleRowClick(entry: SettlementSearchResult) {
     setSelectedSettlementId(entry.settlementId);
     setPdfDialogLiquidacion(entry);
+    setPdfError(null);
     setIsPdfDialogOpen(true);
   }
 
@@ -118,16 +122,22 @@ export function LiquidacionesPage() {
     setIsPdfDialogOpen(false);
   }
 
-  function handleGeneratePdf() {
+  async function handleGeneratePdf() {
+    if (!pdfDialogLiquidacion) return;
+
     setIsGeneratingPdf(true);
-    // TODO: connect to the real PDF generation endpoint (marked .docx
-    // template + headless LibreOffice) once it exists. The setTimeout below
-    // only simulates the client-side loading state, it doesn't generate or
-    // download any real file.
-    setTimeout(() => {
-      setIsGeneratingPdf(false);
+    setPdfError(null);
+    try {
+      const { blob, fileName } = await generateLiquidationPdf(
+        pdfDialogLiquidacion.settlementId,
+      );
+      triggerBrowserDownload(blob, fileName ?? "liquidacion.pdf");
       setIsPdfDialogOpen(false);
-    }, 700);
+    } catch (caught) {
+      setPdfError(getErrorMessage(caught));
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   }
 
   return (
@@ -263,6 +273,7 @@ export function LiquidacionesPage() {
             : null
         }
         isGenerating={isGeneratingPdf}
+        error={pdfError}
         onCancel={handleCancelPdfDialog}
         onGenerate={handleGeneratePdf}
       />

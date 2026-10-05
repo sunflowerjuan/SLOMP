@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { getErrorMessage } from "../../api/ApiError";
-import { consultSettlements } from "../../api/publicConsultation";
-import type { PublicSettlement } from "../../api/publicConsultation";
+import {
+  consultSettlements,
+  generateLiquidationPdf,
+} from "../../api/publicConsultation";
+import type {
+  PublicConsultationCriteria,
+  PublicSettlement,
+} from "../../api/publicConsultation";
 import {
   SETTLEMENT_STATUS_LABEL,
   SETTLEMENT_STATUS_VARIANT,
@@ -13,6 +19,7 @@ import { StatusBadge } from "../../components/ui/StatusBadge";
 import { Table } from "../../components/ui/Table";
 import { TableRow } from "../../components/ui/TableRow";
 import { ADMIN_HREF } from "../../routes";
+import { triggerBrowserDownload } from "../../utils/downloadBlob";
 import "./ConsultaPublicaPage.css";
 
 // Exact match on at least 2 of the 3 fields.
@@ -36,6 +43,11 @@ type SearchState =
   | { kind: "not-found" }
   | { kind: "error"; message: string }
   | { kind: "found"; results: PublicSettlement[] };
+
+interface PdfDownloadState {
+  loading: boolean;
+  error: string | null;
+}
 
 function toCriteria(values: FormValues) {
   // Only filled-in fields are sent. trim() is the frontend's only
@@ -94,6 +106,11 @@ export function ConsultaPublicaPage() {
   const [values, setValues] = useState<FormValues>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [search, setSearch] = useState<SearchState>({ kind: "idle" });
+  const [submittedCriteria, setSubmittedCriteria] =
+    useState<PublicConsultationCriteria | null>(null);
+  const [pdfState, setPdfState] = useState<Record<number, PdfDownloadState>>(
+    {},
+  );
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -135,6 +152,8 @@ export function ConsultaPublicaPage() {
           ? { kind: "not-found" }
           : { kind: "found", results },
       );
+      setSubmittedCriteria(criteria);
+      setPdfState({});
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
         return;
@@ -148,6 +167,33 @@ export function ConsultaPublicaPage() {
     setValues(EMPTY_FORM);
     setFormError(null);
     setSearch({ kind: "idle" });
+    setSubmittedCriteria(null);
+    setPdfState({});
+  }
+
+  async function handleDownloadPdf(settlementId: number) {
+    if (!submittedCriteria) return;
+
+    setPdfState((current) => ({
+      ...current,
+      [settlementId]: { loading: true, error: null },
+    }));
+    try {
+      const { blob, fileName } = await generateLiquidationPdf(
+        settlementId,
+        submittedCriteria,
+      );
+      triggerBrowserDownload(blob, fileName ?? "liquidacion.pdf");
+      setPdfState((current) => ({
+        ...current,
+        [settlementId]: { loading: false, error: null },
+      }));
+    } catch (caught) {
+      setPdfState((current) => ({
+        ...current,
+        [settlementId]: { loading: false, error: getErrorMessage(caught) },
+      }));
+    }
   }
 
   return (
@@ -293,9 +339,6 @@ export function ConsultaPublicaPage() {
             </p>
           )}
 
-          {/* TODO: no PDF download button yet -- the backend doesn't expose
-              that generation for the public channel. Add it once the real
-              endpoint exists, instead of pointing at one that doesn't. */}
           {search.kind === "found" && (
             <section
               className="consulta-publica__card"
@@ -331,6 +374,7 @@ export function ConsultaPublicaPage() {
                     "Fecha de expedición",
                     "Valor total",
                     "Estado",
+                    "Liquidación",
                   ]}
                 >
                   {search.results.map((settlement) => (
@@ -346,6 +390,25 @@ export function ConsultaPublicaPage() {
                         >
                           {SETTLEMENT_STATUS_LABEL[settlement.status]}
                         </StatusBadge>,
+                        <div key="pdf" className="consulta-publica__pdf-cell">
+                          <Button
+                            variant="secondary"
+                            loading={pdfState[settlement.settlementId]?.loading}
+                            onClick={() =>
+                              handleDownloadPdf(settlement.settlementId)
+                            }
+                          >
+                            Descargar PDF
+                          </Button>
+                          {pdfState[settlement.settlementId]?.error && (
+                            <p
+                              className="consulta-publica__pdf-error"
+                              role="alert"
+                            >
+                              {pdfState[settlement.settlementId]?.error}
+                            </p>
+                          )}
+                        </div>,
                       ]}
                     />
                   ))}
@@ -378,6 +441,23 @@ export function ConsultaPublicaPage() {
                         <dd>{formatAmount(settlement.totalAmount)}</dd>
                       </div>
                     </dl>
+                    <div className="consulta-publica__item-actions">
+                      <Button
+                        variant="secondary"
+                        fullWidth
+                        loading={pdfState[settlement.settlementId]?.loading}
+                        onClick={() =>
+                          handleDownloadPdf(settlement.settlementId)
+                        }
+                      >
+                        Descargar PDF
+                      </Button>
+                      {pdfState[settlement.settlementId]?.error && (
+                        <p className="consulta-publica__pdf-error" role="alert">
+                          {pdfState[settlement.settlementId]?.error}
+                        </p>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>

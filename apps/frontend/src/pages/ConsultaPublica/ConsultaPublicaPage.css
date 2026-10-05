@@ -254,6 +254,28 @@
   color: var(--semantic-text);
 }
 
+.consulta-publica__pdf-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.consulta-publica__item-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.consulta-publica__pdf-error {
+  margin: 0;
+  padding: var(--space-8) var(--space-12);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--semantic-danger-hover);
+  background-color: var(--semantic-danger-bg);
+  border-radius: var(--radius-default);
+}
+
 @media (max-width: 768px) {
   .consulta-publica__table {
     display: none;

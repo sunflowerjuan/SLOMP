@@ -12,6 +12,7 @@ interface GeneratePdfDialogProps {
   open: boolean;
   liquidacion: LiquidacionSummary | null;
   isGenerating?: boolean;
+  error?: string | null;
   onCancel: () => void;
   onGenerate: () => void;
 }
@@ -20,6 +21,7 @@ export function GeneratePdfDialog({
   open,
   liquidacion,
   isGenerating = false,
+  error = null,
   onCancel,
   onGenerate,
 }: GeneratePdfDialogProps) {
@@ -72,6 +74,11 @@ export function GeneratePdfDialog({
             <strong>Propietario:</strong> {liquidacion.propietario}
           </p>
         </div>
+        {error && (
+          <p className="ui-generate-pdf-dialog__error" role="alert">
+            {error}
+          </p>
+        )}
         <div className="ui-generate-pdf-dialog__actions">
           <Button variant="secondary" onClick={onCancel}>
             Cancelar
