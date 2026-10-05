@@ -60,9 +60,9 @@ export class PublicSettlementQueryController {
   ) {
     // Re-validate ownership with the SAME exact-match query the citizen
     // already searched with -- never trust a bare id with no corroborating
-    // data (RNF-04/anti-enumeration). A mismatch looks exactly like "not
-    // found", never a 403: the public service's whole design never reveals
-    // which part of a guess was right.
+    // data, to avoid letting someone enumerate settlements by id. A mismatch
+    // looks exactly like "not found", never a 403: the public service's
+    // whole design never reveals which part of a guess was right.
     const matches = await this.publicSettlementQueryService.query({
       cadastralCode: body?.cadastralCode,
       ownerName: body?.ownerName,

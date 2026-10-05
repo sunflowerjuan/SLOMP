@@ -49,13 +49,24 @@ describe.skipIf(!hasSoffice())('convertDocxToPdf (real soffice)', () => {
 // binary, crash, non-zero exit). Simulate that directly instead of hoping
 // some input reliably trips it up.
 describe('convertDocxToPdf (process failure, no real soffice needed)', () => {
+  const ORIGINAL_OVERRIDE = process.env.LIBREOFFICE_BIN;
+
   afterEach(() => {
     vi.doUnmock('node:child_process');
     vi.resetModules();
+    if (ORIGINAL_OVERRIDE === undefined) {
+      delete process.env.LIBREOFFICE_BIN;
+    } else {
+      process.env.LIBREOFFICE_BIN = ORIGINAL_OVERRIDE;
+    }
   });
 
   it('wraps a failing soffice invocation in a clear error', async () => {
     vi.resetModules();
+    // Bypasses resolveSofficeBinary's real filesystem check (this test's
+    // whole point is the execFile failure, not whether soffice happens to
+    // be installed on whatever machine runs it -- CI has neither).
+    process.env.LIBREOFFICE_BIN = '/mock/soffice';
     vi.doMock('node:child_process', () => ({
       execFile: (
         _cmd: string,
