@@ -4,6 +4,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
+import { GenerateLiquidationPdfService } from '../resolutions/generate-liquidation-pdf.service.js';
 import {
   PUBLIC_QUERY_LIMIT,
   PUBLIC_QUERY_TTL_MS,
@@ -23,6 +24,10 @@ async function createApp() {
       {
         provide: PublicSettlementQueryService,
         useValue: { query: async () => [] },
+      },
+      {
+        provide: GenerateLiquidationPdfService,
+        useValue: { generateForSettlement: async () => ({}) },
       },
       {
         provide: APP_GUARD,

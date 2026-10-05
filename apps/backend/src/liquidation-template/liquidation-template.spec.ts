@@ -1,40 +1,11 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import Docxtemplater from 'docxtemplater';
 import PizZip from 'pizzip';
 import type { LiquidationTemplateData } from './liquidation-template-data.js';
-
-const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
-const templatePath = resolve(process.cwd(), 'templates/liquidacion-paez.docx');
-
-// The official template is client material and is not versioned: use it when it is
-// present locally, otherwise a minimal docx with the same placeholders (keeps CI green).
-function loadTemplate(): Buffer {
-  if (existsSync(templatePath)) return readFileSync(templatePath);
-  const paragraph = (text: string) =>
-    `<w:p><w:r><w:t xml:space="preserve">${text}</w:t></w:r></w:p>`;
-  const zip = new PizZip();
-  zip.file(
-    '[Content_Types].xml',
-    '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
-  );
-  zip.file(
-    'word/document.xml',
-    `<?xml version="1.0" encoding="UTF-8"?><w:document xmlns:w="${W}"><w:body>${[
-      'RESOLUCION N° LOIP 15514{resolutionNumber}',
-      'numero {cadastralCode} ubicado en {propertyName}{#owners} a nombre de {owners}{/owners}.',
-      'vigencias {startYear} a {endYear} total {totalAmount} capital {capitalAmount} interes {interestAmount}',
-      '{#rows}{year} {concept} {interest} {capital} {/rows}',
-    ]
-      .map(paragraph)
-      .join('')}</w:body></w:document>`,
-  );
-  return zip.generate({ type: 'nodebuffer' });
-}
+import { loadTemplateFixture } from './test-fixture-docx.js';
 
 describe('liquidacion-paez template', () => {
   it('renders template data without unresolved placeholders', () => {
-    const template = loadTemplate();
+    const template = loadTemplateFixture();
     const values: LiquidationTemplateData = {
       resolutionNumber: '2026-0042',
       cadastralCode: '155140001000000010019000000000',

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { ResolutionsModule } from '../resolutions/resolutions.module.js';
 import {
   PUBLIC_QUERY_LIMIT,
   PUBLIC_QUERY_TTL_MS,
@@ -14,6 +15,7 @@ import { SettlementsService } from './settlements.service.js';
     ThrottlerModule.forRoot([
       { ttl: PUBLIC_QUERY_TTL_MS, limit: PUBLIC_QUERY_LIMIT },
     ]),
+    ResolutionsModule,
   ],
   controllers: [SettlementsController, PublicSettlementQueryController],
   providers: [SettlementsService, PublicSettlementQueryService],

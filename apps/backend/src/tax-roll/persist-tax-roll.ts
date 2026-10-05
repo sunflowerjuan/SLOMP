@@ -42,7 +42,7 @@ const SETTLEMENT_DETAIL_CONCEPTS: {
   { key: 'fireSurchargeInterest', concept: 'Interés Sobretasa Bomberil' },
 ];
 
-const NO_OWNER_NAME_PLACEHOLDER = 'Propietario sin nombre registrado';
+export const NO_OWNER_NAME_PLACEHOLDER = 'Propietario sin nombre registrado';
 
 export async function persistTaxRoll(
   prisma: PrismaService,
