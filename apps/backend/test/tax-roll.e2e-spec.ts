@@ -2,7 +2,6 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import ExcelJS from 'exceljs';
 import request from 'supertest';
-import type { App } from 'supertest/types';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { AppModule } from './../src/app.module.js';
@@ -16,7 +15,7 @@ const SEEDED_ADMIN_EMAIL =
 const SEEDED_ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? 'changeme123';
 
 describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
-  let app: INestApplication<App>;
+  let app: INestApplication;
   let accessToken: string;
 
   beforeEach(async () => {

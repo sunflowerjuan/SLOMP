@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module';
+import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -20,6 +21,18 @@ async function bootstrap() {
     // Behind Application Gateway, req.ip would otherwise be the gateway for every user.
     app.set('trust proxy', trustProxyHops);
   }
+
+  // whitelist strips any @Body() property with no class-validator decorator
+  // on a real class-typed DTO (interfaces and primitive @Body('x') pulls are
+  // untouched). LoginDto is the one existing DTO that needed decorators
+  // added for this reason -- see login.dto.ts.
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
 
   // The Administrator panel is served from a different origin (Vite in dev),
   // so the browser needs CORS to call the API. CORS_ORIGIN accepts a
