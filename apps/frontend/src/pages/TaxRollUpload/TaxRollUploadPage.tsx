@@ -11,7 +11,7 @@ import { ReplaceConfirmDialog } from "../../components/ui/ReplaceConfirmDialog";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { Table } from "../../components/ui/Table";
 import { TableRow } from "../../components/ui/TableRow";
-import "./CargaExcelPage.css";
+import "./TaxRollUploadPage.css";
 
 // How many problem rows get listed before summarizing the rest.
 const MAX_LISTED_ISSUES = 10;
@@ -37,7 +37,7 @@ function historyEntryStatus(entry: TaxRollImportHistoryEntry) {
   return { label: "Procesado", variant: "success" as const };
 }
 
-export function CargaExcelPage() {
+export function TaxRollUploadPage() {
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isConfirmingReplace, setIsConfirmingReplace] = useState(false);
@@ -87,7 +87,9 @@ export function CargaExcelPage() {
     try {
       const response = await importTaxRoll(file, false);
       setResult(response);
-      refreshHistory();
+      // refreshHistory() handles its own errors (historyError state) and
+      // never rejects -- intentionally fire-and-forget.
+      void refreshHistory();
       // The backend leaves properties/periods that already had a current
       // settlement untouched and reports them in `conflicts`.
       if (response.persisted.conflicts.length > 0) {
@@ -112,7 +114,7 @@ export function CargaExcelPage() {
       // the backend updates that same history entry instead of leaving it
       // as "With conflicts" and creating a separate new one.
       setResult(await importTaxRoll(file, true, result?.importId));
-      refreshHistory();
+      void refreshHistory();
       setIsReplaceDialogOpen(false);
     } catch (caught) {
       setIsReplaceDialogOpen(false);
@@ -125,18 +127,18 @@ export function CargaExcelPage() {
   const conflictCount = result?.persisted.conflicts.length ?? 0;
 
   return (
-    <div className="carga-excel-page">
-      <header className="carga-excel-page__header">
-        <h1 className="carga-excel-page__title">Carga de archivo Excel</h1>
-        <p className="carga-excel-page__subtitle">
+    <div className="tax-roll-upload-page">
+      <header className="tax-roll-upload-page__header">
+        <h1 className="tax-roll-upload-page__title">Carga de archivo Excel</h1>
+        <p className="tax-roll-upload-page__subtitle">
           Sube el Excel con la información de predios y deudas para generar las
           liquidaciones del periodo actual.
         </p>
       </header>
 
-      <section className="carga-excel-page__card">
-        <h2 className="carga-excel-page__card-title">Nueva carga</h2>
-        <p className="carga-excel-page__card-subtitle">
+      <section className="tax-roll-upload-page__card">
+        <h2 className="tax-roll-upload-page__card-title">Nueva carga</h2>
+        <p className="tax-roll-upload-page__card-subtitle">
           Cada predio y periodo solo puede liquidarse una vez. Si el periodo ya
           fue liquidado, el sistema te avisará antes de reemplazarlo.
         </p>
@@ -154,12 +156,12 @@ export function CargaExcelPage() {
         />
 
         {error && (
-          <p className="carga-excel-page__error" role="alert">
+          <p className="tax-roll-upload-page__error" role="alert">
             {error}
           </p>
         )}
 
-        <div className="carga-excel-page__actions">
+        <div className="tax-roll-upload-page__actions">
           <Button
             type="button"
             disabled={!file}
@@ -172,11 +174,11 @@ export function CargaExcelPage() {
       </section>
 
       {result && (
-        <section className="carga-excel-page__card" aria-live="polite">
-          <h2 className="carga-excel-page__card-title">
+        <section className="tax-roll-upload-page__card" aria-live="polite">
+          <h2 className="tax-roll-upload-page__card-title">
             Resultado de la carga
           </h2>
-          <ul className="carga-excel-page__summary">
+          <ul className="tax-roll-upload-page__summary">
             <li>
               <strong>{result.persisted.settlements}</strong> liquidaciones
               generadas
@@ -213,20 +215,22 @@ export function CargaExcelPage() {
         </section>
       )}
 
-      <section className="carga-excel-page__card">
-        <h2 className="carga-excel-page__card-title">Historial de cargas</h2>
-        <p className="carga-excel-page__card-subtitle">
+      <section className="tax-roll-upload-page__card">
+        <h2 className="tax-roll-upload-page__card-title">
+          Historial de cargas
+        </h2>
+        <p className="tax-roll-upload-page__card-subtitle">
           Últimos archivos procesados por el sistema.
         </p>
 
         {historyError && (
-          <p className="carga-excel-page__error" role="alert">
+          <p className="tax-roll-upload-page__error" role="alert">
             {historyError}
           </p>
         )}
 
         {!historyError && !isHistoryLoading && history.length === 0 && (
-          <p className="carga-excel-page__card-subtitle">
+          <p className="tax-roll-upload-page__card-subtitle">
             Todavía no se ha procesado ningún archivo.
           </p>
         )}
@@ -278,8 +282,8 @@ function IssueList({
   const hidden = issues.length - listed.length;
 
   return (
-    <div className="carga-excel-page__issues">
-      <h3 className="carga-excel-page__issues-title">{title}</h3>
+    <div className="tax-roll-upload-page__issues">
+      <h3 className="tax-roll-upload-page__issues-title">{title}</h3>
       <ul>
         {listed.map((issue) => (
           <li key={`${issue.row}-${issue.reason}`}>

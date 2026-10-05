@@ -1,4 +1,4 @@
-.carga-excel-page {
+.tax-roll-upload-page {
   display: flex;
   flex-direction: column;
   gap: var(--space-24);
@@ -8,13 +8,13 @@
   box-sizing: border-box;
 }
 
-.carga-excel-page__header {
+.tax-roll-upload-page__header {
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
 }
 
-.carga-excel-page__title {
+.tax-roll-upload-page__title {
   margin: 0;
   font-family: var(--font-sans);
   font-size: 28px;
@@ -22,14 +22,14 @@
   color: var(--semantic-text);
 }
 
-.carga-excel-page__subtitle {
+.tax-roll-upload-page__subtitle {
   margin: 0;
   font-family: var(--font-sans);
   font-size: 14px;
   color: var(--semantic-text-muted);
 }
 
-.carga-excel-page__card {
+.tax-roll-upload-page__card {
   display: flex;
   flex-direction: column;
   gap: var(--space-16);
@@ -40,7 +40,7 @@
   box-sizing: border-box;
 }
 
-.carga-excel-page__card-title {
+.tax-roll-upload-page__card-title {
   margin: 0;
   font-family: var(--font-sans);
   font-size: 18px;
@@ -48,14 +48,14 @@
   color: var(--semantic-text);
 }
 
-.carga-excel-page__card-subtitle {
+.tax-roll-upload-page__card-subtitle {
   margin: calc(var(--space-8) * -1) 0 0;
   font-family: var(--font-sans);
   font-size: 14px;
   color: var(--semantic-text-muted);
 }
 
-.carga-excel-page__error {
+.tax-roll-upload-page__error {
   margin: 0;
   padding: var(--space-12) var(--space-16);
   font-family: var(--font-sans);
@@ -65,7 +65,7 @@
   border-radius: var(--radius-default);
 }
 
-.carga-excel-page__summary {
+.tax-roll-upload-page__summary {
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
@@ -76,43 +76,43 @@
   color: var(--semantic-text);
 }
 
-.carga-excel-page__issues {
+.tax-roll-upload-page__issues {
   font-family: var(--font-sans);
   font-size: 14px;
   color: var(--semantic-text-muted);
 }
 
-.carga-excel-page__issues-title {
+.tax-roll-upload-page__issues-title {
   margin: 0 0 var(--space-8);
   font-size: 14px;
   font-weight: 600;
   color: var(--semantic-text);
 }
 
-.carga-excel-page__issues ul {
+.tax-roll-upload-page__issues ul {
   margin: 0;
   padding-left: var(--space-20);
 }
 
-.carga-excel-page__actions {
+.tax-roll-upload-page__actions {
   display: flex;
   justify-content: flex-end;
 }
 
 @media (max-width: 768px) {
-  .carga-excel-page {
+  .tax-roll-upload-page {
     padding: var(--space-24) var(--space-16);
   }
 
-  .carga-excel-page__card {
+  .tax-roll-upload-page__card {
     padding: var(--space-24);
   }
 
-  .carga-excel-page__actions {
+  .tax-roll-upload-page__actions {
     justify-content: stretch;
   }
 
-  .carga-excel-page__actions .ui-button {
+  .tax-roll-upload-page__actions .ui-button {
     width: 100%;
   }
 }
