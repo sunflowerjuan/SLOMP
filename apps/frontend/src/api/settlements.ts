@@ -1,5 +1,6 @@
 import type { SettlementStatus } from "../domain/settlementStatus";
-import { request } from "./httpClient";
+import { request, requestBlob } from "./httpClient";
+import type { BlobResponse } from "./httpClient";
 
 export type { SettlementStatus };
 
@@ -37,6 +38,14 @@ export function searchSettlements(criteria: SettlementSearchCriteria) {
   return request<SettlementSearchResult[]>(
     `/settlements/search${query ? `?${query}` : ""}`,
   );
+}
+
+export function generateLiquidationPdf(
+  settlementId: number,
+): Promise<BlobResponse> {
+  return requestBlob(`/settlements/${settlementId}/liquidation-pdf`, {
+    method: "POST",
+  });
 }
 
 // The Administrator can force any of the 4 states manually on a current

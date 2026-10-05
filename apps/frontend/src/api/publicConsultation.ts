@@ -1,5 +1,6 @@
 import type { SettlementStatus } from "../domain/settlementStatus";
-import { request } from "./httpClient";
+import { request, requestBlob } from "./httpClient";
+import type { BlobResponse } from "./httpClient";
 
 // Taxpayer public consultation -- an UNAUTHENTICATED channel: every call
 // uses `authenticated: false`, so the Administrator's JWT is never attached
@@ -44,4 +45,21 @@ export function consultSettlements(
     authenticated: false,
     signal,
   });
+}
+
+// Re-sends the same criteria the search used: the backend re-validates that
+// settlementId actually belongs to one of those matches before generating
+// anything.
+export function generateLiquidationPdf(
+  settlementId: number,
+  criteria: PublicConsultationCriteria,
+): Promise<BlobResponse> {
+  return requestBlob(
+    `${PUBLIC_CONSULTATION_PATH}/${settlementId}/liquidacion-pdf`,
+    {
+      method: "POST",
+      body: criteria,
+      authenticated: false,
+    },
+  );
 }

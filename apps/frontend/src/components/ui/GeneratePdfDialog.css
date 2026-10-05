@@ -48,6 +48,16 @@
   color: var(--semantic-text);
 }
 
+.ui-generate-pdf-dialog__error {
+  margin: 0 0 var(--space-16);
+  padding: var(--space-12) var(--space-16);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--semantic-danger-hover);
+  background-color: var(--semantic-danger-bg);
+  border-radius: var(--radius-default);
+}
+
 .ui-generate-pdf-dialog__actions {
   display: flex;
   justify-content: flex-end;
