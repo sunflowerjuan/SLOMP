@@ -87,7 +87,9 @@ export function TaxRollUploadPage() {
     try {
       const response = await importTaxRoll(file, false);
       setResult(response);
-      refreshHistory();
+      // refreshHistory() handles its own errors (historyError state) and
+      // never rejects -- intentionally fire-and-forget.
+      void refreshHistory();
       // The backend leaves properties/periods that already had a current
       // settlement untouched and reports them in `conflicts`.
       if (response.persisted.conflicts.length > 0) {
@@ -112,7 +114,7 @@ export function TaxRollUploadPage() {
       // the backend updates that same history entry instead of leaving it
       // as "With conflicts" and creating a separate new one.
       setResult(await importTaxRoll(file, true, result?.importId));
-      refreshHistory();
+      void refreshHistory();
       setIsReplaceDialogOpen(false);
     } catch (caught) {
       setIsReplaceDialogOpen(false);

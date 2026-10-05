@@ -229,6 +229,7 @@ export function SettlementsPage() {
                   <div
                     key="estado"
                     className="settlements-page__status-cell"
+                    role="presentation"
                     onClick={(event) => event.stopPropagation()}
                   >
                     <StatusBadge
