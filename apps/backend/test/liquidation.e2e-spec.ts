@@ -1,10 +1,10 @@
 import { existsSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import ExcelJS from 'exceljs';
 import request from 'supertest';
 import { AppModule } from './../src/app.module.js';
+import { resolveSofficeBinary } from './../src/liquidation-template/resolve-soffice-binary.js';
 import { TEMPLATE_PATH } from './../src/liquidation-template/render-liquidation-docx.js';
 
 const SEEDED_ADMIN_EMAIL =
@@ -17,7 +17,7 @@ const SEEDED_ADDRESS = 'Vereda El Chuscal, Finca La Esperanza';
 
 function hasSoffice(): boolean {
   try {
-    execFileSync('soffice', ['--version'], { stdio: 'ignore' });
+    resolveSofficeBinary();
     return true;
   } catch {
     return false;

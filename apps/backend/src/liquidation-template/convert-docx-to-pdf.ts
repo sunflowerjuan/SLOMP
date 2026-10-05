@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
+import { resolveSofficeBinary } from './resolve-soffice-binary.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -24,9 +25,10 @@ export async function convertDocxToPdf(docx: Buffer): Promise<Buffer> {
     try {
       // A unique -env:UserInstallation profile per call: concurrent headless
       // soffice invocations collide on the default shared profile lock
-      // without one.
+      // without one. Resolved to a fixed absolute path, never searched via
+      // PATH (which could be attacker-controlled).
       await execFileAsync(
-        'soffice',
+        resolveSofficeBinary(),
         [
           '--headless',
           '--norestore',

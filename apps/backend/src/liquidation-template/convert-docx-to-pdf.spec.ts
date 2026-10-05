@@ -1,12 +1,12 @@
-import { execFileSync } from 'node:child_process';
 import Docxtemplater from 'docxtemplater';
 import PizZip from 'pizzip';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { resolveSofficeBinary } from './resolve-soffice-binary.js';
 import { loadTemplateFixture } from './test-fixture-docx.js';
 
 function hasSoffice(): boolean {
   try {
-    execFileSync('soffice', ['--version'], { stdio: 'ignore' });
+    resolveSofficeBinary();
     return true;
   } catch {
     return false;
