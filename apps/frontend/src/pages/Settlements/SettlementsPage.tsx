@@ -20,7 +20,7 @@ import { Input } from "../../components/ui/Input";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { Table } from "../../components/ui/Table";
 import { TableRow } from "../../components/ui/TableRow";
-import "./LiquidacionesPage.css";
+import "./SettlementsPage.css";
 
 interface Filters {
   cedulaCatastral: string;
@@ -34,7 +34,7 @@ const EMPTY_FILTERS: Filters = {
   direccion: "",
 };
 
-export function LiquidacionesPage() {
+export function SettlementsPage() {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [results, setResults] = useState<SettlementSearchResult[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
@@ -141,22 +141,22 @@ export function LiquidacionesPage() {
   }
 
   return (
-    <div className="liquidaciones-page">
-      <header className="liquidaciones-page__header">
-        <h1 className="liquidaciones-page__title">Panel de liquidaciones</h1>
-        <p className="liquidaciones-page__subtitle">
+    <div className="settlements-page">
+      <header className="settlements-page__header">
+        <h1 className="settlements-page__title">Panel de liquidaciones</h1>
+        <p className="settlements-page__subtitle">
           Consulta, filtra y genera las liquidaciones oficiales del predio.
         </p>
       </header>
 
-      <section className="liquidaciones-page__card">
-        <h2 className="liquidaciones-page__card-title">Filtros de búsqueda</h2>
-        <p className="liquidaciones-page__card-subtitle">
+      <section className="settlements-page__card">
+        <h2 className="settlements-page__card-title">Filtros de búsqueda</h2>
+        <p className="settlements-page__card-subtitle">
           Al menos un criterio permite ubicar las liquidaciones del predio.
         </p>
 
-        <form className="liquidaciones-page__filters" onSubmit={handleSearch}>
-          <div className="liquidaciones-page__filter-field">
+        <form className="settlements-page__filters" onSubmit={handleSearch}>
+          <div className="settlements-page__filter-field">
             <Input
               label="Cédula catastral"
               placeholder="000-00-0000-000"
@@ -166,7 +166,7 @@ export function LiquidacionesPage() {
               }
             />
           </div>
-          <div className="liquidaciones-page__filter-field">
+          <div className="settlements-page__filter-field">
             <Input
               label="Propietario"
               placeholder="Nombre del propietario"
@@ -176,7 +176,7 @@ export function LiquidacionesPage() {
               }
             />
           </div>
-          <div className="liquidaciones-page__filter-field">
+          <div className="settlements-page__filter-field">
             <Input
               label="Dirección del predio"
               placeholder="Calle 00 # 00-00"
@@ -186,7 +186,7 @@ export function LiquidacionesPage() {
               }
             />
           </div>
-          <div className="liquidaciones-page__filter-action">
+          <div className="settlements-page__filter-action">
             <Button type="submit" loading={isSearching}>
               Buscar
             </Button>
@@ -194,22 +194,22 @@ export function LiquidacionesPage() {
         </form>
 
         {searchError && (
-          <p className="liquidaciones-page__error" role="alert">
+          <p className="settlements-page__error" role="alert">
             {searchError}
           </p>
         )}
       </section>
 
       {hasSearched && (
-        <section className="liquidaciones-page__card">
-          <h2 className="liquidaciones-page__card-title">Resultados</h2>
-          <p className="liquidaciones-page__card-subtitle">
+        <section className="settlements-page__card">
+          <h2 className="settlements-page__card-title">Resultados</h2>
+          <p className="settlements-page__card-subtitle">
             {results.length} liquidaciones encontradas para los criterios
             ingresados.
           </p>
 
           {statusChangeError && (
-            <p className="liquidaciones-page__error" role="alert">
+            <p className="settlements-page__error" role="alert">
               {statusChangeError}
             </p>
           )}
@@ -228,7 +228,7 @@ export function LiquidacionesPage() {
                   entry.period,
                   <div
                     key="estado"
-                    className="liquidaciones-page__status-cell"
+                    className="settlements-page__status-cell"
                     onClick={(event) => event.stopPropagation()}
                   >
                     <StatusBadge
@@ -238,7 +238,7 @@ export function LiquidacionesPage() {
                     </StatusBadge>
                     <select
                       aria-label={`Cambiar estado de la liquidación de ${entry.cadastralCode}, periodo ${entry.period}`}
-                      className="liquidaciones-page__status-select"
+                      className="settlements-page__status-select"
                       value={entry.status}
                       disabled={statusChangeId === entry.settlementId}
                       onChange={(event) =>

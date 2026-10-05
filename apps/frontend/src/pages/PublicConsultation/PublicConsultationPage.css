@@ -1,10 +1,10 @@
-.consulta-publica {
+.public-consultation {
   min-height: 100vh;
   background-color: var(--semantic-surface-muted);
 }
 
 /* Institutional band: same visual language as the Login side panel. */
-.consulta-publica__topbar {
+.public-consultation__topbar {
   position: relative;
   background-color: var(--tinta-700);
   background-image:
@@ -13,7 +13,7 @@
   background-size: 40px 40px;
 }
 
-.consulta-publica__topbar-inner {
+.public-consultation__topbar-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -23,13 +23,13 @@
   padding: var(--space-24);
 }
 
-.consulta-publica__brand {
+.public-consultation__brand {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
 
-.consulta-publica__brand-tag {
+.public-consultation__brand-tag {
   font-family: var(--font-sans);
   font-size: 24px;
   font-weight: 700;
@@ -38,14 +38,14 @@
   text-transform: uppercase;
 }
 
-.consulta-publica__brand-name {
+.public-consultation__brand-name {
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 500;
   color: var(--tinta-100);
 }
 
-.consulta-publica__admin-link {
+.public-consultation__admin-link {
   font-family: var(--font-sans);
   font-size: 14px;
   font-weight: 500;
@@ -54,13 +54,13 @@
   white-space: nowrap;
 }
 
-.consulta-publica__admin-link:hover,
-.consulta-publica__admin-link:focus-visible {
+.public-consultation__admin-link:hover,
+.public-consultation__admin-link:focus-visible {
   color: #ffffff;
   text-decoration: underline;
 }
 
-.consulta-publica__main {
+.public-consultation__main {
   display: flex;
   flex-direction: column;
   gap: var(--space-24);
@@ -69,23 +69,23 @@
   padding: var(--space-48) var(--space-24);
 }
 
-.consulta-publica__main > div[aria-live] {
+.public-consultation__main > div[aria-live] {
   display: flex;
   flex-direction: column;
   gap: var(--space-24);
 }
 
-.consulta-publica__main > div[aria-live]:empty {
+.public-consultation__main > div[aria-live]:empty {
   display: none;
 }
 
-.consulta-publica__header {
+.public-consultation__header {
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
 }
 
-.consulta-publica__title {
+.public-consultation__title {
   margin: 0;
   font-family: var(--font-sans);
   font-size: 28px;
@@ -93,14 +93,14 @@
   color: var(--semantic-text);
 }
 
-.consulta-publica__subtitle {
+.public-consultation__subtitle {
   margin: 0;
   font-family: var(--font-sans);
   font-size: 15px;
   color: var(--semantic-text-muted);
 }
 
-.consulta-publica__card {
+.public-consultation__card {
   display: flex;
   flex-direction: column;
   gap: var(--space-16);
@@ -110,7 +110,7 @@
   box-shadow: 0 10px 30px rgba(19, 20, 23, 0.06);
 }
 
-.consulta-publica__card-title {
+.public-consultation__card-title {
   margin: 0;
   font-family: var(--font-sans);
   font-size: 18px;
@@ -118,7 +118,7 @@
   color: var(--semantic-text);
 }
 
-.consulta-publica__card-subtitle {
+.public-consultation__card-subtitle {
   margin: calc(var(--space-8) * -1) 0 0;
   font-family: var(--font-sans);
   font-size: 14px;
@@ -126,19 +126,19 @@
   color: var(--semantic-text-muted);
 }
 
-.consulta-publica__form {
+.public-consultation__form {
   display: flex;
   flex-direction: column;
   gap: var(--space-20);
 }
 
-.consulta-publica__fields {
+.public-consultation__fields {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-16);
 }
 
-.consulta-publica__form-footer {
+.public-consultation__form-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -146,7 +146,7 @@
   flex-wrap: wrap;
 }
 
-.consulta-publica__counter {
+.public-consultation__counter {
   margin: 0;
   font-family: var(--font-sans);
   font-size: 13px;
@@ -154,16 +154,16 @@
   color: var(--semantic-text-muted);
 }
 
-.consulta-publica__counter--ok {
+.public-consultation__counter--ok {
   color: var(--semantic-success);
 }
 
-.consulta-publica__actions {
+.public-consultation__actions {
   display: flex;
   gap: var(--space-12);
 }
 
-.consulta-publica__message {
+.public-consultation__message {
   margin: 0;
   padding: var(--space-12) var(--space-16);
   font-family: var(--font-sans);
@@ -171,12 +171,12 @@
   border-radius: var(--radius-default);
 }
 
-.consulta-publica__message--danger {
+.public-consultation__message--danger {
   color: var(--semantic-danger-hover);
   background-color: var(--semantic-danger-bg);
 }
 
-.consulta-publica__property {
+.public-consultation__property {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-16);
@@ -187,7 +187,7 @@
   font-family: var(--font-sans);
 }
 
-.consulta-publica__property dt {
+.public-consultation__property dt {
   font-size: 12px;
   font-weight: 600;
   color: var(--semantic-text-muted);
@@ -195,7 +195,7 @@
   letter-spacing: 0.4px;
 }
 
-.consulta-publica__property dd {
+.public-consultation__property dd {
   margin: var(--space-4) 0 0;
   font-size: 15px;
   font-weight: 600;
@@ -203,7 +203,7 @@
   overflow-wrap: anywhere;
 }
 
-.consulta-publica__list {
+.public-consultation__list {
   display: none;
   flex-direction: column;
   gap: var(--space-12);
@@ -212,7 +212,7 @@
   list-style: none;
 }
 
-.consulta-publica__item {
+.public-consultation__item {
   display: flex;
   flex-direction: column;
   gap: var(--space-12);
@@ -222,51 +222,51 @@
   font-family: var(--font-sans);
 }
 
-.consulta-publica__item-head {
+.public-consultation__item-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-8);
 }
 
-.consulta-publica__item-period {
+.public-consultation__item-period {
   font-size: 16px;
   font-weight: 700;
   color: var(--tinta-700);
 }
 
-.consulta-publica__item-data {
+.public-consultation__item-data {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-12);
   margin: 0;
 }
 
-.consulta-publica__item-data dt {
+.public-consultation__item-data dt {
   font-size: 12px;
   color: var(--semantic-text-muted);
 }
 
-.consulta-publica__item-data dd {
+.public-consultation__item-data dd {
   margin: var(--space-4) 0 0;
   font-size: 14px;
   font-weight: 600;
   color: var(--semantic-text);
 }
 
-.consulta-publica__pdf-cell {
+.public-consultation__pdf-cell {
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
 }
 
-.consulta-publica__item-actions {
+.public-consultation__item-actions {
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
 }
 
-.consulta-publica__pdf-error {
+.public-consultation__pdf-error {
   margin: 0;
   padding: var(--space-8) var(--space-12);
   font-family: var(--font-sans);
@@ -277,41 +277,41 @@
 }
 
 @media (max-width: 768px) {
-  .consulta-publica__table {
+  .public-consultation__table {
     display: none;
   }
 
-  .consulta-publica__list {
+  .public-consultation__list {
     display: flex;
   }
 
-  .consulta-publica__topbar-inner {
+  .public-consultation__topbar-inner {
     padding: var(--space-16);
   }
 
-  .consulta-publica__main {
+  .public-consultation__main {
     padding: var(--space-24) var(--space-16);
   }
 
-  .consulta-publica__title {
+  .public-consultation__title {
     font-size: 22px;
   }
 
-  .consulta-publica__card {
+  .public-consultation__card {
     padding: var(--space-24);
   }
 
-  .consulta-publica__fields,
-  .consulta-publica__property {
+  .public-consultation__fields,
+  .public-consultation__property {
     grid-template-columns: 1fr;
   }
 
-  .consulta-publica__form-footer {
+  .public-consultation__form-footer {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .consulta-publica__actions .ui-button {
+  .public-consultation__actions .ui-button {
     flex: 1;
   }
 }

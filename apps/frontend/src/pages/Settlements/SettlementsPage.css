@@ -1,4 +1,4 @@
-.liquidaciones-page {
+.settlements-page {
   display: flex;
   flex-direction: column;
   gap: var(--space-24);
@@ -8,13 +8,13 @@
   box-sizing: border-box;
 }
 
-.liquidaciones-page__header {
+.settlements-page__header {
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
 }
 
-.liquidaciones-page__title {
+.settlements-page__title {
   margin: 0;
   font-family: var(--font-sans);
   font-size: 28px;
@@ -22,14 +22,14 @@
   color: var(--semantic-text);
 }
 
-.liquidaciones-page__subtitle {
+.settlements-page__subtitle {
   margin: 0;
   font-family: var(--font-sans);
   font-size: 14px;
   color: var(--semantic-text-muted);
 }
 
-.liquidaciones-page__card {
+.settlements-page__card {
   display: flex;
   flex-direction: column;
   gap: var(--space-16);
@@ -40,7 +40,7 @@
   box-sizing: border-box;
 }
 
-.liquidaciones-page__card-title {
+.settlements-page__card-title {
   margin: 0;
   font-family: var(--font-sans);
   font-size: 18px;
@@ -48,37 +48,37 @@
   color: var(--semantic-text);
 }
 
-.liquidaciones-page__card-subtitle {
+.settlements-page__card-subtitle {
   margin: calc(var(--space-8) * -1) 0 0;
   font-family: var(--font-sans);
   font-size: 14px;
   color: var(--semantic-text-muted);
 }
 
-.liquidaciones-page__filters {
+.settlements-page__filters {
   display: flex;
   align-items: flex-end;
   gap: var(--space-16);
   flex-wrap: wrap;
 }
 
-.liquidaciones-page__filter-field {
+.settlements-page__filter-field {
   flex: 1 1 200px;
   min-width: 200px;
 }
 
-.liquidaciones-page__filter-action {
+.settlements-page__filter-action {
   flex: 0 0 auto;
 }
 
-.liquidaciones-page__status-cell {
+.settlements-page__status-cell {
   display: flex;
   align-items: center;
   gap: var(--space-8);
   flex-wrap: wrap;
 }
 
-.liquidaciones-page__status-select {
+.settlements-page__status-select {
   font-family: var(--font-sans);
   font-size: 13px;
   color: var(--semantic-text);
@@ -88,12 +88,12 @@
   padding: var(--space-4) var(--space-8);
 }
 
-.liquidaciones-page__status-select:disabled {
+.settlements-page__status-select:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.liquidaciones-page__error {
+.settlements-page__error {
   margin: 0;
   padding: var(--space-12) var(--space-16);
   font-family: var(--font-sans);
@@ -104,25 +104,25 @@
 }
 
 @media (max-width: 768px) {
-  .liquidaciones-page {
+  .settlements-page {
     padding: var(--space-24) var(--space-16);
   }
 
-  .liquidaciones-page__card {
+  .settlements-page__card {
     padding: var(--space-24);
   }
 
-  .liquidaciones-page__filters {
+  .settlements-page__filters {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .liquidaciones-page__filter-field {
+  .settlements-page__filter-field {
     flex-basis: auto;
     min-width: 0;
   }
 
-  .liquidaciones-page__filter-action .ui-button {
+  .settlements-page__filter-action .ui-button {
     width: 100%;
   }
 }

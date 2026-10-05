@@ -20,7 +20,7 @@ import { Table } from "../../components/ui/Table";
 import { TableRow } from "../../components/ui/TableRow";
 import { ADMIN_HREF } from "../../routes";
 import { triggerBrowserDownload } from "../../utils/downloadBlob";
-import "./ConsultaPublicaPage.css";
+import "./PublicConsultationPage.css";
 
 // Exact match on at least 2 of the 3 fields.
 const MIN_FILLED_FIELDS = 2;
@@ -102,7 +102,7 @@ function formatDate(iso: string): string {
   return Number.isNaN(date.getTime()) ? iso : dateFormatter.format(date);
 }
 
-export function ConsultaPublicaPage() {
+export function PublicConsultationPage() {
   const [values, setValues] = useState<FormValues>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [search, setSearch] = useState<SearchState>({ kind: "idle" });
@@ -197,53 +197,53 @@ export function ConsultaPublicaPage() {
   }
 
   return (
-    <div className="consulta-publica">
-      <header className="consulta-publica__topbar">
-        <div className="consulta-publica__topbar-inner">
-          <div className="consulta-publica__brand">
-            <span className="consulta-publica__brand-tag">SLOMP</span>
-            <span className="consulta-publica__brand-name">
+    <div className="public-consultation">
+      <header className="public-consultation__topbar">
+        <div className="public-consultation__topbar-inner">
+          <div className="public-consultation__brand">
+            <span className="public-consultation__brand-tag">SLOMP</span>
+            <span className="public-consultation__brand-name">
               Tributaria Predial
             </span>
           </div>
-          <a className="consulta-publica__admin-link" href={ADMIN_HREF}>
+          <a className="public-consultation__admin-link" href={ADMIN_HREF}>
             Acceso administrador
           </a>
         </div>
       </header>
 
-      <main className="consulta-publica__main">
-        <header className="consulta-publica__header">
-          <h1 className="consulta-publica__title">
+      <main className="public-consultation__main">
+        <header className="public-consultation__header">
+          <h1 className="public-consultation__title">
             Consulta de liquidaciones del impuesto predial
           </h1>
-          <p className="consulta-publica__subtitle">
+          <p className="public-consultation__subtitle">
             Consulta las liquidaciones oficiales de tu predio. No necesitas
             crear una cuenta.
           </p>
         </header>
 
         <section
-          className="consulta-publica__card"
-          aria-labelledby="consulta-publica-form-title"
+          className="public-consultation__card"
+          aria-labelledby="public-consultation-form-title"
         >
           <h2
-            id="consulta-publica-form-title"
-            className="consulta-publica__card-title"
+            id="public-consultation-form-title"
+            className="public-consultation__card-title"
           >
             Datos del predio
           </h2>
-          <p className="consulta-publica__card-subtitle">
+          <p className="public-consultation__card-subtitle">
             Ingresa al menos 2 de los 3 datos tal como aparecen en tu
             liquidación o en el recibo del predio.
           </p>
 
           <form
-            className="consulta-publica__form"
+            className="public-consultation__form"
             onSubmit={handleSubmit}
             noValidate
           >
-            <div className="consulta-publica__fields">
+            <div className="public-consultation__fields">
               <Input
                 label="Cédula catastral"
                 placeholder="000-00-0000-000"
@@ -273,12 +273,12 @@ export function ConsultaPublicaPage() {
               />
             </div>
 
-            <div className="consulta-publica__form-footer">
+            <div className="public-consultation__form-footer">
               <p
                 className={[
-                  "consulta-publica__counter",
+                  "public-consultation__counter",
                   filledCount >= MIN_FILLED_FIELDS
-                    ? "consulta-publica__counter--ok"
+                    ? "public-consultation__counter--ok"
                     : "",
                 ]
                   .filter(Boolean)
@@ -290,7 +290,7 @@ export function ConsultaPublicaPage() {
                   ? ` · faltan ${MIN_FILLED_FIELDS - filledCount}`
                   : " · listo para consultar"}
               </p>
-              <div className="consulta-publica__actions">
+              <div className="public-consultation__actions">
                 <Button
                   type="button"
                   variant="secondary"
@@ -307,7 +307,7 @@ export function ConsultaPublicaPage() {
 
             {formError && (
               <p
-                className="consulta-publica__message consulta-publica__message--danger"
+                className="public-consultation__message public-consultation__message--danger"
                 role="alert"
               >
                 {formError}
@@ -318,11 +318,11 @@ export function ConsultaPublicaPage() {
 
         <div aria-live="polite">
           {search.kind === "not-found" && (
-            <section className="consulta-publica__card">
-              <h2 className="consulta-publica__card-title">
+            <section className="public-consultation__card">
+              <h2 className="public-consultation__card-title">
                 No encontramos liquidaciones vigentes
               </h2>
-              <p className="consulta-publica__card-subtitle">
+              <p className="public-consultation__card-subtitle">
                 Verifica que los datos coincidan exactamente con los registrados
                 en tu liquidación o recibo del predio. Si el problema continúa,
                 acércate a la Secretaría de Hacienda del municipio.
@@ -332,7 +332,7 @@ export function ConsultaPublicaPage() {
 
           {search.kind === "error" && (
             <p
-              className="consulta-publica__message consulta-publica__message--danger"
+              className="public-consultation__message public-consultation__message--danger"
               role="alert"
             >
               {search.message}
@@ -341,17 +341,17 @@ export function ConsultaPublicaPage() {
 
           {search.kind === "found" && (
             <section
-              className="consulta-publica__card"
-              aria-labelledby="consulta-publica-results-title"
+              className="public-consultation__card"
+              aria-labelledby="public-consultation-results-title"
             >
               <h2
-                id="consulta-publica-results-title"
-                className="consulta-publica__card-title"
+                id="public-consultation-results-title"
+                className="public-consultation__card-title"
               >
                 Liquidaciones del predio
               </h2>
 
-              <dl className="consulta-publica__property">
+              <dl className="public-consultation__property">
                 <div>
                   <dt>Cédula catastral</dt>
                   <dd>{search.results[0].cadastralCode}</dd>
@@ -367,7 +367,7 @@ export function ConsultaPublicaPage() {
               </dl>
 
               {/* Desktop: table. Mobile: stacked cards. */}
-              <div className="consulta-publica__table">
+              <div className="public-consultation__table">
                 <Table
                   columns={[
                     "Periodo",
@@ -390,7 +390,10 @@ export function ConsultaPublicaPage() {
                         >
                           {SETTLEMENT_STATUS_LABEL[settlement.status]}
                         </StatusBadge>,
-                        <div key="pdf" className="consulta-publica__pdf-cell">
+                        <div
+                          key="pdf"
+                          className="public-consultation__pdf-cell"
+                        >
                           <Button
                             variant="secondary"
                             loading={pdfState[settlement.settlementId]?.loading}
@@ -402,7 +405,7 @@ export function ConsultaPublicaPage() {
                           </Button>
                           {pdfState[settlement.settlementId]?.error && (
                             <p
-                              className="consulta-publica__pdf-error"
+                              className="public-consultation__pdf-error"
                               role="alert"
                             >
                               {pdfState[settlement.settlementId]?.error}
@@ -415,14 +418,14 @@ export function ConsultaPublicaPage() {
                 </Table>
               </div>
 
-              <ul className="consulta-publica__list">
+              <ul className="public-consultation__list">
                 {search.results.map((settlement) => (
                   <li
                     key={settlement.settlementId}
-                    className="consulta-publica__item"
+                    className="public-consultation__item"
                   >
-                    <div className="consulta-publica__item-head">
-                      <span className="consulta-publica__item-period">
+                    <div className="public-consultation__item-head">
+                      <span className="public-consultation__item-period">
                         Periodo {settlement.period}
                       </span>
                       <StatusBadge
@@ -431,7 +434,7 @@ export function ConsultaPublicaPage() {
                         {SETTLEMENT_STATUS_LABEL[settlement.status]}
                       </StatusBadge>
                     </div>
-                    <dl className="consulta-publica__item-data">
+                    <dl className="public-consultation__item-data">
                       <div>
                         <dt>Expedición</dt>
                         <dd>{formatDate(settlement.issuedAt)}</dd>
@@ -441,7 +444,7 @@ export function ConsultaPublicaPage() {
                         <dd>{formatAmount(settlement.totalAmount)}</dd>
                       </div>
                     </dl>
-                    <div className="consulta-publica__item-actions">
+                    <div className="public-consultation__item-actions">
                       <Button
                         variant="secondary"
                         fullWidth
@@ -453,7 +456,10 @@ export function ConsultaPublicaPage() {
                         Descargar PDF
                       </Button>
                       {pdfState[settlement.settlementId]?.error && (
-                        <p className="consulta-publica__pdf-error" role="alert">
+                        <p
+                          className="public-consultation__pdf-error"
+                          role="alert"
+                        >
                           {pdfState[settlement.settlementId]?.error}
                         </p>
                       )}
