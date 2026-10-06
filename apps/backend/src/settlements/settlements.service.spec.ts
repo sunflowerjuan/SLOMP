@@ -141,23 +141,33 @@ describe('SettlementsService', () => {
       expect(prisma.settlement.update).not.toHaveBeenCalled();
     });
 
-    it('lets the Administrator force any of the 4 states on a current settlement', async () => {
-      const prisma = buildPrismaForStatusChange({ id: 1, replacedAt: null });
-      const service = new SettlementsService(prisma as never);
+    it.each(Object.values(SettlementStatus))(
+      'lets the Administrator force %s on a current settlement',
+      async (status) => {
+        const prisma = buildPrismaForStatusChange({ id: 1, replacedAt: null });
+        const service = new SettlementsService(prisma as never);
 
-      const result = await service.changeStatus(
-        1,
+        const result = await service.changeStatus(1, status);
+
+        expect(prisma.settlement.update).toHaveBeenCalledWith({
+          where: { id: 1 },
+          data: { status },
+        });
+        expect(result).toEqual({ settlementId: 1, status });
+      },
+    );
+  });
+});
+
+describe('SettlementStatus', () => {
+  it('has exactly the four real settlement lifecycle states', () => {
+    expect(Object.values(SettlementStatus).sort()).toEqual(
+      [
+        SettlementStatus.VIGENTE,
+        SettlementStatus.PAGADA,
         SettlementStatus.ACUERDO_DE_PAGO,
-      );
-
-      expect(prisma.settlement.update).toHaveBeenCalledWith({
-        where: { id: 1 },
-        data: { status: SettlementStatus.ACUERDO_DE_PAGO },
-      });
-      expect(result).toEqual({
-        settlementId: 1,
-        status: SettlementStatus.ACUERDO_DE_PAGO,
-      });
-    });
+        SettlementStatus.PRESCRITA,
+      ].sort(),
+    );
   });
 });
