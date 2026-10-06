@@ -135,9 +135,15 @@ const ERROR_MESSAGES: Record<string, CatalogEntry> = {
     "La generación del PDF tardó demasiado y se canceló. Intenta de nuevo; si el problema continúa, contacta al equipo de soporte.",
   PDF_CONVERSION_FAILED:
     "No se pudo convertir la liquidación a PDF y no se generó ningún archivo. Intenta de nuevo; si el problema continúa, contacta al equipo de soporte.",
-  NO_PENDING_LIQUIDATIONS: "No hay liquidaciones pendientes por generar.",
+  NO_PENDING_LIQUIDATIONS: "No hay liquidaciones de este tipo para generar.",
+  BULK_GENERATION_IN_PROGRESS:
+    "Ya hay una generación masiva en curso. Espera a que termine para iniciar otra.",
+  BULK_JOB_NOT_FOUND:
+    "No encontramos la generación solicitada. Pudo haber caducado; inicia una nueva.",
+  BULK_JOB_NOT_READY:
+    "La generación todavía no termina. Espera unos segundos e intenta de nuevo.",
   BULK_LIMIT_EXCEEDED: (details) =>
-    `Hay ${numberOr(details.count, "demasiadas")} liquidaciones pendientes y el máximo por descarga masiva es ${numberOr(details.max, "50")}. Contacta al equipo de soporte para generarlas por partes.`,
+    `Hay ${numberOr(details.count, "demasiadas")} liquidaciones pendientes y el máximo por descarga masiva es ${numberOr(details.max, "10000")}. Contacta al equipo de soporte para generarlas por partes.`,
 };
 
 // The taxpayer cannot fix templates or the liquidation's data, so these codes
