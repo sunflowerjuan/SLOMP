@@ -1,7 +1,9 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ResolutionKind } from '@prisma/client';
 import {
@@ -9,8 +11,14 @@ import {
   type PropertyLike,
   type SettlementWithDetailsLike,
 } from '../liquidation-template/build-liquidation-template-data.js';
-import { convertDocxToPdf } from '../liquidation-template/convert-docx-to-pdf.js';
-import { renderLiquidationDocx } from '../liquidation-template/render-liquidation-docx.js';
+import {
+  convertDocxToPdf,
+  PdfConversionError,
+} from '../liquidation-template/convert-docx-to-pdf.js';
+import {
+  LiquidationTemplateError,
+  renderLiquidationDocx,
+} from '../liquidation-template/render-liquidation-docx.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   currentYearInColombia,
@@ -39,6 +47,36 @@ function toTemplateSettlements(
       amount: d.amount.toNumber(),
     })),
   }));
+}
+
+function assertCompleteLiquidationData(
+  property: PropertyLike,
+  settlements: SettlementWithDetailsLike[],
+): void {
+  const missing: string[] = [];
+  if (!property.cadastralCode?.trim()) missing.push('cadastral code');
+  if (!property.address?.trim()) missing.push('property address');
+  if (settlements.length === 0) missing.push('settlement periods');
+  if (settlements.some((settlement) => settlement.details.length === 0)) {
+    missing.push('settlement detail lines');
+  }
+  if (
+    settlements.some(
+      (settlement) =>
+        !Number.isInteger(settlement.period) ||
+        settlement.details.some(
+          (detail) =>
+            !detail.concept?.trim() || !Number.isFinite(detail.amount),
+        ),
+    )
+  ) {
+    missing.push('valid settlement values');
+  }
+  if (missing.length > 0) {
+    throw new BadRequestException(
+      `Cannot generate the liquidation PDF because required data is missing or invalid: ${missing.join(', ')}. Complete the liquidation and try again.`,
+    );
+  }
 }
 
 @Injectable()
@@ -97,6 +135,18 @@ export class GenerateLiquidationPdfService {
       );
       const groupIds = group.map((s) => s.id);
 
+      // Validate the persisted detail rows before reserving a consecutive
+      // resolution number. This prevents incomplete data from consuming a
+      // number or leaving an associated resolution behind after a failed PDF.
+      const preflightSettlements = await this.prisma.settlement.findMany({
+        where: { id: { in: groupIds } },
+        include: { details: true },
+      });
+      assertCompleteLiquidationData(
+        property,
+        toTemplateSettlements(preflightSettlements),
+      );
+
       const { resolution, settlements: grouped } =
         await this.prisma.$transaction(async (tx) => {
           const reserved = await reserveResolutionNumber(tx, currentYear);
@@ -133,13 +183,28 @@ export class GenerateLiquidationPdfService {
       templateSettlements = toTemplateSettlements(grouped);
     }
 
+    // Validate before template rendering so missing data never becomes a
+    // misleading zero-value document.
+    assertCompleteLiquidationData(property, templateSettlements);
     const templateData = buildLiquidationTemplateData(
       resolutionNumber,
       property,
       templateSettlements,
     );
-    const docx = renderLiquidationDocx(templateData);
-    const pdf = await convertDocxToPdf(docx);
+    let docx: Buffer;
+    let pdf: Buffer;
+    try {
+      docx = renderLiquidationDocx(templateData);
+      pdf = await convertDocxToPdf(docx);
+    } catch (error) {
+      if (
+        error instanceof LiquidationTemplateError ||
+        error instanceof PdfConversionError
+      ) {
+        throw new ServiceUnavailableException(error.message);
+      }
+      throw error;
+    }
 
     return { pdf, resolutionNumber };
   }

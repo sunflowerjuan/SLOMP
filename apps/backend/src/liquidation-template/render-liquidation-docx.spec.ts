@@ -47,6 +47,16 @@ describe('renderLiquidationDocx', () => {
   it('throws a clear error when the template file is missing', () => {
     expect(() =>
       renderLiquidationDocx(DATA, '/nonexistent/path/liquidacion-paez.docx'),
-    ).toThrow(/template not found/i);
+    ).toThrow(/template is unavailable/i);
+  });
+
+  it('throws a clear error when the template is corrupt', () => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'liquidation-template-'));
+    const templatePath = join(tmpDir, 'corrupt.docx');
+    writeFileSync(templatePath, 'this is not a docx file');
+
+    expect(() => renderLiquidationDocx(DATA, templatePath)).toThrow(
+      /invalid or corrupted/i,
+    );
   });
 });

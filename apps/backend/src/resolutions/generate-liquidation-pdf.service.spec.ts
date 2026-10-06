@@ -1,15 +1,25 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ResolutionKind, SettlementStatus } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../liquidation-template/render-liquidation-docx.js', () => ({
+  LiquidationTemplateError: class LiquidationTemplateError extends Error {},
   renderLiquidationDocx: vi.fn(() => Buffer.from('fake-docx')),
 }));
 vi.mock('../liquidation-template/convert-docx-to-pdf.js', () => ({
+  PdfConversionError: class PdfConversionError extends Error {},
   convertDocxToPdf: vi.fn(async () => Buffer.from('%PDF-fake')),
 }));
 
-import { convertDocxToPdf } from '../liquidation-template/convert-docx-to-pdf.js';
+import {
+  convertDocxToPdf,
+  PdfConversionError,
+} from '../liquidation-template/convert-docx-to-pdf.js';
 import { renderLiquidationDocx } from '../liquidation-template/render-liquidation-docx.js';
 import { GenerateLiquidationPdfService } from './generate-liquidation-pdf.service.js';
 
@@ -247,6 +257,33 @@ describe('GenerateLiquidationPdfService', () => {
 
     await expect(service.generateForSettlement(1)).rejects.toBeInstanceOf(
       ConflictException,
+    );
+  });
+
+  it('rejects an incomplete liquidation before rendering or converting a PDF', async () => {
+    const prisma = new FakePrisma();
+    prisma.settlements.push(buildSettlement({ id: 1, details: [] }));
+    const service = new GenerateLiquidationPdfService(prisma as never);
+
+    await expect(service.generateForSettlement(1)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(prisma.resolutions).toHaveLength(0);
+    expect(prisma.counters.size).toBe(0);
+    expect(renderLiquidationDocx).not.toHaveBeenCalled();
+    expect(convertDocxToPdf).not.toHaveBeenCalled();
+  });
+
+  it('returns a controlled HTTP error instead of a PDF when conversion fails', async () => {
+    const prisma = new FakePrisma();
+    prisma.settlements.push(buildSettlement({ id: 1 }));
+    vi.mocked(convertDocxToPdf).mockRejectedValueOnce(
+      new PdfConversionError('PDF generation timed out after 25 seconds.'),
+    );
+    const service = new GenerateLiquidationPdfService(prisma as never);
+
+    await expect(service.generateForSettlement(1)).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
     );
   });
 

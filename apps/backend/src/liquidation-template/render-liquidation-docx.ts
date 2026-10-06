@@ -4,6 +4,13 @@ import Docxtemplater from 'docxtemplater';
 import PizZip from 'pizzip';
 import type { LiquidationTemplateData } from './liquidation-template-data.js';
 
+export class LiquidationTemplateError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'LiquidationTemplateError';
+  }
+}
+
 // Hardcoded path, same as liquidation-template.spec.ts: the real template is
 // client material and isn't versioned in git (see templates/.gitkeep).
 // Reading it from a Blob-referenced path instead of this fixed path is
@@ -21,11 +28,20 @@ export function renderLiquidationDocx(
   try {
     templateBuffer = readFileSync(templatePath);
   } catch {
-    throw new Error(`Liquidation template not found at ${templatePath}.`);
+    throw new LiquidationTemplateError(
+      'The liquidation template is unavailable. Verify that the .docx template is installed in the configured location.',
+    );
   }
 
-  const zip = new PizZip(templateBuffer);
-  const document = new Docxtemplater(zip, { paragraphLoop: true });
-  document.render(data);
-  return document.getZip().generate({ type: 'nodebuffer' });
+  try {
+    const zip = new PizZip(templateBuffer);
+    const document = new Docxtemplater(zip, { paragraphLoop: true });
+    document.render(data);
+    return document.getZip().generate({ type: 'nodebuffer' });
+  } catch (error) {
+    throw new LiquidationTemplateError(
+      'The liquidation template is invalid or corrupted. Replace it with a valid .docx template.',
+      { cause: error },
+    );
+  }
 }
