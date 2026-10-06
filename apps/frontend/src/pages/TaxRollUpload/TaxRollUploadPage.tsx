@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getErrorMessage } from "../../api/ApiError";
 import { messageForRowIssue } from "../../api/errorMessages";
 import { importTaxRoll, listTaxRollImports } from "../../api/taxRoll";
+import { BulkZipPanel } from "./BulkZipPanel";
 import type {
   TaxRollImportHistoryEntry,
   TaxRollImportResult,
@@ -137,126 +138,142 @@ export function TaxRollUploadPage() {
         </p>
       </header>
 
-      <section className="tax-roll-upload-page__card">
-        <h2 className="tax-roll-upload-page__card-title">Nueva carga</h2>
-        <p className="tax-roll-upload-page__card-subtitle">
-          Cada predio y periodo solo puede liquidarse una vez. Si el periodo ya
-          fue liquidado, el sistema te avisará antes de reemplazarlo.
-        </p>
+      <div className="tax-roll-upload-page__layout">
+        <div className="tax-roll-upload-page__main">
+          <section className="tax-roll-upload-page__card tax-roll-upload-page__upload">
+            <h2 className="tax-roll-upload-page__card-title">Nueva carga</h2>
+            <p className="tax-roll-upload-page__card-subtitle">
+              Cada predio y periodo solo puede liquidarse una vez. Si el periodo
+              ya fue liquidado, el sistema te avisará antes de reemplazarlo.
+            </p>
 
-        <Dropzone
-          file={file}
-          onFileSelect={(selected) => {
-            setFile(selected);
-            resetOutcome();
-          }}
-          onClear={() => {
-            setFile(null);
-            resetOutcome();
-          }}
-        />
+            <Dropzone
+              file={file}
+              onFileSelect={(selected) => {
+                setFile(selected);
+                resetOutcome();
+              }}
+              onClear={() => {
+                setFile(null);
+                resetOutcome();
+              }}
+            />
 
-        {error && (
-          <p className="tax-roll-upload-page__error" role="alert">
-            {error}
-          </p>
-        )}
-
-        <div className="tax-roll-upload-page__actions">
-          <Button
-            type="button"
-            disabled={!file}
-            loading={isProcessing}
-            onClick={handleProcess}
-          >
-            Procesar archivo
-          </Button>
-        </div>
-      </section>
-
-      {result && (
-        <section className="tax-roll-upload-page__card" aria-live="polite">
-          <h2 className="tax-roll-upload-page__card-title">
-            Resultado de la carga
-          </h2>
-          <ul className="tax-roll-upload-page__summary">
-            <li>
-              <strong>{result.persisted.settlements}</strong> liquidaciones
-              generadas
-            </li>
-            <li>
-              <strong>{result.persisted.properties}</strong> predios y{" "}
-              <strong>{result.persisted.owners}</strong> propietarios procesados
-            </li>
-            {conflictCount > 0 && (
-              <li>
-                <strong>{conflictCount}</strong> predios y periodos ya tenían
-                una liquidación y no se modificaron
-                {!isReplaceDialogOpen && (
-                  <>
-                    {" "}
-                    <Button
-                      variant="secondary"
-                      onClick={() => setIsReplaceDialogOpen(true)}
-                    >
-                      Reemplazar
-                    </Button>
-                  </>
-                )}
-              </li>
+            {error && (
+              <p className="tax-roll-upload-page__error" role="alert">
+                {error}
+              </p>
             )}
-            <li>
-              <strong>{result.invalidRows.length}</strong> filas inválidas
-              omitidas, <strong>{result.warnings.length}</strong> con
-              advertencias
-            </li>
-          </ul>
-          <IssueList title="Filas inválidas" issues={result.invalidRows} />
-          <IssueList title="Advertencias" issues={result.warnings} />
-        </section>
-      )}
 
-      <section className="tax-roll-upload-page__card">
-        <h2 className="tax-roll-upload-page__card-title">
-          Historial de cargas
-        </h2>
-        <p className="tax-roll-upload-page__card-subtitle">
-          Últimos archivos procesados por el sistema.
-        </p>
+            <div className="tax-roll-upload-page__actions">
+              <Button
+                type="button"
+                disabled={!file}
+                loading={isProcessing}
+                onClick={handleProcess}
+              >
+                Procesar archivo
+              </Button>
+            </div>
+          </section>
 
-        {historyError && (
-          <p className="tax-roll-upload-page__error" role="alert">
-            {historyError}
-          </p>
-        )}
-
-        {!historyError && !isHistoryLoading && history.length === 0 && (
-          <p className="tax-roll-upload-page__card-subtitle">
-            Todavía no se ha procesado ningún archivo.
-          </p>
-        )}
-
-        {history.length > 0 && (
-          <Table columns={["Archivo", "Fecha de carga", "Registros", "Estado"]}>
-            {history.map((entry) => {
-              const status = historyEntryStatus(entry);
-              return (
-                <TableRow
-                  key={entry.id}
-                  cells={[
-                    entry.fileName,
-                    DATE_FORMATTER.format(new Date(entry.importedAt)),
-                    entry.validRows + entry.invalidRows,
-                    <StatusBadge key="estado" variant={status.variant}>
-                      {status.label}
-                    </StatusBadge>,
-                  ]}
+          {result && (
+            <div className="tax-roll-upload-page__result-reveal">
+              <section
+                className="tax-roll-upload-page__card tax-roll-upload-page__result"
+                aria-live="polite"
+              >
+                <h2 className="tax-roll-upload-page__card-title">
+                  Resultado de la carga
+                </h2>
+                <ul className="tax-roll-upload-page__summary">
+                  <li>
+                    <strong>{result.persisted.settlements}</strong>{" "}
+                    liquidaciones generadas
+                  </li>
+                  <li>
+                    <strong>{result.persisted.properties}</strong> predios y{" "}
+                    <strong>{result.persisted.owners}</strong> propietarios
+                    procesados
+                  </li>
+                  {conflictCount > 0 && (
+                    <li>
+                      <strong>{conflictCount}</strong> predios y periodos ya
+                      tenían una liquidación y no se modificaron
+                      {!isReplaceDialogOpen && (
+                        <>
+                          {" "}
+                          <Button
+                            variant="secondary"
+                            onClick={() => setIsReplaceDialogOpen(true)}
+                          >
+                            Reemplazar
+                          </Button>
+                        </>
+                      )}
+                    </li>
+                  )}
+                  <li>
+                    <strong>{result.invalidRows.length}</strong> filas inválidas
+                    omitidas, <strong>{result.warnings.length}</strong> con
+                    advertencias
+                  </li>
+                </ul>
+                <IssueList
+                  title="Filas inválidas"
+                  issues={result.invalidRows}
                 />
-              );
-            })}
-          </Table>
-        )}
-      </section>
+                <IssueList title="Advertencias" issues={result.warnings} />
+              </section>
+            </div>
+          )}
+
+          <section className="tax-roll-upload-page__card tax-roll-upload-page__history">
+            <h2 className="tax-roll-upload-page__card-title">
+              Historial de cargas
+            </h2>
+            <p className="tax-roll-upload-page__card-subtitle">
+              Últimos archivos procesados por el sistema.
+            </p>
+
+            {historyError && (
+              <p className="tax-roll-upload-page__error" role="alert">
+                {historyError}
+              </p>
+            )}
+
+            {!historyError && !isHistoryLoading && history.length === 0 && (
+              <p className="tax-roll-upload-page__card-subtitle">
+                Todavía no se ha procesado ningún archivo.
+              </p>
+            )}
+
+            {history.length > 0 && (
+              <Table
+                columns={["Archivo", "Fecha de carga", "Registros", "Estado"]}
+              >
+                {history.map((entry) => {
+                  const status = historyEntryStatus(entry);
+                  return (
+                    <TableRow
+                      key={entry.id}
+                      cells={[
+                        entry.fileName,
+                        DATE_FORMATTER.format(new Date(entry.importedAt)),
+                        entry.validRows + entry.invalidRows,
+                        <StatusBadge key="estado" variant={status.variant}>
+                          {status.label}
+                        </StatusBadge>,
+                      ]}
+                    />
+                  );
+                })}
+              </Table>
+            )}
+          </section>
+        </div>
+        <BulkZipPanel refreshKey={result?.importId} />
+      </div>
 
       <ReplaceConfirmDialog
         open={isReplaceDialogOpen}
