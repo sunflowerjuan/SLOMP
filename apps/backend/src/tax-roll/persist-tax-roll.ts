@@ -126,9 +126,15 @@ export async function persistTaxRoll(
         where: { documentId: row.taxId },
         create: {
           documentId: row.taxId,
+          documentType: row.documentType,
           name: row.ownerName ?? NO_OWNER_NAME_PLACEHOLDER,
         },
-        update: row.ownerName ? { name: row.ownerName } : {},
+        // Same rule as the name: what the file states wins, but a row that
+        // states nothing never erases what's already known (SL-75).
+        update: {
+          ...(row.ownerName && { name: row.ownerName }),
+          ...(row.documentType && { documentType: row.documentType }),
+        },
       }),
     ),
   );

@@ -35,6 +35,26 @@ enum LandUse {
 }
 
 // ----------------------------------------------------------------------------
+// Owner document type (HU21 / SL-75), DIAN document types.
+// Optional: only stored when the tax roll's CCNIT cell states it
+// ("CC 40587912"); NULL otherwise. Never deduced from the number
+// (apps/backend/src/tax-roll/parse-owner-document.ts).
+// ----------------------------------------------------------------------------
+enum DocumentType {
+  RC // Registro civil
+  TI // Tarjeta de identidad
+  CC // Cédula de ciudadanía
+  TE // Tarjeta de extranjería
+  CE // Cédula de extranjería
+  NIT // Número de identificación tributaria
+  PA // Pasaporte
+  TDE // Documento de identificación extranjero
+  PEP // Permiso especial de permanencia
+  PPT // Permiso por protección temporal
+  NUIP // Número único de identificación personal
+}
+
+// ----------------------------------------------------------------------------
 // Municipality
 // ----------------------------------------------------------------------------
 model Municipality {
@@ -84,13 +104,15 @@ model Property {
 // Owner
 // ----------------------------------------------------------------------------
 model Owner {
-  id         Int      @id @default(autoincrement())
-  name       String
-  documentId String   @unique // national ID / tax ID (cédula / NIT)
-  phone      String?
-  email      String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id           Int           @id @default(autoincrement())
+  name         String
+  documentId   String        @unique // national ID / tax ID (cédula / NIT)
+  // NULL = the tax roll didn't state it. No @default: never "CC by default".
+  documentType DocumentType?
+  phone        String?
+  email        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
   properties PropertyOwner[]
 

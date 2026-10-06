@@ -411,4 +411,66 @@ describe('parseTaxRollExcel', () => {
       expect(result.warnings).toHaveLength(0);
     });
   });
+
+  it('reads the document classification stated in CCNIT and keeps plain numbers unclassified (SL-75)', async () => {
+    const buffer = await buildWorkbookBuffer([
+      buildRow({ CCNIT: 'CC 40587912' }),
+      buildRow({
+        'Cédula Catastral': '000100010002',
+        CCNIT: 'Cédula de extranjería 456789',
+      }),
+      buildRow({ 'Cédula Catastral': '000100010003', CCNIT: '900123456-1' }),
+    ]);
+    const result = await parseTaxRollExcel(buffer);
+
+    expect(result.invalidRows).toHaveLength(0);
+    expect(result.warnings).toHaveLength(0);
+    expect(
+      result.validRows.map(({ taxId, documentType }) => ({
+        taxId,
+        documentType,
+      })),
+    ).toEqual([
+      { taxId: '40587912', documentType: 'CC' },
+      { taxId: '456789', documentType: 'CE' },
+      // Looks like a NIT, but the cell doesn't say so: never deduced.
+      { taxId: '900123456-1', documentType: null },
+    ]);
+  });
+
+  it('warns about an unrecognized classification instead of guessing one', async () => {
+    const buffer = await buildWorkbookBuffer([
+      buildRow({ CCNIT: 'CEDULA 40587912' }),
+    ]);
+    const result = await parseTaxRollExcel(buffer);
+
+    expect(result.invalidRows).toHaveLength(0);
+    expect(result.validRows[0]).toMatchObject({
+      taxId: 'CEDULA 40587912',
+      documentType: null,
+    });
+    expect(result.warnings).toEqual([
+      {
+        row: 2,
+        code: 'UNRECOGNIZED_DOCUMENT_TYPE',
+        reason:
+          'Unrecognized document type in CCNIT "CEDULA 40587912"; owner stored without a document type',
+        details: { value: 'CEDULA 40587912' },
+      },
+    ]);
+  });
+
+  it('rejects a CCNIT that only has the classification and no number', async () => {
+    const buffer = await buildWorkbookBuffer([buildRow({ CCNIT: 'CC' })]);
+    const result = await parseTaxRollExcel(buffer);
+
+    expect(result.validRows).toHaveLength(0);
+    expect(result.invalidRows).toEqual([
+      {
+        row: 2,
+        code: 'MISSING_OWNER_DOCUMENT',
+        reason: 'Missing owner document/tax ID (CCNIT)',
+      },
+    ]);
+  });
 });
