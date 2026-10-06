@@ -134,7 +134,7 @@ export async function requestBlob(
   { method = "GET", body, authenticated = true, signal }: RequestOptions = {},
 ): Promise<BlobResponse> {
   const headers: Record<string, string> = {
-    Accept: "application/pdf, application/json",
+    Accept: "application/pdf, application/zip, application/json",
   };
 
   if (authenticated) {
