@@ -34,6 +34,12 @@ export interface GeneratedLiquidationPdf {
   resolutionNumber: string;
 }
 
+export interface PreparedLiquidationDocx {
+  docx: Buffer;
+  resolutionNumber: string;
+  kind: ResolutionKind;
+}
+
 // Raw Decimal amounts from Prisma into the plain numbers
 // buildLiquidationTemplateData works with.
 function toTemplateSettlements(
@@ -93,6 +99,25 @@ export class GenerateLiquidationPdfService {
   async generateForSettlement(
     settlementId: number,
   ): Promise<GeneratedLiquidationPdf> {
+    const prepared = await this.prepareLiquidationDocx(settlementId);
+    let pdf: Buffer;
+    try {
+      pdf = await convertDocxToPdf(prepared.docx);
+    } catch (error) {
+      if (error instanceof PdfConversionError) {
+        throw new ServiceUnavailableException(
+          errorBody(error.code, error.message),
+          { cause: error },
+        );
+      }
+      throw error;
+    }
+    return { pdf, resolutionNumber: prepared.resolutionNumber };
+  }
+
+  async prepareLiquidationDocx(
+    settlementId: number,
+  ): Promise<PreparedLiquidationDocx> {
     const settlement = await this.prisma.settlement.findUnique({
       where: { id: settlementId },
       include: {
@@ -111,6 +136,7 @@ export class GenerateLiquidationPdfService {
     const property: PropertyLike = settlement.property;
 
     let resolutionNumber: string;
+    let kind: ResolutionKind;
     let templateSettlements: SettlementWithDetailsLike[];
 
     if (settlement.resolutionId !== null) {
@@ -122,13 +148,11 @@ export class GenerateLiquidationPdfService {
         include: { settlements: { include: { details: true } } },
       });
       resolutionNumber = resolution.number;
+      kind = resolution.kind;
       templateSettlements = toTemplateSettlements(resolution.settlements);
     } else {
       const currentYear = currentYearInColombia();
-      const kind: ResolutionKind = isPrescriptionRisk(
-        settlement.period,
-        currentYear,
-      )
+      kind = isPrescriptionRisk(settlement.period, currentYear)
         ? ResolutionKind.PRESCRIPTION_RISK
         : ResolutionKind.NORMAL;
 
@@ -207,15 +231,10 @@ export class GenerateLiquidationPdfService {
       templateSettlements,
     );
     let docx: Buffer;
-    let pdf: Buffer;
     try {
       docx = renderLiquidationDocx(templateData);
-      pdf = await convertDocxToPdf(docx);
     } catch (error) {
-      if (
-        error instanceof LiquidationTemplateError ||
-        error instanceof PdfConversionError
-      ) {
+      if (error instanceof LiquidationTemplateError) {
         throw new ServiceUnavailableException(
           errorBody(error.code, error.message),
           { cause: error },
@@ -224,6 +243,6 @@ export class GenerateLiquidationPdfService {
       throw error;
     }
 
-    return { pdf, resolutionNumber };
+    return { docx, resolutionNumber, kind };
   }
 }
