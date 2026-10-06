@@ -75,7 +75,7 @@ export class TaxRollController {
         validRows: [
           {
             cadastralCode: '041-01-0023-000',
-            landUse: 'Residencial',
+            landUse: 'URBAN',
             appraisalValue: 85000000,
             taxId: '900123456',
             ownerName: 'María Fernanda Ríos',

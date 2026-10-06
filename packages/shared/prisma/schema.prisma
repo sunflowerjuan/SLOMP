@@ -28,6 +28,12 @@ enum ResolutionKind {
   NORMAL
 }
 
+// "Destino" column of the tax roll ("rural" / "urbano" in the source file).
+enum LandUse {
+  RURAL
+  URBAN
+}
+
 // ----------------------------------------------------------------------------
 // Municipality
 // ----------------------------------------------------------------------------
@@ -56,7 +62,7 @@ model Property {
   latitude       Decimal? @db.Decimal(9, 6)
   longitude      Decimal? @db.Decimal(9, 6)
   area           Decimal? @db.Decimal(12, 2)
-  landUse        String? // "Destino" in the tax roll file (e.g. urban/rural)
+  landUse        LandUse? // "Destino" in the tax roll file; null if blank or unrecognized
   appraisalValue Decimal? @db.Decimal(14, 2) // "Avaluo" in the tax roll file
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt

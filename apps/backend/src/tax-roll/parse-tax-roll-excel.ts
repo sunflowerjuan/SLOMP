@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs';
 import { CodedError } from '../common/errors/coded-error.js';
 import { ErrorCode, RowIssueCode } from '../common/errors/error-codes.js';
+import { parseLandUse } from './land-use.js';
 import {
   PROPERTY_TAX_START_YEAR,
   currentYearInColombia,
@@ -305,9 +306,24 @@ export async function parseTaxRollExcel(
       });
     }
 
+    // An unknown "Destino" never reaches the database as free text: the row
+    // is still loaded (it is otherwise valid) with no land use, and flagged.
+    const landUseText = cellText(row.getCell(column('Destino')).value);
+    const landUse = parseLandUse(landUseText);
+    if (landUse === null) {
+      warnings.push({
+        row: rowNumber,
+        code: RowIssueCode.UNRECOGNIZED_LAND_USE,
+        reason: landUseText
+          ? `Unrecognized land use (Destino) "${landUseText}": loaded without land use`
+          : 'Missing land use (Destino): loaded without land use',
+        details: { value: landUseText },
+      });
+    }
+
     validRows.push({
       cadastralCode,
-      landUse: cellText(row.getCell(column('Destino')).value),
+      landUse,
       appraisalValue: amounts['Avaluo'],
       ruralDistrict: optionalValues.Vereda as string | null,
       neighborhood: optionalValues.Barrio as string | null,
