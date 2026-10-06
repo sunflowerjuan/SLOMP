@@ -202,6 +202,8 @@ const ROW_ISSUE_MESSAGES: Record<string, CatalogEntry> = {
   DUPLICATE_KEY: (details) =>
     `La cédula catastral ${String(details.cadastralCode ?? "")} con el periodo ${numberOr(details.period, "")} está repetida: ya aparece en la fila ${numberOr(details.firstRow, "anterior")}.`,
   MISSING_OWNER: "Sin propietario: la fila se cargó con el propietario vacío.",
+  UNRECOGNIZED_DOCUMENT_TYPE: (details) =>
+    `No se reconoce el tipo de documento en CCNIT (${String(details.value ?? "")}): el propietario se guardó sin tipo de documento.`,
 };
 
 export function messageForRowIssue(issue: RowIssue): string {

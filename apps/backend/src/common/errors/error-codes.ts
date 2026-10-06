@@ -64,6 +64,7 @@ export const RowIssueCode = {
   INVALID_COORDINATE: 'INVALID_COORDINATE',
   DUPLICATE_KEY: 'DUPLICATE_KEY',
   MISSING_OWNER: 'MISSING_OWNER',
+  UNRECOGNIZED_DOCUMENT_TYPE: 'UNRECOGNIZED_DOCUMENT_TYPE',
 } as const;
 
 export type RowIssueCode = (typeof RowIssueCode)[keyof typeof RowIssueCode];

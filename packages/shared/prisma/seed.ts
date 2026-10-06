@@ -1,7 +1,7 @@
 import "dotenv/config";
 import bcrypt from "bcrypt";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient, SettlementStatus } from "@prisma/client";
+import { DocumentType, PrismaClient, SettlementStatus } from "@prisma/client";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
@@ -70,6 +70,7 @@ async function main() {
         data: {
           name: "Carlos Alberto Rincón Pérez",
           documentId: "9456123",
+          documentType: DocumentType.CC,
           phone: "3112345678",
           email: "carlos.rincon@example.com",
         },
@@ -78,6 +79,7 @@ async function main() {
         data: {
           name: "María Fernanda López Castro",
           documentId: "40587912",
+          documentType: DocumentType.CC,
           phone: "3209876543",
           email: "maria.lopez@example.com",
         },
@@ -86,6 +88,7 @@ async function main() {
         data: {
           name: "José Antonio Gómez Sánchez",
           documentId: "7134589",
+          documentType: DocumentType.CC,
           phone: "3156781234",
           email: "jose.gomez@example.com",
         },
@@ -94,6 +97,7 @@ async function main() {
         data: {
           name: "Luz Marina Torres Ramírez",
           documentId: "52698741",
+          documentType: DocumentType.CC,
           phone: "3187654321",
           email: null,
         },
@@ -102,6 +106,8 @@ async function main() {
         data: {
           name: "Édgar Iván Martínez Ruiz",
           documentId: "80234567",
+          // Sin clasificación en la cartera: documentType queda NULL (SL-75).
+          documentType: null,
           phone: null,
           email: "edgar.martinez@example.com",
         },
@@ -110,6 +116,7 @@ async function main() {
         data: {
           name: "Agropecuaria Los Alpes S.A.S.",
           documentId: "900123456-1",
+          documentType: DocumentType.NIT,
           phone: "3201122334",
           email: "contacto@agropecuarialosalpes.example.com",
         },
