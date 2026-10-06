@@ -8,9 +8,27 @@ import { resolveSofficeBinary } from './resolve-soffice-binary.js';
 const execFileAsync = promisify(execFile);
 
 // Generous enough to absorb LibreOffice's cold-start profile bootstrap (each
-// call gets its own fresh -env:UserInstallation, see below) plus the actual
-// conversion, while still bounding a hung/unresponsive soffice process.
+// call gets its own fresh -env:UserInstallation) plus the actual conversion,
+// while still bounding a hung/unresponsive soffice process.
 export const CONVERT_TIMEOUT_MS = 25_000;
+
+export class PdfConversionError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'PdfConversionError';
+  }
+}
+
+export function isCompletePdf(pdf: Buffer): boolean {
+  // A successful process can still leave a stale or partial output file. The
+  // PDF header plus its mandatory EOF marker are a cheap, format-level guard
+  // before a binary response is ever sent to the caller.
+  return (
+    pdf.length > 5 &&
+    pdf.subarray(0, 5).toString('ascii') === '%PDF-' &&
+    pdf.lastIndexOf(Buffer.from('%%EOF')) !== -1
+  );
+}
 
 // Converts a .docx buffer to PDF via headless LibreOffice. Never persists
 // anything: everything happens inside one unique temp directory, deleted
@@ -42,20 +60,36 @@ export async function convertDocxToPdf(docx: Buffer): Promise<Buffer> {
         { timeout: CONVERT_TIMEOUT_MS },
       );
     } catch (error) {
-      throw new Error(
-        `LibreOffice failed to convert the liquidation to PDF: ${(error as Error).message}`,
+      const processError = error as NodeJS.ErrnoException & {
+        killed?: boolean;
+      };
+      if (processError.killed) {
+        throw new PdfConversionError(
+          'PDF generation timed out after 25 seconds. Please try again; if the problem persists, contact support.',
+          { cause: error },
+        );
+      }
+      throw new PdfConversionError(
+        'LibreOffice could not convert the liquidation to PDF. Please try again; if the problem persists, contact support.',
         { cause: error },
       );
     }
 
     const pdfPath = join(dir, 'liquidacion.pdf');
+    let pdf: Buffer;
     try {
-      return await readFile(pdfPath);
+      pdf = await readFile(pdfPath);
     } catch {
-      throw new Error(
-        'LibreOffice finished but produced no PDF output for the liquidation.',
+      throw new PdfConversionError(
+        'LibreOffice finished without producing a valid PDF. Please try again; if the problem persists, contact support.',
       );
     }
+    if (!isCompletePdf(pdf)) {
+      throw new PdfConversionError(
+        'LibreOffice produced an invalid PDF. No file was generated; please try again.',
+      );
+    }
+    return pdf;
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

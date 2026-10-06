@@ -1,6 +1,7 @@
 import Docxtemplater from 'docxtemplater';
 import PizZip from 'pizzip';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { isCompletePdf } from './convert-docx-to-pdf.js';
 import { resolveSofficeBinary } from './resolve-soffice-binary.js';
 import { loadTemplateFixture } from './test-fixture-docx.js';
 
@@ -78,7 +79,33 @@ describe('convertDocxToPdf (process failure, no real soffice needed)', () => {
     const { convertDocxToPdf } = await import('./convert-docx-to-pdf.js');
 
     await expect(convertDocxToPdf(Buffer.from('anything'))).rejects.toThrow(
-      /failed to convert.*ENOENT/is,
+      /could not convert/i,
     );
+  });
+
+  it('reports a clear timeout when headless LibreOffice stops responding', async () => {
+    vi.resetModules();
+    process.env.LIBREOFFICE_BIN = '/mock/soffice';
+    vi.doMock('node:child_process', () => ({
+      execFile: (
+        _cmd: string,
+        _args: string[],
+        _opts: unknown,
+        callback: (error: Error) => void,
+      ) => callback(Object.assign(new Error('timed out'), { killed: true })),
+    }));
+    const { convertDocxToPdf } = await import('./convert-docx-to-pdf.js');
+
+    await expect(convertDocxToPdf(Buffer.from('anything'))).rejects.toThrow(
+      /timed out after 25 seconds/i,
+    );
+  });
+});
+
+describe('isCompletePdf', () => {
+  it('rejects incomplete or non-PDF buffers so they are never sent as downloads', () => {
+    expect(isCompletePdf(Buffer.from('not a PDF'))).toBe(false);
+    expect(isCompletePdf(Buffer.from('%PDF-1.7 incomplete'))).toBe(false);
+    expect(isCompletePdf(Buffer.from('%PDF-1.7\nbody\n%%EOF\n'))).toBe(true);
   });
 });
