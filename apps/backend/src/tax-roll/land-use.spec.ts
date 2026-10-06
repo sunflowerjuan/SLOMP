@@ -9,10 +9,15 @@ describe('parseLandUse', () => {
     expect(parseLandUse(value)).toBe(expected);
   });
 
-  it.each(['RURAL', '  Urbano ', 'Rúral', 'URBANO\t'])(
+  it.each([
+    ['RURAL', LandUse.RURAL],
+    ['  Urbano ', LandUse.URBAN],
+    ['Rúral', LandUse.RURAL],
+    ['URBANO\t', LandUse.URBAN],
+  ])(
     'ignores case, surrounding whitespace and accents (%j)',
-    (value) => {
-      expect(parseLandUse(value)).not.toBeNull();
+    (value, expected) => {
+      expect(parseLandUse(value)).toBe(expected);
     },
   );
 

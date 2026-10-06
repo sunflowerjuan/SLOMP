@@ -310,6 +310,48 @@ describe('persistTaxRoll', () => {
     expectAtMostOneCurrentSettlementPerPropertyPeriod(prisma);
   });
 
+  describe('current-settlement uniqueness with the new lifecycle states', () => {
+    it.each([
+      SettlementStatus.PAGADA,
+      SettlementStatus.ACUERDO_DE_PAGO,
+      SettlementStatus.PRESCRITA,
+    ])(
+      'alerts and replaces a current %s settlement without changing its status',
+      async (status) => {
+        const prisma = new FakePrisma();
+        await persistTaxRoll(
+          prisma as never,
+          [buildRow({ total: 100 })],
+          false,
+        );
+        prisma.settlements[0].status = status;
+
+        const pending = await persistTaxRoll(
+          prisma as never,
+          [buildRow({ total: 200 })],
+          false,
+        );
+
+        expect(pending).toMatchObject({
+          settlements: 0,
+          conflicts: [{ cadastralCode: '000100010001', period: 2024 }],
+        });
+        expect(prisma.settlements).toHaveLength(1);
+
+        await persistTaxRoll(prisma as never, [buildRow({ total: 200 })], true);
+
+        expect(prisma.settlements).toEqual([
+          expect.objectContaining({ status, replacedAt: expect.any(Date) }),
+          expect.objectContaining({
+            status: SettlementStatus.VIGENTE,
+            replacedAt: null,
+          }),
+        ]);
+        expectAtMostOneCurrentSettlementPerPropertyPeriod(prisma);
+      },
+    );
+  });
+
   it('HU18 / ADR-6: repeated replacements retain each earlier settlement as replaced history, without touching its status', async () => {
     const prisma = new FakePrisma();
     await persistTaxRoll(prisma as never, [buildRow({ total: 100 })], false);
