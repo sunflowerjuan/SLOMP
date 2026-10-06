@@ -8,11 +8,25 @@ import { ResolutionKind, SettlementStatus } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../liquidation-template/render-liquidation-docx.js', () => ({
-  LiquidationTemplateError: class LiquidationTemplateError extends Error {},
+  LiquidationTemplateError: class LiquidationTemplateError extends Error {
+    constructor(
+      readonly code: string,
+      message: string,
+    ) {
+      super(message);
+    }
+  },
   renderLiquidationDocx: vi.fn(() => Buffer.from('fake-docx')),
 }));
 vi.mock('../liquidation-template/convert-docx-to-pdf.js', () => ({
-  PdfConversionError: class PdfConversionError extends Error {},
+  PdfConversionError: class PdfConversionError extends Error {
+    constructor(
+      readonly code: string,
+      message: string,
+    ) {
+      super(message);
+    }
+  },
   convertDocxToPdf: vi.fn(async () => Buffer.from('%PDF-fake')),
 }));
 
@@ -22,6 +36,7 @@ import {
 } from '../liquidation-template/convert-docx-to-pdf.js';
 import { renderLiquidationDocx } from '../liquidation-template/render-liquidation-docx.js';
 import { GenerateLiquidationPdfService } from './generate-liquidation-pdf.service.js';
+import { ErrorCode } from '../common/errors/error-codes.js';
 
 function decimal(value: number) {
   return { toNumber: () => value };
@@ -278,13 +293,19 @@ describe('GenerateLiquidationPdfService', () => {
     const prisma = new FakePrisma();
     prisma.settlements.push(buildSettlement({ id: 1 }));
     vi.mocked(convertDocxToPdf).mockRejectedValueOnce(
-      new PdfConversionError('PDF generation timed out after 25 seconds.'),
+      new PdfConversionError(
+        ErrorCode.PDF_CONVERSION_TIMEOUT,
+        'PDF generation timed out after 25 seconds.',
+      ),
     );
     const service = new GenerateLiquidationPdfService(prisma as never);
 
-    await expect(service.generateForSettlement(1)).rejects.toBeInstanceOf(
-      ServiceUnavailableException,
-    );
+    const failure = service.generateForSettlement(1);
+    await expect(failure).rejects.toBeInstanceOf(ServiceUnavailableException);
+    // The specific code must survive the 503 so the UI can explain it.
+    await expect(failure).rejects.toMatchObject({
+      response: { code: 'PDF_CONVERSION_TIMEOUT' },
+    });
   });
 
   it('a property with periods in both ranges produces two resolutions with distinct numbers and kinds', async () => {

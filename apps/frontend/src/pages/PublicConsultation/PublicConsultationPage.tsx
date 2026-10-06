@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { getErrorMessage } from "../../api/ApiError";
+import { messageForErrorCode } from "../../api/errorMessages";
 import {
   consultSettlements,
   generateLiquidationPdf,
@@ -129,9 +130,7 @@ export function PublicConsultationPage() {
     const criteria = toCriteria(values);
 
     if (Object.keys(criteria).length < MIN_FILLED_FIELDS) {
-      setFormError(
-        "Ingresa al menos 2 de los 3 datos del predio para realizar la consulta.",
-      );
+      setFormError(messageForErrorCode("PUBLIC_QUERY_CRITERIA_REQUIRED"));
       return;
     }
 
@@ -158,7 +157,10 @@ export function PublicConsultationPage() {
       if (error instanceof DOMException && error.name === "AbortError") {
         return;
       }
-      setSearch({ kind: "error", message: getErrorMessage(error) });
+      setSearch({
+        kind: "error",
+        message: getErrorMessage(error, { audience: "public" }),
+      });
     }
   }
 
@@ -191,7 +193,10 @@ export function PublicConsultationPage() {
     } catch (caught) {
       setPdfState((current) => ({
         ...current,
-        [settlementId]: { loading: false, error: getErrorMessage(caught) },
+        [settlementId]: {
+          loading: false,
+          error: getErrorMessage(caught, { audience: "public" }),
+        },
       }));
     }
   }

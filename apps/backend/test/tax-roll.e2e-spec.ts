@@ -82,13 +82,19 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
       .expect(400);
 
     expect(response.body.message).toMatch(/empty/i);
+    expect(response.body.code).toBe('TAX_ROLL_NO_HEADER_ROW');
   });
 
   it('returns 400 (not a 500) when no file is attached', async () => {
-    await request(app.getHttpServer())
+    const response = await request(app.getHttpServer())
       .post('/tax-roll/import')
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(400);
+
+    expect(response.body).toMatchObject({
+      statusCode: 400,
+      code: 'TAX_ROLL_FILE_MISSING',
+    });
   });
 
   describe('upload restrictions checklist (SL-81)', () => {
@@ -102,6 +108,7 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
       expect(response.body.message).toMatch(
         /not a valid Excel \(\.xlsx\) workbook/,
       );
+      expect(response.body.code).toBe('TAX_ROLL_NOT_XLSX');
     });
 
     it('returns 400 for a 0-byte file', async () => {
@@ -128,6 +135,7 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
         .expect(400);
 
       expect(response.body.message).toMatch(/Missing required column\(s\)/);
+      expect(response.body.code).toBe('TAX_ROLL_HEADERS_MISMATCH');
     });
 
     it('returns 400 for a file over the size limit', async () => {
@@ -138,6 +146,11 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
         .expect(400);
 
       expect(response.body.message).toMatch(/maximum allowed size/);
+      expect(response.body).toMatchObject({
+        statusCode: 400,
+        code: 'TAX_ROLL_FILE_TOO_LARGE',
+        details: { maxSizeMb: 10 },
+      });
     });
   });
 

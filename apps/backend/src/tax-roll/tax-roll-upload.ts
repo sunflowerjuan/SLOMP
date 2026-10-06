@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import type { ArgumentsHost, ExceptionFilter } from '@nestjs/common';
 import type { Response } from 'express';
+import { errorBody } from '../common/errors/error-body.js';
+import { ErrorCode } from '../common/errors/error-codes.js';
 
 // The real Páez tax roll (11,202 rows) weighs under 1 MB, so 10 MB leaves
 // plenty of room while keeping a malicious or wrong upload from being fully
@@ -26,12 +28,21 @@ export const TAX_ROLL_UPLOAD_LIMITS = {
 export class TaxRollFileTooLargeFilter implements ExceptionFilter {
   catch(_exception: PayloadTooLargeException, host: ArgumentsHost) {
     const error = new BadRequestException(
-      `The file exceeds the maximum allowed size of ${MAX_TAX_ROLL_FILE_SIZE_MB} MB.`,
+      errorBody(
+        ErrorCode.TAX_ROLL_FILE_TOO_LARGE,
+        `The file exceeds the maximum allowed size of ${MAX_TAX_ROLL_FILE_SIZE_MB} MB.`,
+        { maxSizeMb: MAX_TAX_ROLL_FILE_SIZE_MB },
+      ),
     );
+    // Controller-scoped filters run instead of the global one, so the
+    // statusCode has to be added here to keep the standard body shape.
     host
       .switchToHttp()
       .getResponse<Response>()
       .status(error.getStatus())
-      .json(error.getResponse());
+      .json({
+        statusCode: error.getStatus(),
+        ...(error.getResponse() as object),
+      });
   }
 }

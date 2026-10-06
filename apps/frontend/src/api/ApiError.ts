@@ -1,69 +1,112 @@
+import { GENERIC_ERROR_MESSAGES, messageForErrorCode } from "./errorMessages";
+import type { ErrorDetails, MessageAudience } from "./errorMessages";
+
 // status === 0 means the request never got a response (network down,
 // backend off, CORS).
 export const NETWORK_ERROR_STATUS = 0;
 
 export class ApiError extends Error {
   status: number;
+  // Stable backend error code, e.g. "TAX_ROLL_NOT_XLSX". Null when the
+  // response had no standard error body.
+  code: string | null;
+  details: ErrorDetails;
 
-  constructor(status: number, message: string) {
+  constructor(
+    status: number,
+    message: string,
+    code: string | null = null,
+    details: ErrorDetails = {},
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = code;
+    this.details = details;
   }
 }
 
-// NestJS responds to errors as { statusCode, message, error }, where
-// `message` is a string or an array of strings (validation errors).
-export function extractServerMessage(payload: unknown): string | null {
+export interface ServerError {
+  // Developer-facing English description; never shown to the user.
+  message: string | null;
+  code: string | null;
+  details: ErrorDetails;
+}
+
+// The backend answers every error as { statusCode, code, message, details? }.
+export function extractServerError(payload: unknown): ServerError {
   if (typeof payload !== "object" || payload === null) {
-    return null;
+    return { message: null, code: null, details: {} };
   }
-  const { message } = payload as { message?: unknown };
-  if (typeof message === "string") {
-    return message;
-  }
-  if (Array.isArray(message)) {
-    return message.filter((part) => typeof part === "string").join(". ");
-  }
-  return null;
+  const { message, code, details } = payload as {
+    message?: unknown;
+    code?: unknown;
+    details?: unknown;
+  };
+  return {
+    message:
+      typeof message === "string"
+        ? message
+        : Array.isArray(message)
+          ? message.filter((part) => typeof part === "string").join(". ")
+          : null,
+    code: typeof code === "string" ? code : null,
+    details:
+      typeof details === "object" && details !== null
+        ? (details as ErrorDetails)
+        : {},
+  };
 }
 
 interface ErrorMessageOptions {
-  // A 401 on an authenticated endpoint is "session expired"; on login it's
-  // "invalid credentials".
+  // Taxpayer-facing screens get messages that don't ask them to fix things
+  // only the Administrator can fix.
+  audience?: MessageAudience;
+  // Used only for a 401 that arrives without a code.
   unauthorizedMessage?: string;
 }
 
-// Single point that turns any error into the text the user sees.
-export function getErrorMessage(
-  error: unknown,
-  { unauthorizedMessage }: ErrorMessageOptions = {},
+function messageForStatus(
+  status: number,
+  unauthorizedMessage?: string,
 ): string {
-  if (!(error instanceof ApiError)) {
-    return "Ocurrió un error inesperado. Intenta de nuevo.";
-  }
-
-  if (error.status === NETWORK_ERROR_STATUS) {
-    return "No se pudo conectar con el servidor. Verifica tu conexión e intenta de nuevo.";
-  }
-  if (error.status === 401) {
+  if (status === 401) {
     return (
       unauthorizedMessage ??
       "Tu sesión expiró. Vuelve a iniciar sesión para continuar."
     );
   }
-  if (error.status === 403) {
-    return "No tienes permisos para realizar esta acción.";
-  }
-  if (error.status === 429) {
-    // Per-IP rate limit of the public consultation.
+  if (status === 403) return "No tienes permisos para realizar esta acción.";
+  if (status === 429) {
     return "Realizaste demasiadas consultas en poco tiempo. Espera unos minutos e intenta de nuevo.";
   }
-  if (error.status === 413) {
-    return "El archivo es demasiado grande.";
-  }
-  if (error.status >= 500) {
+  if (status === 413) return "El archivo es demasiado grande.";
+  if (status >= 500) {
     return "El servidor tuvo un problema. Intenta de nuevo en unos minutos.";
   }
-  return error.message;
+  return GENERIC_ERROR_MESSAGES.invalidRequest;
+}
+
+// Single point that turns any error into the text the user sees: the code's
+// catalog entry first, then a message based on the HTTP status. The
+// backend's English `message` is never shown.
+export function getErrorMessage(
+  error: unknown,
+  { audience = "admin", unauthorizedMessage }: ErrorMessageOptions = {},
+): string {
+  if (!(error instanceof ApiError)) {
+    return GENERIC_ERROR_MESSAGES.unexpected;
+  }
+  if (error.status === NETWORK_ERROR_STATUS) {
+    return GENERIC_ERROR_MESSAGES.network;
+  }
+  if (error.code) {
+    const fromCatalog = messageForErrorCode(
+      error.code,
+      error.details,
+      audience,
+    );
+    if (fromCatalog) return fromCatalog;
+  }
+  return messageForStatus(error.status, unauthorizedMessage);
 }

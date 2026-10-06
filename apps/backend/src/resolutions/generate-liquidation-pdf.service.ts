@@ -26,6 +26,8 @@ import {
 } from '../tax-roll/period-rules.js';
 import { groupSettlementsForResolution } from './group-settlements-for-resolution.js';
 import { reserveResolutionNumber } from './reserve-resolution-number.js';
+import { errorBody } from '../common/errors/error-body.js';
+import { ErrorCode } from '../common/errors/error-codes.js';
 
 export interface GeneratedLiquidationPdf {
   pdf: Buffer;
@@ -53,12 +55,13 @@ function assertCompleteLiquidationData(
   property: PropertyLike,
   settlements: SettlementWithDetailsLike[],
 ): void {
+  // Stable keys (not prose) so the frontend can name each missing field.
   const missing: string[] = [];
-  if (!property.cadastralCode?.trim()) missing.push('cadastral code');
-  if (!property.address?.trim()) missing.push('property address');
-  if (settlements.length === 0) missing.push('settlement periods');
+  if (!property.cadastralCode?.trim()) missing.push('CADASTRAL_CODE');
+  if (!property.address?.trim()) missing.push('PROPERTY_ADDRESS');
+  if (settlements.length === 0) missing.push('SETTLEMENT_PERIODS');
   if (settlements.some((settlement) => settlement.details.length === 0)) {
-    missing.push('settlement detail lines');
+    missing.push('SETTLEMENT_DETAILS');
   }
   if (
     settlements.some(
@@ -70,11 +73,15 @@ function assertCompleteLiquidationData(
         ),
     )
   ) {
-    missing.push('valid settlement values');
+    missing.push('SETTLEMENT_VALUES');
   }
   if (missing.length > 0) {
     throw new BadRequestException(
-      `Cannot generate the liquidation PDF because required data is missing or invalid: ${missing.join(', ')}. Complete the liquidation and try again.`,
+      errorBody(
+        ErrorCode.LIQUIDATION_DATA_INCOMPLETE,
+        `Cannot generate the liquidation PDF because required data is missing or invalid: ${missing.join(', ')}. Complete the liquidation and try again.`,
+        { missing },
+      ),
     );
   }
 }
@@ -93,7 +100,12 @@ export class GenerateLiquidationPdfService {
       },
     });
     if (!settlement || settlement.replacedAt !== null) {
-      throw new NotFoundException(`Settlement ${settlementId} not found.`);
+      throw new NotFoundException(
+        errorBody(
+          ErrorCode.SETTLEMENT_NOT_FOUND,
+          `Settlement ${settlementId} not found.`,
+        ),
+      );
     }
 
     const property: PropertyLike = settlement.property;
@@ -168,7 +180,10 @@ export class GenerateLiquidationPdfService {
           });
           if (updated.count !== groupIds.length) {
             throw new ConflictException(
-              'Another request already generated a liquidación covering one of these periods. Try again.',
+              errorBody(
+                ErrorCode.LIQUIDATION_CONCURRENT_GENERATION,
+                'Another request already generated a liquidación covering one of these periods. Try again.',
+              ),
             );
           }
 
@@ -201,7 +216,10 @@ export class GenerateLiquidationPdfService {
         error instanceof LiquidationTemplateError ||
         error instanceof PdfConversionError
       ) {
-        throw new ServiceUnavailableException(error.message);
+        throw new ServiceUnavailableException(
+          errorBody(error.code, error.message),
+          { cause: error },
+        );
       }
       throw error;
     }

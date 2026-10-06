@@ -17,6 +17,8 @@ import { GenerateLiquidationPdfService } from '../resolutions/generate-liquidati
 import { GenerateLiquidationDto } from '../resolutions/generate-liquidation.dto.js';
 import type { PublicSettlementQueryCriteria } from './public-settlement-query.service.js';
 import { PublicSettlementQueryService } from './public-settlement-query.service.js';
+import { errorBody } from '../common/errors/error-body.js';
+import { ErrorCode } from '../common/errors/error-codes.js';
 
 export const PUBLIC_QUERY_LIMIT = 30;
 export const PUBLIC_QUERY_TTL_MS = 60_000;
@@ -69,7 +71,12 @@ export class PublicSettlementQueryController {
       address: body?.address,
     });
     if (!matches.some((settlement) => settlement.settlementId === id)) {
-      throw new NotFoundException(`Settlement ${id} not found.`);
+      throw new NotFoundException(
+        errorBody(
+          ErrorCode.SETTLEMENT_NOT_FOUND,
+          `Settlement ${id} not found.`,
+        ),
+      );
     }
 
     const { pdf, resolutionNumber } =

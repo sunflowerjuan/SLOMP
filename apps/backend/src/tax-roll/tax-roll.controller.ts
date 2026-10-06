@@ -25,6 +25,8 @@ import {
   TAX_ROLL_UPLOAD_LIMITS,
   TaxRollFileTooLargeFilter,
 } from './tax-roll-upload.js';
+import { errorBody } from '../common/errors/error-body.js';
+import { ErrorCode } from '../common/errors/error-codes.js';
 
 @ApiTags('tax-roll')
 @ApiBearerAuth()
@@ -122,11 +124,19 @@ export class TaxRollController {
   ) {
     if (!file) {
       throw new BadRequestException(
-        'You must attach an Excel file (.xlsx) in the "file" field.',
+        errorBody(
+          ErrorCode.TAX_ROLL_FILE_MISSING,
+          'You must attach an Excel file (.xlsx) in the "file" field.',
+        ),
       );
     }
     if (!file.originalname.toLowerCase().endsWith('.xlsx')) {
-      throw new BadRequestException('The file must have a .xlsx extension.');
+      throw new BadRequestException(
+        errorBody(
+          ErrorCode.TAX_ROLL_FILE_EXTENSION,
+          'The file must have a .xlsx extension.',
+        ),
+      );
     }
     const parsedPreviousImportId = Number(previousImportId);
     return this.taxRollService.import(

@@ -60,7 +60,9 @@ describe('parseTaxRollExcel', () => {
     expect(result.invalidRows).toHaveLength(0);
     expect(result.validRows).toHaveLength(1);
     expect(result.validRows[0].ownerName).toBeNull();
-    expect(result.warnings).toEqual([{ row: 2, reason: 'Missing owner' }]);
+    expect(result.warnings).toEqual([
+      { row: 2, code: 'MISSING_OWNER', reason: 'Missing owner' },
+    ]);
   });
 
   it('rejects a row with no cadastral code', async () => {
@@ -71,7 +73,11 @@ describe('parseTaxRollExcel', () => {
 
     expect(result.validRows).toHaveLength(0);
     expect(result.invalidRows).toEqual([
-      { row: 2, reason: 'Missing cadastral code' },
+      {
+        row: 2,
+        code: 'MISSING_CADASTRAL_CODE',
+        reason: 'Missing cadastral code',
+      },
     ]);
   });
 
@@ -81,7 +87,11 @@ describe('parseTaxRollExcel', () => {
 
     expect(result.validRows).toHaveLength(0);
     expect(result.invalidRows).toEqual([
-      { row: 2, reason: 'Missing period or not a valid integer' },
+      {
+        row: 2,
+        code: 'INVALID_PERIOD',
+        reason: 'Missing period or not a valid integer',
+      },
     ]);
   });
 
@@ -91,7 +101,11 @@ describe('parseTaxRollExcel', () => {
 
     expect(result.validRows).toHaveLength(0);
     expect(result.invalidRows).toEqual([
-      { row: 2, reason: 'Missing owner document/tax ID (CCNIT)' },
+      {
+        row: 2,
+        code: 'MISSING_OWNER_DOCUMENT',
+        reason: 'Missing owner document/tax ID (CCNIT)',
+      },
     ]);
   });
 
@@ -105,7 +119,9 @@ describe('parseTaxRollExcel', () => {
     expect(result.invalidRows).toEqual([
       {
         row: 2,
+        code: 'NON_NUMERIC_VALUE',
         reason: 'Non-numeric value in column(s): Impuesto Predial, Total',
+        details: { columns: ['Impuesto Predial', 'Total'] },
       },
     ]);
   });
@@ -140,6 +156,10 @@ describe('parseTaxRollExcel', () => {
     await expect(parseTaxRollExcel(buffer)).rejects.toThrow(
       /Excel headers do not match/,
     );
+    await expect(parseTaxRollExcel(buffer)).rejects.toMatchObject({
+      code: 'TAX_ROLL_HEADERS_MISMATCH',
+      details: { missingColumns: expect.arrayContaining(['Cédula Catastral']) },
+    });
   });
 
   it('processes a fully valid file, including the same property across several periods', async () => {
@@ -162,6 +182,9 @@ describe('parseTaxRollExcel', () => {
     const NOT_AN_XLSX = /not a valid Excel \(\.xlsx\) workbook/;
 
     it('rejects a 0-byte file with a clear message', async () => {
+      await expect(parseTaxRollExcel(Buffer.alloc(0))).rejects.toMatchObject({
+        code: 'TAX_ROLL_FILE_EMPTY',
+      });
       await expect(parseTaxRollExcel(Buffer.alloc(0))).rejects.toThrow(
         'The uploaded file is empty (0 bytes).',
       );
@@ -170,6 +193,9 @@ describe('parseTaxRollExcel', () => {
     it('rejects a CSV renamed to .xlsx with a clear message instead of the unzip error', async () => {
       const csv = Buffer.from('Cédula Catastral,periodo\n000100010001,2024\n');
       await expect(parseTaxRollExcel(csv)).rejects.toThrow(NOT_AN_XLSX);
+      await expect(parseTaxRollExcel(csv)).rejects.toMatchObject({
+        code: 'TAX_ROLL_NOT_XLSX',
+      });
     });
 
     it('rejects an old binary .xls renamed to .xlsx', async () => {
@@ -238,7 +264,9 @@ describe('parseTaxRollExcel', () => {
         expect(result.invalidRows).toEqual([
           {
             row: 2,
+            code: 'PERIOD_OUT_OF_RANGE',
             reason: `Period ${periodo} is out of range: it must be between 1980 and 2026`,
+            details: { period: periodo, min: 1980, max: 2026 },
           },
         ]);
       },
@@ -261,8 +289,10 @@ describe('parseTaxRollExcel', () => {
       expect(result.invalidRows).toEqual([
         {
           row: 4,
+          code: 'DUPLICATE_KEY',
           reason:
             'Duplicate cadastral code + period (000100010001, 2024): already in row 2',
+          details: { cadastralCode: '000100010001', period: 2024, firstRow: 2 },
         },
       ]);
     });
@@ -276,7 +306,12 @@ describe('parseTaxRollExcel', () => {
 
       expect(result.validRows).toHaveLength(1);
       expect(result.invalidRows).toEqual([
-        { row: 2, reason: 'Non-numeric value in column(s): Total' },
+        {
+          row: 2,
+          code: 'NON_NUMERIC_VALUE',
+          reason: 'Non-numeric value in column(s): Total',
+          details: { columns: ['Total'] },
+        },
       ]);
     });
   });
@@ -290,7 +325,9 @@ describe('parseTaxRollExcel', () => {
 
       expect(result.invalidRows).toHaveLength(0);
       expect(result.validRows[0].ownerName).toBeNull();
-      expect(result.warnings).toEqual([{ row: 2, reason: 'Missing owner' }]);
+      expect(result.warnings).toEqual([
+        { row: 2, code: 'MISSING_OWNER', reason: 'Missing owner' },
+      ]);
     });
 
     it('keeps all 399 padded-blank owner rows (23 properties) as valid rows', async () => {

@@ -1,6 +1,8 @@
 import { SettlementStatus } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { TaxRollRowDto } from './tax-roll-row.dto.js';
+import { CodedError } from '../common/errors/coded-error.js';
+import { ErrorCode } from '../common/errors/error-codes.js';
 
 export interface TaxRollConflict {
   cadastralCode: string;
@@ -55,7 +57,8 @@ export async function persistTaxRoll(
 
   const municipality = await prisma.municipality.findFirst();
   if (!municipality) {
-    throw new Error(
+    throw new CodedError(
+      ErrorCode.MUNICIPALITY_NOT_CONFIGURED,
       'No municipality is configured yet. Seed the database before importing a tax roll.',
     );
   }
