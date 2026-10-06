@@ -53,6 +53,52 @@ async function buildWorkbookBuffer(
 }
 
 describe('parseTaxRollExcel', () => {
+  it('maps "Destino" to the LandUse enum', async () => {
+    const buffer = await buildWorkbookBuffer([
+      buildRow({ Destino: 'rural', periodo: 2023 }),
+      buildRow({ Destino: 'urbano', periodo: 2024 }),
+    ]);
+    const result = await parseTaxRollExcel(buffer);
+
+    expect(result.warnings).toEqual([]);
+    expect(result.validRows.map((r) => r.landUse)).toEqual(['RURAL', 'URBAN']);
+  });
+
+  it('loads a row with an unrecognized "Destino" without land use and reports a warning, never the raw text', async () => {
+    const buffer = await buildWorkbookBuffer([
+      buildRow({ Destino: 'Residencial' }),
+    ]);
+    const result = await parseTaxRollExcel(buffer);
+
+    expect(result.invalidRows).toHaveLength(0);
+    expect(result.validRows).toHaveLength(1);
+    expect(result.validRows[0].landUse).toBeNull();
+    expect(result.warnings).toEqual([
+      {
+        row: 2,
+        code: 'UNRECOGNIZED_LAND_USE',
+        reason:
+          'Unrecognized land use (Destino) "Residencial": loaded without land use',
+        details: { value: 'Residencial' },
+      },
+    ]);
+  });
+
+  it('reports a blank "Destino" as a warning too', async () => {
+    const buffer = await buildWorkbookBuffer([buildRow({ Destino: '' })]);
+    const result = await parseTaxRollExcel(buffer);
+
+    expect(result.validRows[0].landUse).toBeNull();
+    expect(result.warnings).toEqual([
+      {
+        row: 2,
+        code: 'UNRECOGNIZED_LAND_USE',
+        reason: 'Missing land use (Destino): loaded without land use',
+        details: { value: '' },
+      },
+    ]);
+  });
+
   it('flags a row with no owner as a warning, not an error', async () => {
     const buffer = await buildWorkbookBuffer([buildRow({ Propietario: '' })]);
     const result = await parseTaxRollExcel(buffer);

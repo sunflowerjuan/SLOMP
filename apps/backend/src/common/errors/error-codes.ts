@@ -65,6 +65,7 @@ export const RowIssueCode = {
   DUPLICATE_KEY: 'DUPLICATE_KEY',
   MISSING_OWNER: 'MISSING_OWNER',
   UNRECOGNIZED_DOCUMENT_TYPE: 'UNRECOGNIZED_DOCUMENT_TYPE',
+  UNRECOGNIZED_LAND_USE: 'UNRECOGNIZED_LAND_USE',
 } as const;
 
 export type RowIssueCode = (typeof RowIssueCode)[keyof typeof RowIssueCode];

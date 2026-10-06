@@ -1,9 +1,10 @@
 import type { RowIssueCode } from '../common/errors/error-codes.js';
+import type { LandUse } from './land-use.js';
 import type { DocumentTypeCode } from './parse-owner-document.js';
 
 export interface TaxRollRowDto {
   cadastralCode: string;
-  landUse: string;
+  landUse: LandUse | null;
   appraisalValue: number;
   ruralDistrict: string | null;
   neighborhood: string | null;

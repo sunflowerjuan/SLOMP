@@ -1,5 +1,6 @@
 import { SettlementStatus } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
+import { LandUse } from './land-use.js';
 import type { TaxRollRowDto } from './tax-roll-row.dto.js';
 import { persistTaxRoll } from './persist-tax-roll.js';
 
@@ -7,7 +8,7 @@ type FakeProperty = {
   id: number;
   cadastralCode: string;
   address: string;
-  landUse: string | null;
+  landUse: LandUse | null;
   appraisalValue: number;
 };
 
@@ -179,7 +180,7 @@ class FakePrisma {
 function buildRow(overrides: Partial<TaxRollRowDto> = {}): TaxRollRowDto {
   return {
     cadastralCode: '000100010001',
-    landUse: 'rural',
+    landUse: LandUse.RURAL,
     appraisalValue: 1000000,
     taxId: '00123456789',
     documentType: null,
@@ -474,6 +475,39 @@ describe('persistTaxRoll', () => {
     );
 
     expect(prisma.owners[0].name).toBe('Juan Pérez');
+  });
+
+  it('stores the normalized land use and never erases a known one with an unrecognized (null) value', async () => {
+    const prisma = new FakePrisma();
+    await persistTaxRoll(
+      prisma as never,
+      [buildRow({ landUse: LandUse.URBAN })],
+      false,
+    );
+    expect(prisma.properties[0].landUse).toBe(LandUse.URBAN);
+
+    await persistTaxRoll(
+      prisma as never,
+      [buildRow({ period: 2025, landUse: null })],
+      false,
+    );
+
+    expect(prisma.properties[0].landUse).toBe(LandUse.URBAN);
+  });
+
+  it('within one file, a later period with no land use keeps the one from an earlier period', async () => {
+    const prisma = new FakePrisma();
+
+    await persistTaxRoll(
+      prisma as never,
+      [
+        buildRow({ period: 2024, landUse: LandUse.RURAL }),
+        buildRow({ period: 2025, landUse: null }),
+      ],
+      false,
+    );
+
+    expect(prisma.properties[0].landUse).toBe(LandUse.RURAL);
   });
 
   it('throws a clear error when no municipality has been configured', async () => {

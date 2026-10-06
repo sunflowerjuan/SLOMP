@@ -81,6 +81,7 @@ export async function persistTaxRoll(
         row.neighborhood ?? previousPropertyRow?.neighborhood ?? null,
       latitude: row.latitude ?? previousPropertyRow?.latitude ?? null,
       longitude: row.longitude ?? previousPropertyRow?.longitude ?? null,
+      landUse: row.landUse ?? previousPropertyRow?.landUse ?? null,
     });
     rowByTaxId.set(row.taxId, row);
     rowByPropertyPeriod.set(`${row.cadastralCode}:${row.period}`, row);
@@ -97,7 +98,7 @@ export async function persistTaxRoll(
           neighborhood: row.neighborhood,
           latitude: row.latitude,
           longitude: row.longitude,
-          landUse: row.landUse || null,
+          landUse: row.landUse,
           appraisalValue: row.appraisalValue,
           municipalityId: municipality.id,
         },
@@ -111,7 +112,8 @@ export async function persistTaxRoll(
           }),
           ...(row.latitude !== null && { latitude: row.latitude }),
           ...(row.longitude !== null && { longitude: row.longitude }),
-          landUse: row.landUse || null,
+          // An unrecognized value in a later file must not erase a known one.
+          ...(row.landUse !== null && { landUse: row.landUse }),
           appraisalValue: row.appraisalValue,
         },
       }),

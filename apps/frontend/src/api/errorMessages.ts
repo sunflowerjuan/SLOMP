@@ -204,6 +204,12 @@ const ROW_ISSUE_MESSAGES: Record<string, CatalogEntry> = {
   MISSING_OWNER: "Sin propietario: la fila se cargó con el propietario vacío.",
   UNRECOGNIZED_DOCUMENT_TYPE: (details) =>
     `No se reconoce el tipo de documento en CCNIT (${String(details.value ?? "")}): el propietario se guardó sin tipo de documento.`,
+  UNRECOGNIZED_LAND_USE: (details) => {
+    const value = String(details.value ?? "").trim();
+    return value
+      ? `Destino "${value}" no reconocido (se esperaba "rural" o "urbano"): la fila se cargó sin destino.`
+      : "Destino vacío: la fila se cargó sin destino.";
+  },
 };
 
 export function messageForRowIssue(issue: RowIssue): string {

@@ -1,7 +1,12 @@
 import "dotenv/config";
 import bcrypt from "bcrypt";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { DocumentType, PrismaClient, SettlementStatus } from "@prisma/client";
+import {
+  DocumentType,
+  LandUse,
+  PrismaClient,
+  SettlementStatus,
+} from "@prisma/client";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
@@ -213,6 +218,10 @@ async function main() {
         cadastralCode: propertySeed.cadastralCode,
         address: propertySeed.address,
         area: propertySeed.area,
+        // Seed addresses in a "vereda" are rural; the rest are in the town centre.
+        landUse: propertySeed.address.startsWith("Vereda")
+          ? LandUse.RURAL
+          : LandUse.URBAN,
         municipalityId: municipality.id,
       },
     });
