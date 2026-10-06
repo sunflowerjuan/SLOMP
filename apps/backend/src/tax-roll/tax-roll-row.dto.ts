@@ -1,4 +1,5 @@
 import type { RowIssueCode } from '../common/errors/error-codes.js';
+import type { DocumentTypeCode } from './parse-owner-document.js';
 
 export interface TaxRollRowDto {
   cadastralCode: string;
@@ -8,7 +9,12 @@ export interface TaxRollRowDto {
   neighborhood: string | null;
   latitude: number | null;
   longitude: number | null;
+  // The document number, without the classification label if the CCNIT
+  // cell had one ("CC 40587912" -> "40587912").
   taxId: string;
+  // Only what the CCNIT cell states explicitly; null when it states nothing.
+  // Never deduced from the number (SL-75, rule confirmed with the client).
+  documentType: DocumentTypeCode | null;
   ownerName: string | null;
   propertyName: string;
   period: number;

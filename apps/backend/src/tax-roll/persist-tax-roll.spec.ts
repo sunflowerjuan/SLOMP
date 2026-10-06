@@ -11,7 +11,12 @@ type FakeProperty = {
   appraisalValue: number;
 };
 
-type FakeOwner = { id: number; documentId: string; name: string };
+type FakeOwner = {
+  id: number;
+  documentId: string;
+  documentType: string | null;
+  name: string;
+};
 
 type FakePropertyOwner = {
   propertyId: number;
@@ -177,6 +182,7 @@ function buildRow(overrides: Partial<TaxRollRowDto> = {}): TaxRollRowDto {
     landUse: 'rural',
     appraisalValue: 1000000,
     taxId: '00123456789',
+    documentType: null,
     ownerName: 'Juan Pérez',
     propertyName: 'Finca La Esperanza',
     period: 2024,
@@ -491,5 +497,75 @@ describe('persistTaxRoll', () => {
       conflicts: [],
     });
     expect(prisma.properties).toHaveLength(0);
+  });
+  describe('owner document type (SL-75)', () => {
+    it('stores a new owner with the classification the file states', async () => {
+      const prisma = new FakePrisma();
+      await persistTaxRoll(
+        prisma as never,
+        [buildRow({ documentType: 'CE' })],
+        false,
+      );
+
+      expect(prisma.owners[0].documentType).toBe('CE');
+    });
+
+    it('stores a new owner with no classification as null -- never a default type', async () => {
+      const prisma = new FakePrisma();
+      await persistTaxRoll(prisma as never, [buildRow()], false);
+
+      expect(prisma.owners[0].documentType).toBeNull();
+    });
+
+    it('fills in an existing owner that had no classification', async () => {
+      const prisma = new FakePrisma();
+      prisma.owners.push({
+        id: 500,
+        documentId: '00123456789',
+        documentType: null,
+        name: 'Juan Pérez',
+      });
+
+      await persistTaxRoll(
+        prisma as never,
+        [buildRow({ documentType: 'CC' })],
+        false,
+      );
+
+      expect(prisma.owners).toHaveLength(1);
+      expect(prisma.owners[0].documentType).toBe('CC');
+    });
+
+    it('a later file stating a different classification updates it, like the name', async () => {
+      const prisma = new FakePrisma();
+      prisma.owners.push({
+        id: 500,
+        documentId: '00123456789',
+        documentType: 'CC',
+        name: 'Juan Pérez',
+      });
+
+      await persistTaxRoll(
+        prisma as never,
+        [buildRow({ documentType: 'CE' })],
+        false,
+      );
+
+      expect(prisma.owners[0].documentType).toBe('CE');
+    });
+
+    it('a row with no classification never erases a known one', async () => {
+      const prisma = new FakePrisma();
+      prisma.owners.push({
+        id: 500,
+        documentId: '00123456789',
+        documentType: 'NIT',
+        name: 'Juan Pérez',
+      });
+
+      await persistTaxRoll(prisma as never, [buildRow()], false);
+
+      expect(prisma.owners[0].documentType).toBe('NIT');
+    });
   });
 });

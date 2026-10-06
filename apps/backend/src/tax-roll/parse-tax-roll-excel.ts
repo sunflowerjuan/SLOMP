@@ -6,6 +6,7 @@ import {
   currentYearInColombia,
   isValidPeriod,
 } from './period-rules.js';
+import { parseOwnerDocument } from './parse-owner-document.js';
 import type {
   ParseTaxRollExcelResult,
   TaxRollRowDto,
@@ -207,7 +208,13 @@ export async function parseTaxRollExcel(
       continue;
     }
 
-    const taxId = cellText(row.getCell(column('CCNIT')).value);
+    // "CC 40587912" -> taxId "40587912" + type CC. A plain number keeps
+    // documentType null: the classification is optional (SL-75).
+    const {
+      documentId: taxId,
+      documentType,
+      unrecognizedLabel,
+    } = parseOwnerDocument(cellText(row.getCell(column('CCNIT')).value));
     if (!taxId) {
       invalidRows.push({
         row: rowNumber,
@@ -305,6 +312,18 @@ export async function parseTaxRollExcel(
       });
     }
 
+    // Text in front of the number that isn't a known classification: the
+    // row is still valid, the owner is stored without a type, and the
+    // Administrator is told instead of the system guessing one.
+    if (unrecognizedLabel) {
+      warnings.push({
+        row: rowNumber,
+        code: RowIssueCode.UNRECOGNIZED_DOCUMENT_TYPE,
+        reason: `Unrecognized document type in CCNIT "${taxId}"; owner stored without a document type`,
+        details: { value: taxId },
+      });
+    }
+
     validRows.push({
       cadastralCode,
       landUse: cellText(row.getCell(column('Destino')).value),
@@ -314,6 +333,7 @@ export async function parseTaxRollExcel(
       latitude: optionalValues.Latitud as number | null,
       longitude: optionalValues.Longitud as number | null,
       taxId,
+      documentType,
       ownerName: ownerName || null,
       propertyName: cellText(row.getCell(column('Nombre Predio')).value),
       period,
