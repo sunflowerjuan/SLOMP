@@ -12,6 +12,8 @@ import {
 } from '../tax-roll/period-rules.js';
 import { GenerateLiquidationPdfService } from './generate-liquidation-pdf.service.js';
 import { selectGenerationTriggers } from './select-generation-triggers.js';
+import { errorBody } from '../common/errors/error-body.js';
+import { ErrorCode } from '../common/errors/error-codes.js';
 
 // Bounds how many PDFs one request generates in sequence (each spawns its
 // own LibreOffice process via GenerateLiquidationPdfService). The async
@@ -37,11 +39,20 @@ export class GenerateLiquidationsZipService {
     const triggers = selectGenerationTriggers(pending, currentYear);
 
     if (triggers.length === 0) {
-      throw new NotFoundException('No pending liquidations to generate.');
+      throw new NotFoundException(
+        errorBody(
+          ErrorCode.NO_PENDING_LIQUIDATIONS,
+          'No pending liquidations to generate.',
+        ),
+      );
     }
     if (triggers.length > MAX_BULK_LIQUIDATIONS) {
       throw new BadRequestException(
-        `There are ${triggers.length} pending liquidations, over the ${MAX_BULK_LIQUIDATIONS} limit for a single bulk request.`,
+        errorBody(
+          ErrorCode.BULK_LIMIT_EXCEEDED,
+          `There are ${triggers.length} pending liquidations, over the ${MAX_BULK_LIQUIDATIONS} limit for a single bulk request.`,
+          { count: triggers.length, max: MAX_BULK_LIQUIDATIONS },
+        ),
       );
     }
 

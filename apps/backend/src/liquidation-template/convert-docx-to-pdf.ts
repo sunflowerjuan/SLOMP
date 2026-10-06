@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { resolveSofficeBinary } from './resolve-soffice-binary.js';
+import { CodedError } from '../common/errors/coded-error.js';
+import { ErrorCode } from '../common/errors/error-codes.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -12,9 +14,15 @@ const execFileAsync = promisify(execFile);
 // while still bounding a hung/unresponsive soffice process.
 export const CONVERT_TIMEOUT_MS = 25_000;
 
-export class PdfConversionError extends Error {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, options);
+export class PdfConversionError extends CodedError {
+  constructor(
+    code:
+      | typeof ErrorCode.PDF_CONVERSION_TIMEOUT
+      | typeof ErrorCode.PDF_CONVERSION_FAILED,
+    message: string,
+    options?: ErrorOptions,
+  ) {
+    super(code, message, undefined, options);
     this.name = 'PdfConversionError';
   }
 }
@@ -65,11 +73,13 @@ export async function convertDocxToPdf(docx: Buffer): Promise<Buffer> {
       };
       if (processError.killed) {
         throw new PdfConversionError(
+          ErrorCode.PDF_CONVERSION_TIMEOUT,
           'PDF generation timed out after 25 seconds. Please try again; if the problem persists, contact support.',
           { cause: error },
         );
       }
       throw new PdfConversionError(
+        ErrorCode.PDF_CONVERSION_FAILED,
         'LibreOffice could not convert the liquidation to PDF. Please try again; if the problem persists, contact support.',
         { cause: error },
       );
@@ -81,11 +91,13 @@ export async function convertDocxToPdf(docx: Buffer): Promise<Buffer> {
       pdf = await readFile(pdfPath);
     } catch {
       throw new PdfConversionError(
+        ErrorCode.PDF_CONVERSION_FAILED,
         'LibreOffice finished without producing a valid PDF. Please try again; if the problem persists, contact support.',
       );
     }
     if (!isCompletePdf(pdf)) {
       throw new PdfConversionError(
+        ErrorCode.PDF_CONVERSION_FAILED,
         'LibreOffice produced an invalid PDF. No file was generated; please try again.',
       );
     }

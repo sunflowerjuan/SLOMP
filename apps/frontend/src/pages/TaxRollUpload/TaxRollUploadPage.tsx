@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getErrorMessage } from "../../api/ApiError";
+import { messageForRowIssue } from "../../api/errorMessages";
 import { importTaxRoll, listTaxRollImports } from "../../api/taxRoll";
 import type {
   TaxRollImportHistoryEntry,
@@ -286,8 +287,8 @@ function IssueList({
       <h3 className="tax-roll-upload-page__issues-title">{title}</h3>
       <ul>
         {listed.map((issue) => (
-          <li key={`${issue.row}-${issue.reason}`}>
-            Fila {issue.row}: {issue.reason}
+          <li key={`${issue.row}-${issue.code}`}>
+            {messageForRowIssue(issue)}
           </li>
         ))}
         {hidden > 0 && <li>y {hidden} más…</li>}

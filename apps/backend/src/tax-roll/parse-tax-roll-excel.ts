@@ -1,4 +1,6 @@
 import ExcelJS from 'exceljs';
+import { CodedError } from '../common/errors/coded-error.js';
+import { ErrorCode, RowIssueCode } from '../common/errors/error-codes.js';
 import {
   PROPERTY_TAX_START_YEAR,
   currentYearInColombia,
@@ -90,10 +92,13 @@ export async function parseTaxRollExcel(
   const currentYear = options.currentYear ?? currentYearInColombia();
 
   if (buffer.length === 0) {
-    throw new Error('The uploaded file is empty (0 bytes).');
+    throw new CodedError(
+      ErrorCode.TAX_ROLL_FILE_EMPTY,
+      'The uploaded file is empty (0 bytes).',
+    );
   }
   if (!buffer.subarray(0, ZIP_SIGNATURE.length).equals(ZIP_SIGNATURE)) {
-    throw new Error(NOT_AN_XLSX_MESSAGE);
+    throw new CodedError(ErrorCode.TAX_ROLL_NOT_XLSX, NOT_AN_XLSX_MESSAGE);
   }
 
   const workbook = new ExcelJS.Workbook();
@@ -105,17 +110,18 @@ export async function parseTaxRollExcel(
   } catch {
     // Truncated or corrupted ZIP: the library message is not useful to the
     // Administrator.
-    throw new Error(NOT_AN_XLSX_MESSAGE);
+    throw new CodedError(ErrorCode.TAX_ROLL_NOT_XLSX, NOT_AN_XLSX_MESSAGE);
   }
   const sheet = workbook.worksheets[0];
   if (!sheet) {
     // A ZIP that is not a workbook (e.g. a .docx renamed to .xlsx).
-    throw new Error(NOT_AN_XLSX_MESSAGE);
+    throw new CodedError(ErrorCode.TAX_ROLL_NOT_XLSX, NOT_AN_XLSX_MESSAGE);
   }
 
   const headerRow = sheet.getRow(1);
   if (headerRow.actualCellCount === 0) {
-    throw new Error(
+    throw new CodedError(
+      ErrorCode.TAX_ROLL_NO_HEADER_ROW,
       'The Excel file is empty: no header row was found in the first row.',
     );
   }
@@ -141,8 +147,13 @@ export async function parseTaxRollExcel(
       missingHeaders.length > 0
         ? `Missing required column(s): ${missingHeaders.join(', ')}.`
         : 'All required columns are present but not in the expected order.';
-    throw new Error(
+    throw new CodedError(
+      ErrorCode.TAX_ROLL_HEADERS_MISMATCH,
       `Excel headers do not match what was expected. ${detail} Expected order: [${EXPECTED_HEADERS.join(', ')}]. Received: [${headers.join(', ')}]`,
+      {
+        missingColumns: missingHeaders,
+        expectedColumns: [...EXPECTED_HEADERS],
+      },
     );
   }
 
@@ -169,7 +180,11 @@ export async function parseTaxRollExcel(
     const periodText = cellText(row.getCell(column('periodo')).value);
 
     if (!cadastralCode) {
-      invalidRows.push({ row: rowNumber, reason: 'Missing cadastral code' });
+      invalidRows.push({
+        row: rowNumber,
+        code: RowIssueCode.MISSING_CADASTRAL_CODE,
+        reason: 'Missing cadastral code',
+      });
       continue;
     }
 
@@ -177,6 +192,7 @@ export async function parseTaxRollExcel(
     if (!periodText || !Number.isInteger(period)) {
       invalidRows.push({
         row: rowNumber,
+        code: RowIssueCode.INVALID_PERIOD,
         reason: 'Missing period or not a valid integer',
       });
       continue;
@@ -184,7 +200,9 @@ export async function parseTaxRollExcel(
     if (!isValidPeriod(period, currentYear)) {
       invalidRows.push({
         row: rowNumber,
+        code: RowIssueCode.PERIOD_OUT_OF_RANGE,
         reason: `Period ${period} is out of range: it must be between ${PROPERTY_TAX_START_YEAR} and ${currentYear}`,
+        details: { period, min: PROPERTY_TAX_START_YEAR, max: currentYear },
       });
       continue;
     }
@@ -193,6 +211,7 @@ export async function parseTaxRollExcel(
     if (!taxId) {
       invalidRows.push({
         row: rowNumber,
+        code: RowIssueCode.MISSING_OWNER_DOCUMENT,
         reason: 'Missing owner document/tax ID (CCNIT)',
       });
       continue;
@@ -212,7 +231,9 @@ export async function parseTaxRollExcel(
     if (invalidColumns.length > 0) {
       invalidRows.push({
         row: rowNumber,
+        code: RowIssueCode.NON_NUMERIC_VALUE,
         reason: `Non-numeric value in column(s): ${invalidColumns.join(', ')}`,
+        details: { columns: invalidColumns },
       });
       continue;
     }
@@ -252,7 +273,9 @@ export async function parseTaxRollExcel(
     if (invalidCoordinates.length > 0) {
       invalidRows.push({
         row: rowNumber,
+        code: RowIssueCode.INVALID_COORDINATE,
         reason: `Invalid coordinate value in column(s): ${invalidCoordinates.join(', ')}`,
+        details: { columns: invalidCoordinates },
       });
       continue;
     }
@@ -263,7 +286,9 @@ export async function parseTaxRollExcel(
     if (firstRow !== undefined) {
       invalidRows.push({
         row: rowNumber,
+        code: RowIssueCode.DUPLICATE_KEY,
         reason: `Duplicate cadastral code + period (${cadastralCode}, ${period}): already in row ${firstRow}`,
+        details: { cadastralCode, period, firstRow },
       });
       continue;
     }
@@ -273,7 +298,11 @@ export async function parseTaxRollExcel(
     // as an empty owner: a warning, never a rejected row.
     const ownerName = cellText(row.getCell(column('Propietario')).value);
     if (!ownerName) {
-      warnings.push({ row: rowNumber, reason: 'Missing owner' });
+      warnings.push({
+        row: rowNumber,
+        code: RowIssueCode.MISSING_OWNER,
+        reason: 'Missing owner',
+      });
     }
 
     validRows.push({
@@ -299,7 +328,8 @@ export async function parseTaxRollExcel(
   }
 
   if (dataRowCount === 0) {
-    throw new Error(
+    throw new CodedError(
+      ErrorCode.TAX_ROLL_NO_DATA_ROWS,
       'The Excel file has the expected headers but no data rows.',
     );
   }

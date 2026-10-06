@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { getErrorMessage } from "../../api/ApiError";
+import { messageForErrorCode } from "../../api/errorMessages";
 import {
   changeSettlementStatus,
   generateLiquidationPdf,
@@ -66,7 +67,7 @@ export function SettlementsPage() {
 
     if (!cedulaCatastral && !propietario && !direccion) {
       setSearchError(
-        "Ingresa al menos un criterio (cédula catastral, propietario o dirección).",
+        messageForErrorCode("SETTLEMENT_SEARCH_CRITERIA_REQUIRED"),
       );
       return;
     }

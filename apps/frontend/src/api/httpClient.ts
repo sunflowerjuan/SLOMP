@@ -1,8 +1,4 @@
-import {
-  ApiError,
-  NETWORK_ERROR_STATUS,
-  extractServerMessage,
-} from "./ApiError";
+import { ApiError, NETWORK_ERROR_STATUS, extractServerError } from "./ApiError";
 import { clearToken, getToken } from "./tokenStorage";
 
 function stripTrailingSlashes(url: string): string {
@@ -16,6 +12,16 @@ function stripTrailingSlashes(url: string): string {
 const API_URL = stripTrailingSlashes(
   import.meta.env.VITE_API_URL ?? "http://localhost:3000",
 );
+
+function toApiError(response: Response, data: unknown): ApiError {
+  const { message, code, details } = extractServerError(data);
+  return new ApiError(
+    response.status,
+    message ?? response.statusText,
+    code,
+    details,
+  );
+}
 
 type UnauthorizedHandler = () => void;
 
@@ -93,10 +99,7 @@ export async function request<T>(
       clearToken();
       unauthorizedHandler?.();
     }
-    throw new ApiError(
-      response.status,
-      extractServerMessage(data) ?? response.statusText,
-    );
+    throw toApiError(response, data);
   }
 
   return data as T;
@@ -170,10 +173,7 @@ export async function requestBlob(
       clearToken();
       unauthorizedHandler?.();
     }
-    throw new ApiError(
-      response.status,
-      extractServerMessage(data) ?? response.statusText,
-    );
+    throw toApiError(response, data);
   }
 
   return {

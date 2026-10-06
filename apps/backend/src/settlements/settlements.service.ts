@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { SettlementStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { errorBody } from '../common/errors/error-body.js';
+import { ErrorCode } from '../common/errors/error-codes.js';
 
 export interface SettlementSearchCriteria {
   cadastralCode?: string;
@@ -48,7 +50,10 @@ export class SettlementsService {
 
     if (!cadastralCode && !owner && !address) {
       throw new BadRequestException(
-        'Provide at least one of cadastralCode, owner or address.',
+        errorBody(
+          ErrorCode.SETTLEMENT_SEARCH_CRITERIA_REQUIRED,
+          'Provide at least one of cadastralCode, owner or address.',
+        ),
       );
     }
 
@@ -112,7 +117,11 @@ export class SettlementsService {
       !Object.values(SettlementStatus).includes(status as SettlementStatus)
     ) {
       throw new BadRequestException(
-        `"status" must be one of: ${Object.values(SettlementStatus).join(', ')}.`,
+        errorBody(
+          ErrorCode.SETTLEMENT_STATUS_INVALID,
+          `"status" must be one of: ${Object.values(SettlementStatus).join(', ')}.`,
+          { allowed: Object.values(SettlementStatus) },
+        ),
       );
     }
 
@@ -120,11 +129,19 @@ export class SettlementsService {
       where: { id },
     });
     if (!settlement) {
-      throw new NotFoundException(`Settlement ${id} not found.`);
+      throw new NotFoundException(
+        errorBody(
+          ErrorCode.SETTLEMENT_NOT_FOUND,
+          `Settlement ${id} not found.`,
+        ),
+      );
     }
     if (settlement.replacedAt !== null) {
       throw new ConflictException(
-        'Cannot change the status of a settlement that was already replaced.',
+        errorBody(
+          ErrorCode.SETTLEMENT_ALREADY_REPLACED,
+          'Cannot change the status of a settlement that was already replaced.',
+        ),
       );
     }
 

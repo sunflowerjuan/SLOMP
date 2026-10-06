@@ -3,6 +3,8 @@ import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service.js';
 import { LoginDto } from './login.dto.js';
 import { Public } from './public.decorator.js';
+import { errorBody } from '../common/errors/error-body.js';
+import { ErrorCode } from '../common/errors/error-codes.js';
 
 @ApiTags('auth')
 @Controller()
@@ -36,7 +38,12 @@ export class AuthController {
   })
   login(@Body() body: LoginDto) {
     if (typeof body?.email !== 'string' || typeof body?.password !== 'string') {
-      throw new BadRequestException('You must provide "email" and "password".');
+      throw new BadRequestException(
+        errorBody(
+          ErrorCode.AUTH_CREDENTIALS_REQUIRED,
+          'You must provide "email" and "password".',
+        ),
+      );
     }
     return this.authService.login(body.email, body.password);
   }

@@ -5,7 +5,11 @@ import { request } from "./httpClient";
 
 export interface TaxRollRowIssue {
   row: number;
+  // Stable code mapped to the user-facing text in errorMessages.ts.
+  code: string;
+  // Developer-facing English description; not shown to the user.
   reason: string;
+  details?: Record<string, unknown>;
 }
 
 export interface TaxRollConflict {

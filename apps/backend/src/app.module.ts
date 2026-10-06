@@ -1,10 +1,11 @@
 import 'dotenv/config';
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { createObserveModule } from '@nestjs/observe';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { AuthModule } from './auth/auth.module.js';
+import { ApiExceptionFilter } from './common/errors/api-exception.filter.js';
 import { JwtAuthGuard } from './auth/jwt-auth.guard.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { SettlementsModule } from './settlements/settlements.module.js';
@@ -32,6 +33,9 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     // Every route requires a valid JWT unless its handler (or controller)
     // is decorated with @Public().
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    // Every error response follows the same { statusCode, code, message }
+    // shape; see common/errors.
+    { provide: APP_FILTER, useClass: ApiExceptionFilter },
   ],
 })
 export class AppModule {}

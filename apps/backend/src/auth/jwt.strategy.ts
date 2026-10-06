@@ -3,6 +3,8 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { JwtPayload } from './auth.service.js';
+import { errorBody } from '../common/errors/error-body.js';
+import { ErrorCode } from '../common/errors/error-codes.js';
 
 export interface AuthenticatedUser {
   id: number;
@@ -33,7 +35,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       select: { id: true, email: true },
     });
     if (!admin) {
-      throw new UnauthorizedException('This session is no longer valid.');
+      throw new UnauthorizedException(
+        errorBody(
+          ErrorCode.AUTH_SESSION_INVALID,
+          'This session is no longer valid.',
+        ),
+      );
     }
     return admin;
   }

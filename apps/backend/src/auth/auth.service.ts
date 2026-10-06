@@ -2,6 +2,8 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { errorBody } from '../common/errors/error-body.js';
+import { ErrorCode } from '../common/errors/error-codes.js';
 
 // Compared against when no admin matches the email, so a login attempt for
 // an unknown address takes the same time as a wrong-password one. Generated
@@ -35,7 +37,9 @@ export class AuthService {
     );
 
     if (!admin || !passwordMatches) {
-      throw new UnauthorizedException('Invalid credentials.');
+      throw new UnauthorizedException(
+        errorBody(ErrorCode.AUTH_INVALID_CREDENTIALS, 'Invalid credentials.'),
+      );
     }
 
     const payload: JwtPayload = { sub: admin.id, email: admin.email };

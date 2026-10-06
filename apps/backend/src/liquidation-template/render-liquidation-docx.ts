@@ -3,10 +3,18 @@ import { resolve } from 'node:path';
 import Docxtemplater from 'docxtemplater';
 import PizZip from 'pizzip';
 import type { LiquidationTemplateData } from './liquidation-template-data.js';
+import { CodedError } from '../common/errors/coded-error.js';
+import { ErrorCode } from '../common/errors/error-codes.js';
 
-export class LiquidationTemplateError extends Error {
-  constructor(message: string, options?: ErrorOptions) {
-    super(message, options);
+export class LiquidationTemplateError extends CodedError {
+  constructor(
+    code:
+      | typeof ErrorCode.PDF_TEMPLATE_UNAVAILABLE
+      | typeof ErrorCode.PDF_TEMPLATE_INVALID,
+    message: string,
+    options?: ErrorOptions,
+  ) {
+    super(code, message, undefined, options);
     this.name = 'LiquidationTemplateError';
   }
 }
@@ -29,6 +37,7 @@ export function renderLiquidationDocx(
     templateBuffer = readFileSync(templatePath);
   } catch {
     throw new LiquidationTemplateError(
+      ErrorCode.PDF_TEMPLATE_UNAVAILABLE,
       'The liquidation template is unavailable. Verify that the .docx template is installed in the configured location.',
     );
   }
@@ -40,6 +49,7 @@ export function renderLiquidationDocx(
     return document.getZip().generate({ type: 'nodebuffer' });
   } catch (error) {
     throw new LiquidationTemplateError(
+      ErrorCode.PDF_TEMPLATE_INVALID,
       'The liquidation template is invalid or corrupted. Replace it with a valid .docx template.',
       { cause: error },
     );

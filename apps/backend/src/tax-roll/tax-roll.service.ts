@@ -1,4 +1,11 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import { CodedError } from '../common/errors/coded-error.js';
+import { errorBody } from '../common/errors/error-body.js';
+import { ErrorCode } from '../common/errors/error-codes.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { parseTaxRollExcel } from './parse-tax-roll-excel.js';
 import { persistTaxRoll } from './persist-tax-roll.js';
@@ -20,11 +27,7 @@ export class TaxRollService {
     previousImportId?: number,
   ) {
     const parsed = await this.parse(buffer);
-    const persisted = await persistTaxRoll(
-      this.prisma,
-      parsed.validRows,
-      confirmReplace,
-    );
+    const persisted = await this.persist(parsed, confirmReplace);
     const importId = await this.recordImport(
       fileName,
       administratorId,
@@ -100,11 +103,43 @@ export class TaxRollService {
     try {
       return await parseTaxRollExcel(buffer);
     } catch (error) {
+      if (error instanceof CodedError) {
+        throw new BadRequestException(
+          errorBody(error.code, error.message, error.details),
+        );
+      }
       throw new BadRequestException(
-        error instanceof Error
-          ? error.message
-          : 'Could not read the Excel file.',
+        errorBody(
+          ErrorCode.TAX_ROLL_UNREADABLE,
+          'Could not read the Excel file.',
+        ),
+        { cause: error },
       );
+    }
+  }
+
+  private async persist(
+    parsed: ParseTaxRollExcelResult,
+    confirmReplace: boolean,
+  ) {
+    try {
+      return await persistTaxRoll(
+        this.prisma,
+        parsed.validRows,
+        confirmReplace,
+      );
+    } catch (error) {
+      // A missing municipality is a deployment problem, not something the
+      // Administrator can fix by changing the file.
+      if (
+        error instanceof CodedError &&
+        error.code === ErrorCode.MUNICIPALITY_NOT_CONFIGURED
+      ) {
+        throw new ServiceUnavailableException(
+          errorBody(error.code, error.message),
+        );
+      }
+      throw error;
     }
   }
 }

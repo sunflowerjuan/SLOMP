@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type { SettlementStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { errorBody } from '../common/errors/error-body.js';
+import { ErrorCode } from '../common/errors/error-codes.js';
 
 export interface PublicSettlementQueryCriteria {
   cadastralCode?: string;
@@ -42,7 +44,10 @@ export class PublicSettlementQueryService {
     ).length;
     if (providedCount < 2) {
       throw new BadRequestException(
-        'Provide at least 2 of: cadastralCode, ownerName, address.',
+        errorBody(
+          ErrorCode.PUBLIC_QUERY_CRITERIA_REQUIRED,
+          'Provide at least 2 of: cadastralCode, ownerName, address.',
+        ),
       );
     }
 
