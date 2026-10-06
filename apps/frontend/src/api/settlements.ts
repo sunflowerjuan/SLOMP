@@ -5,14 +5,18 @@ import type { BlobResponse } from "./httpClient";
 export type { SettlementStatus };
 
 // Mirrors the response of GET /settlements/search
-// (apps/backend/src/settlements/settlements.service.ts).
+// (apps/backend/src/settlements/settlements.service.ts): one row per PDF, i.e.
+// the periods of a property that share (or will share) a Resolution.
 export interface SettlementSearchResult {
+  // Any settlement of the group: the PDF and the status change cover them all.
   settlementId: number;
+  resolutionNumber: string | null;
   cadastralCode: string;
   address: string;
   ownerName: string;
-  period: number;
-  status: SettlementStatus;
+  periods: number[];
+  // "MIXED" only for legacy data whose periods have different states.
+  status: SettlementStatus | "MIXED";
   totalAmount: number;
 }
 
@@ -48,8 +52,8 @@ export function generateLiquidationPdf(
   });
 }
 
-// The Administrator can force any of the 4 states manually on a current
-// (non-replaced) settlement.
+// The Administrator can force any of the 4 states manually; it applies to
+// the whole group (resolution) of the given settlement.
 export function changeSettlementStatus(
   settlementId: number,
   status: SettlementStatus,

@@ -7,8 +7,8 @@ import { SettlementStatus } from '@prisma/client';
 import { describe, expect, it, vi } from 'vitest';
 import { SettlementsService } from './settlements.service.js';
 
-function buildPrisma(settlements: unknown[]) {
-  return { settlement: { findMany: vi.fn().mockResolvedValue(settlements) } };
+function buildPrisma(properties: unknown[]) {
+  return { property: { findMany: vi.fn().mockResolvedValue(properties) } };
 }
 
 // Decimal.toNumber() is the only Decimal method the service calls.
@@ -16,20 +16,35 @@ function decimal(value: number) {
   return { toNumber: () => value };
 }
 
-const ONE_SETTLEMENT = {
-  id: 1,
-  period: 2024,
+const settlement = (
+  id: number,
+  period: number,
+  resolution: unknown = null,
+) => ({
+  id,
+  period,
   status: SettlementStatus.VIGENTE,
   replacedAt: null,
-  totalAmount: decimal(54590),
-  property: {
-    cadastralCode: '000100010001',
-    address: 'Finca La Esperanza',
-    owners: [
-      { owner: { name: 'Juan Pérez' } },
-      { owner: { name: 'María Gómez' } },
-    ],
-  },
+  totalAmount: decimal(1000),
+  resolution,
+});
+
+const ONE_PROPERTY = {
+  cadastralCode: '000100010001',
+  address: 'Finca La Esperanza',
+  owners: [
+    { owner: { name: 'Juan Pérez' } },
+    { owner: { name: 'María Gómez' } },
+  ],
+  settlements: [
+    settlement(1, 2018),
+    settlement(2, 2019),
+    settlement(3, 2025, {
+      id: 7,
+      number: 'LOIP 15514 2026-0007',
+      kind: 'NORMAL',
+    }),
+  ],
 };
 
 describe('SettlementsService', () => {
@@ -43,30 +58,45 @@ describe('SettlementsService', () => {
     await expect(
       service.search({ cadastralCode: '  ', owner: '', address: undefined }),
     ).rejects.toBeInstanceOf(BadRequestException);
-    expect(prisma.settlement.findMany).not.toHaveBeenCalled();
+    expect(prisma.property.findMany).not.toHaveBeenCalled();
   });
 
-  it('only searches current (non-replaced) settlements, and shapes the result for the panel', async () => {
-    const prisma = buildPrisma([ONE_SETTLEMENT]);
+  it('only searches properties with current settlements and returns one row per PDF (resolution)', async () => {
+    const prisma = buildPrisma([ONE_PROPERTY]);
     const service = new SettlementsService(prisma as never);
 
     const result = await service.search({ cadastralCode: '000100010001' });
 
-    expect(prisma.settlement.findMany).toHaveBeenCalledWith(
+    expect(prisma.property.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ replacedAt: null }),
+        where: expect.objectContaining({
+          settlements: { some: { replacedAt: null } },
+        }),
+        include: expect.objectContaining({
+          settlements: expect.objectContaining({
+            where: { replacedAt: null },
+          }),
+        }),
       }),
     );
     expect(result).toEqual([
-      {
+      expect.objectContaining({
         settlementId: 1,
         cadastralCode: '000100010001',
         address: 'Finca La Esperanza',
         ownerName: 'Juan Pérez, María Gómez',
-        period: 2024,
+        resolutionNumber: null,
+        kind: 'PRESCRIPTION_RISK',
+        periods: [2018, 2019],
         status: SettlementStatus.VIGENTE,
-        totalAmount: 54590,
-      },
+        totalAmount: 2000,
+      }),
+      expect.objectContaining({
+        settlementId: 3,
+        resolutionNumber: 'LOIP 15514 2026-0007',
+        periods: [2025],
+        totalAmount: 1000,
+      }),
     ]);
   });
 
@@ -76,34 +106,30 @@ describe('SettlementsService', () => {
 
     await service.search({ owner: 'Juan' });
 
-    expect(prisma.settlement.findMany).toHaveBeenCalledWith(
+    expect(prisma.property.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({
-          property: {
-            owners: {
-              some: {
-                owner: { name: { contains: 'Juan', mode: 'insensitive' } },
-              },
+        where: {
+          settlements: { some: { replacedAt: null } },
+          owners: {
+            some: {
+              owner: { name: { contains: 'Juan', mode: 'insensitive' } },
             },
           },
-        }),
+        },
       }),
     );
   });
 
   describe('changeStatus', () => {
-    function buildPrismaForStatusChange(settlement: unknown) {
+    function buildPrismaForStatusChange(
+      current: unknown,
+      siblings: { id: number; period?: number }[] = [],
+    ) {
       return {
         settlement: {
-          findUnique: vi.fn().mockResolvedValue(settlement),
-          update: vi
-            .fn()
-            .mockImplementation(
-              async ({ data }: { data: { status: SettlementStatus } }) => ({
-                id: 1,
-                status: data.status,
-              }),
-            ),
+          findUnique: vi.fn().mockResolvedValue(current),
+          findMany: vi.fn().mockResolvedValue(siblings),
+          updateMany: vi.fn().mockResolvedValue({ count: siblings.length }),
         },
       };
     }
@@ -125,7 +151,7 @@ describe('SettlementsService', () => {
       await expect(
         service.changeStatus(1, SettlementStatus.PAGADA),
       ).rejects.toBeInstanceOf(NotFoundException);
-      expect(prisma.settlement.update).not.toHaveBeenCalled();
+      expect(prisma.settlement.updateMany).not.toHaveBeenCalled();
     });
 
     it('rejects changing the status of an already-replaced settlement', async () => {
@@ -138,24 +164,57 @@ describe('SettlementsService', () => {
       await expect(
         service.changeStatus(1, SettlementStatus.PAGADA),
       ).rejects.toBeInstanceOf(ConflictException);
-      expect(prisma.settlement.update).not.toHaveBeenCalled();
+      expect(prisma.settlement.updateMany).not.toHaveBeenCalled();
     });
 
     it.each(Object.values(SettlementStatus))(
-      'lets the Administrator force %s on a current settlement',
+      'lets the Administrator force %s on every settlement of a generated resolution',
       async (status) => {
-        const prisma = buildPrismaForStatusChange({ id: 1, replacedAt: null });
+        const prisma = buildPrismaForStatusChange(
+          { id: 1, replacedAt: null, resolutionId: 7, propertyId: 3 },
+          [{ id: 1 }, { id: 2 }],
+        );
         const service = new SettlementsService(prisma as never);
 
         const result = await service.changeStatus(1, status);
 
-        expect(prisma.settlement.update).toHaveBeenCalledWith({
-          where: { id: 1 },
+        expect(prisma.settlement.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { resolutionId: 7, replacedAt: null },
+          }),
+        );
+        expect(prisma.settlement.updateMany).toHaveBeenCalledWith({
+          where: { id: { in: [1, 2] } },
           data: { status },
         });
-        expect(result).toEqual({ settlementId: 1, status });
+        expect(result).toEqual({
+          settlementId: 1,
+          settlementIds: [1, 2],
+          status,
+        });
       },
     );
+
+    it('before a resolution exists, changes only the same-kind periods of that property', async () => {
+      // Periods 2000/2001 are always at prescription risk; 2999 never is.
+      const prisma = buildPrismaForStatusChange(
+        { id: 1, replacedAt: null, resolutionId: null, propertyId: 3 },
+        [
+          { id: 1, period: 2000 },
+          { id: 2, period: 2001 },
+          { id: 3, period: 2999 },
+        ],
+      );
+      const service = new SettlementsService(prisma as never);
+
+      const result = await service.changeStatus(1, SettlementStatus.PAGADA);
+
+      expect(result.settlementIds).toEqual([1, 2]);
+      expect(prisma.settlement.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: [1, 2] } },
+        data: { status: SettlementStatus.PAGADA },
+      });
+    });
   });
 });
 

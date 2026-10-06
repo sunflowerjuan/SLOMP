@@ -86,11 +86,62 @@
   border: 1px solid var(--semantic-border);
   border-radius: var(--radius-default);
   padding: var(--space-4) var(--space-8);
+  min-height: 32px;
 }
 
 .settlements-page__status-select:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.settlements-page__icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: var(--semantic-text-muted);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-default);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    transform 100ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.settlements-page__icon-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.settlements-page__icon-button:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.settlements-page__icon-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.settlements-page__icon-button--confirm {
+  color: var(--semantic-success);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .settlements-page__icon-button:hover:not(:disabled) {
+    color: var(--semantic-text);
+    background-color: var(--semantic-surface-muted);
+  }
+}
+
+.settlements-page__icon-button:focus-visible,
+.settlements-page__status-select:focus-visible {
+  outline: 2px solid var(--semantic-primary);
+  outline-offset: 2px;
 }
 
 .settlements-page__error {

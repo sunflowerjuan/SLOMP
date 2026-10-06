@@ -9,18 +9,14 @@ import {
 } from "../../api/settlements";
 import type { SettlementSearchResult } from "../../api/settlements";
 import { triggerBrowserDownload } from "../../utils/downloadBlob";
-import {
-  SETTLEMENT_STATUSES,
-  SETTLEMENT_STATUS_LABEL,
-  SETTLEMENT_STATUS_VARIANT,
-} from "../../domain/settlementStatus";
+import { formatPeriods } from "../../utils/formatPeriods";
 import type { SettlementStatus } from "../../domain/settlementStatus";
 import { Button } from "../../components/ui/Button";
 import { GeneratePdfDialog } from "../../components/ui/GeneratePdfDialog";
 import { Input } from "../../components/ui/Input";
-import { StatusBadge } from "../../components/ui/StatusBadge";
 import { Table } from "../../components/ui/Table";
 import { TableRow } from "../../components/ui/TableRow";
+import { SettlementStatusCell } from "./SettlementStatusCell";
 import "./SettlementsPage.css";
 
 interface Filters {
@@ -28,6 +24,12 @@ interface Filters {
   propietario: string;
   direccion: string;
 }
+
+const COP = new Intl.NumberFormat("es-CO", {
+  style: "currency",
+  currency: "COP",
+  maximumFractionDigits: 0,
+});
 
 const EMPTY_FILTERS: Filters = {
   cedulaCatastral: "",
@@ -49,6 +51,7 @@ export function SettlementsPage() {
   const [isPdfDialogOpen, setIsPdfDialogOpen] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [statusChangeId, setStatusChangeId] = useState<number | null>(null);
   const [statusChangeError, setStatusChangeError] = useState<string | null>(
     null,
@@ -83,6 +86,7 @@ export function SettlementsPage() {
       setResults(found);
       setHasSearched(true);
       setSelectedSettlementId(null);
+      setEditingId(null);
     } catch (caught) {
       setSearchError(getErrorMessage(caught));
     } finally {
@@ -94,7 +98,10 @@ export function SettlementsPage() {
     entry: SettlementSearchResult,
     status: SettlementStatus,
   ) {
-    if (status === entry.status) return;
+    if (status === entry.status) {
+      setEditingId(null);
+      return;
+    }
 
     setStatusChangeId(entry.settlementId);
     setStatusChangeError(null);
@@ -105,6 +112,7 @@ export function SettlementsPage() {
           row.settlementId === entry.settlementId ? { ...row, status } : row,
         ),
       );
+      setEditingId(null);
     } catch (caught) {
       setStatusChangeError(getErrorMessage(caught));
     } finally {
@@ -216,7 +224,13 @@ export function SettlementsPage() {
           )}
 
           <Table
-            columns={["Cédula catastral", "Propietario", "Periodo", "Estado"]}
+            columns={[
+              "Cédula catastral",
+              "Propietario",
+              "Periodos",
+              "Total",
+              "Estado",
+            ]}
           >
             {results.map((entry) => (
               <TableRow
@@ -226,37 +240,25 @@ export function SettlementsPage() {
                 cells={[
                   entry.cadastralCode,
                   entry.ownerName,
-                  entry.period,
-                  <div
+                  formatPeriods(entry.periods),
+                  COP.format(entry.totalAmount),
+                  <SettlementStatusCell
                     key="estado"
-                    className="settlements-page__status-cell"
-                    role="presentation"
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    <StatusBadge
-                      variant={SETTLEMENT_STATUS_VARIANT[entry.status]}
-                    >
-                      {SETTLEMENT_STATUS_LABEL[entry.status]}
-                    </StatusBadge>
-                    <select
-                      aria-label={`Cambiar estado de la liquidación de ${entry.cadastralCode}, periodo ${entry.period}`}
-                      className="settlements-page__status-select"
-                      value={entry.status}
-                      disabled={statusChangeId === entry.settlementId}
-                      onChange={(event) =>
-                        handleStatusChange(
-                          entry,
-                          event.target.value as SettlementStatus,
-                        )
-                      }
-                    >
-                      {SETTLEMENT_STATUSES.map((estado) => (
-                        <option key={estado} value={estado}>
-                          {SETTLEMENT_STATUS_LABEL[estado]}
-                        </option>
-                      ))}
-                    </select>
-                  </div>,
+                    status={entry.status}
+                    description={`${entry.cadastralCode}, periodos ${formatPeriods(entry.periods)}`}
+                    editing={editingId === entry.settlementId}
+                    saving={statusChangeId === entry.settlementId}
+                    editLocked={editingId !== null}
+                    onEdit={() => {
+                      setEditingId(entry.settlementId);
+                      setStatusChangeError(null);
+                    }}
+                    onSave={(status) => handleStatusChange(entry, status)}
+                    onCancel={() => {
+                      setEditingId(null);
+                      setStatusChangeError(null);
+                    }}
+                  />,
                 ]}
               />
             ))}
