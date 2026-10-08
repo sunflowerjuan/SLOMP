@@ -106,6 +106,19 @@
     bottom: var(--space-8);
     left: var(--space-8);
     width: auto;
+    /* Mobile: rises from the bottom edge and goes back down on close. */
+    transform: translateY(calc(100% + var(--space-8)));
+    /* Full-height travel: an ease-out front-loads ~80% of it into the first
+       200ms and reads as fast whatever the duration, so use an even curve. */
+    transition:
+      transform 400ms var(--ease-sheet-soft),
+      visibility 0s 400ms;
+  }
+
+  .settlement-sheet[data-open="true"] {
+    transition:
+      transform 520ms var(--ease-sheet-soft),
+      visibility 0s;
   }
 }
 

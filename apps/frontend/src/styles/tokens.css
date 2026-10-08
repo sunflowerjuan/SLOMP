@@ -87,6 +87,8 @@
   /* Motion */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+  /* easeInOutSine: even, unhurried travel for full-height mobile sheets. */
+  --ease-sheet-soft: cubic-bezier(0.37, 0, 0.63, 1);
   --duration-press: 100ms;
   --duration-fast: 150ms;
   --duration-base: 240ms;
