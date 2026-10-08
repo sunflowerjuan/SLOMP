@@ -14,6 +14,8 @@ import type {
   PendingLiquidationCounts,
 } from "../../api/resolutions";
 import { Button } from "../../components/ui/Button";
+import { Card } from "../../components/ui/Card";
+import { Notice } from "../../components/ui/Notice";
 import { triggerBrowserDownload } from "../../utils/downloadBlob";
 import "./BulkZipPanel.css";
 
@@ -218,23 +220,14 @@ export function BulkZipPanel({ refreshKey }: BulkZipPanelProps) {
   const active = job?.status === "running" || downloading;
 
   return (
-    <section
-      className="bulk-zip-panel tax-roll-upload-page__card"
-      aria-labelledby="bulk-zip-panel-title"
-    >
-      <h2
-        className="tax-roll-upload-page__card-title"
-        id="bulk-zip-panel-title"
-      >
-        Liquidaciones listas para generar
-      </h2>
+    <Card title="Liquidaciones listas para generar" className="bulk-zip-panel">
       {countsLoading && (
         <p className="bulk-zip-panel__muted" role="status">
           Cargando liquidaciones pendientes…
         </p>
       )}
       {!countsLoading && countsError && (
-        <div className="bulk-zip-panel__notice" role="alert">
+        <Notice className="bulk-zip-panel__retry">
           {countsError}
           <Button
             type="button"
@@ -243,7 +236,7 @@ export function BulkZipPanel({ refreshKey }: BulkZipPanelProps) {
           >
             Reintentar
           </Button>
-        </div>
+        </Notice>
       )}
       {counts && (
         <div className="bulk-zip-panel__rows">
@@ -311,21 +304,13 @@ export function BulkZipPanel({ refreshKey }: BulkZipPanelProps) {
         </div>
       )}
       {notice && (
-        <div
-          className={`bulk-zip-panel__notice bulk-zip-panel__notice--${notice.kind} bulk-zip-panel__enter`}
-          role="status"
-        >
+        <Notice variant={notice.kind} className="bulk-zip-panel__enter">
           {notice.text}
-        </div>
+        </Notice>
       )}
       {jobError && (
-        <div
-          className="bulk-zip-panel__notice bulk-zip-panel__enter"
-          role="alert"
-        >
-          {jobError}
-        </div>
+        <Notice className="bulk-zip-panel__enter">{jobError}</Notice>
       )}
-    </section>
+    </Card>
   );
 }
