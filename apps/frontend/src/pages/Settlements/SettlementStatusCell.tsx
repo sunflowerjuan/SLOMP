@@ -7,6 +7,7 @@ import {
 } from "../../domain/settlementStatus";
 import type { SettlementStatus } from "../../domain/settlementStatus";
 import { StatusBadge } from "../../components/ui/StatusBadge";
+import "./SettlementStatusCell.css";
 
 interface SettlementStatusCellProps {
   status: SettlementStatus | "MIXED";
@@ -58,10 +59,12 @@ export function SettlementStatusCell({
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    // The row opens the PDF dialog on Enter/Space: keep these keys in the cell.
-    event.stopPropagation();
     if (!editing || saving) return;
-    if (event.key === "Escape") onCancel();
+    if (event.key === "Escape") {
+      // Cancels the edit only; a second Escape closes the detail panel.
+      event.stopPropagation();
+      onCancel();
+    }
     if (event.key === "Enter" && event.target instanceof HTMLSelectElement) {
       event.preventDefault();
       onSave(draft);
@@ -69,18 +72,13 @@ export function SettlementStatusCell({
   }
 
   return (
-    <div
-      className="settlements-page__status-cell"
-      role="presentation"
-      onClick={(event) => event.stopPropagation()}
-      onKeyDown={handleKeyDown}
-    >
+    <div className="status-cell" role="presentation" onKeyDown={handleKeyDown}>
       {editing ? (
         <>
           <select
             ref={selectRef}
             aria-label={`Estado de la liquidación: ${description}`}
-            className="settlements-page__status-select"
+            className="status-cell__select"
             value={draft}
             disabled={saving}
             onChange={(event) =>
@@ -95,7 +93,7 @@ export function SettlementStatusCell({
           </select>
           <button
             type="button"
-            className="settlements-page__icon-button settlements-page__icon-button--confirm"
+            className="status-cell__button status-cell__button--confirm"
             aria-label="Confirmar cambio de estado"
             disabled={saving}
             onClick={() => onSave(draft)}
@@ -106,7 +104,7 @@ export function SettlementStatusCell({
           </button>
           <button
             type="button"
-            className="settlements-page__icon-button"
+            className="status-cell__button"
             aria-label="Cancelar cambio de estado"
             disabled={saving}
             onClick={onCancel}
@@ -128,7 +126,7 @@ export function SettlementStatusCell({
           <button
             ref={editButtonRef}
             type="button"
-            className="settlements-page__icon-button"
+            className="status-cell__button"
             aria-label={`Cambiar estado de ${description}`}
             disabled={editLocked}
             onClick={startEditing}

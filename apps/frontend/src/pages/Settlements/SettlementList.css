@@ -1,0 +1,190 @@
+.settlement-list__row {
+  display: grid;
+  grid-template-columns:
+    minmax(250px, 1.4fr) minmax(0, 1.5fr) minmax(110px, 0.7fr)
+    minmax(110px, 0.6fr) minmax(190px, 1fr);
+  align-items: center;
+  column-gap: var(--space-12);
+}
+
+.settlement-list__head [role="columnheader"] {
+  padding: var(--space-12) 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--semantic-text-muted);
+}
+
+.settlement-list__head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: var(--semantic-surface);
+  border-bottom: 1px solid var(--semantic-border);
+}
+
+.settlement-list__row--body {
+  min-height: 64px;
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--semantic-border);
+  font-size: var(--text-sm);
+  transition: background-color var(--duration-press) ease;
+  /* Rows arrive one after another, capped so long lists don't drag. */
+  animation: rise-in var(--duration-enter) var(--ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * 35ms);
+}
+
+.settlement-list__row--body[aria-current="true"] {
+  background-color: var(--semantic-bg-selected);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .settlement-list__row--body {
+    cursor: pointer;
+  }
+
+  .settlement-list__row--body:not([aria-current="true"]):hover {
+    background-color: var(--semantic-surface-muted);
+  }
+}
+
+.settlement-list__row [role="cell"] {
+  min-width: 0;
+}
+
+.settlement-list__code button {
+  min-height: var(--tap-size);
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--semantic-text);
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.settlement-list__owner {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settlement-list__num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.settlement-list__periods {
+  font-variant-numeric: tabular-nums;
+}
+
+.settlement-list__message {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-48) 0;
+  text-align: center;
+  align-items: center;
+}
+
+.settlement-list__message p {
+  max-width: 44ch;
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+.settlement-list__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.settlement-list__skeleton {
+  display: flex;
+  gap: var(--space-24);
+  align-items: center;
+  height: 64px;
+  border-bottom: 1px solid var(--semantic-border);
+}
+
+.settlement-list__skeleton span {
+  height: 16px;
+  border-radius: 4px;
+  background-color: var(--semantic-surface-muted);
+  animation: settlement-list-pulse 1.2s ease-in-out infinite;
+}
+
+.settlement-list__skeleton span:first-child {
+  width: 30%;
+}
+
+.settlement-list__skeleton span:last-child {
+  width: 40%;
+}
+
+@keyframes settlement-list-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* While the sheet pushes the list the room gets tight: the total lives in
+   the sheet, so the list drops it. */
+@media (min-width: 1440px) and (max-width: 1699px) {
+  .settlements-page[data-sheet="open"] .settlement-list__row {
+    grid-template-columns:
+      minmax(250px, 1.4fr) minmax(0, 1fr) minmax(100px, 0.6fr)
+      minmax(190px, 0.9fr);
+  }
+
+  .settlements-page[data-sheet="open"] .settlement-list__num {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .settlement-list__head {
+    display: none;
+  }
+
+  .settlement-list__row--body {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "code status"
+      "owner owner"
+      "periods total";
+    row-gap: var(--space-4);
+    padding: var(--space-12) var(--space-8);
+  }
+
+  .settlement-list__code {
+    grid-area: code;
+  }
+
+  .settlement-list__status {
+    grid-area: status;
+  }
+
+  .settlement-list__owner {
+    grid-area: owner;
+  }
+
+  .settlement-list__periods {
+    grid-area: periods;
+    color: var(--semantic-text-muted);
+  }
+
+  .settlement-list__num {
+    grid-area: total;
+  }
+}
+
+.settlement-list__message {
+  animation: rise-in var(--duration-enter) var(--ease-out) backwards;
+}

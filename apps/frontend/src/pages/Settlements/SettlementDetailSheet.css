@@ -1,0 +1,125 @@
+.settlement-sheet {
+  position: fixed;
+  top: var(--space-12);
+  right: var(--space-12);
+  bottom: var(--space-12);
+  z-index: 7;
+  width: 360px;
+  padding: var(--space-24);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--radius-xl);
+  background-color: var(--semantic-surface-muted);
+  transform: translateX(calc(100% + 24px));
+  visibility: hidden;
+  transition:
+    transform 260ms var(--ease-sheet),
+    visibility 0s 260ms;
+}
+
+.settlement-sheet[data-open="true"] {
+  transform: none;
+  visibility: visible;
+  transition:
+    transform var(--duration-sheet) var(--ease-sheet),
+    visibility 0s;
+}
+
+.settlement-sheet * {
+  min-width: 0;
+}
+
+.settlement-sheet__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+
+.settlement-sheet__header > div {
+  flex: 1;
+}
+
+.settlement-sheet__title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.settlement-sheet__amount {
+  margin: var(--space-4) 0 0;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.settlement-sheet__close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--tap-size);
+  height: var(--tap-size);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-ctl);
+  background: none;
+  color: var(--semantic-text);
+  cursor: pointer;
+  transition: transform var(--duration-press) var(--ease-out);
+}
+
+.settlement-sheet__close:active {
+  transform: scale(0.92);
+}
+
+.settlement-sheet__close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.settlement-sheet__details {
+  display: grid;
+  gap: 22px;
+  margin: 28px 0;
+}
+
+.settlement-sheet__details dt {
+  font-size: var(--text-sm);
+  /* Muted grey is only 3.9:1 on the sheet's grey. */
+  color: var(--tinta-600);
+}
+
+.settlement-sheet__details dd {
+  margin: 2px 0 0;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .settlement-sheet {
+    top: var(--space-8);
+    right: var(--space-8);
+    bottom: var(--space-8);
+    left: var(--space-8);
+    width: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settlement-sheet {
+    transform: none;
+    opacity: 0;
+    transition:
+      opacity var(--duration-fast) linear,
+      visibility 0s var(--duration-fast);
+  }
+
+  .settlement-sheet[data-open="true"] {
+    opacity: 1;
+    transition: opacity var(--duration-fast) linear;
+  }
+}
