@@ -164,6 +164,51 @@
   .tax-roll-upload-page__actions .ui-button {
     width: 100%;
   }
+
+  /* History: four columns don't fit a phone, so each row becomes a small
+     card -- file name and status on top, date and count underneath. */
+  .tax-roll-upload-page__history .ui-table__head {
+    display: none;
+  }
+
+  .tax-roll-upload-page__history .ui-table,
+  .tax-roll-upload-page__history .ui-table__body {
+    display: block;
+  }
+
+  .tax-roll-upload-page__history .ui-table__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--space-12);
+    row-gap: var(--space-4);
+    align-items: center;
+    padding: var(--space-12) 0;
+  }
+
+  .tax-roll-upload-page__history .ui-table__cell {
+    padding: 0;
+  }
+
+  .tax-roll-upload-page__history .ui-table__cell:nth-child(1) {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .tax-roll-upload-page__history .ui-table__cell:nth-child(4) {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .tax-roll-upload-page__history .ui-table__cell:nth-child(2),
+  .tax-roll-upload-page__history .ui-table__cell:nth-child(3) {
+    grid-column: 1 / -1;
+    font-size: var(--text-sm);
+    color: var(--semantic-text-muted);
+  }
+
+  .tax-roll-upload-page__history .ui-table__cell:nth-child(3)::after {
+    content: " registros";
+  }
 }
 
 /* Wide: the whole screen fits without page scroll. Upload and history on the
