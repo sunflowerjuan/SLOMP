@@ -8,17 +8,29 @@
   min-height: 160px;
   padding: var(--space-24);
   background-color: var(--semantic-surface);
-  border: 2px dashed var(--grafito-100);
+  border: 2px dashed var(--grafito-500);
   border-radius: var(--radius-lg);
-  cursor: pointer;
   text-align: center;
   box-sizing: border-box;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
+  transition:
+    border-color var(--duration-fast) ease,
+    background-color var(--duration-fast) ease;
 }
 
-.ui-dropzone:focus-visible {
-  outline: 2px solid var(--tinta-500);
-  outline-offset: 2px;
+.ui-dropzone__pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  align-self: stretch;
+  flex: 1;
+  padding: 0;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
 }
 
 .ui-dropzone__input {
@@ -42,34 +54,29 @@
   border-radius: 50%;
   background-color: var(--tinta-50);
   color: var(--tinta-500);
-  font-size: 18px;
+  font-size: var(--text-lg);
   font-weight: 700;
 }
 
 .ui-dropzone__text {
-  margin: 0;
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--semantic-text);
 }
 
 .ui-dropzone__hint {
-  margin: 0;
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--semantic-text-muted);
 }
 
-/* dragover: NO verificado contra Figma, ver comentario en Dropzone.tsx */
 .ui-dropzone--dragover {
   border-color: var(--tinta-500);
   background-color: var(--tinta-50);
 }
 
-/* uploaded: NO verificado contra Figma, ver comentario en Dropzone.tsx */
 .ui-dropzone--uploaded {
-  cursor: default;
   border-style: solid;
   border-color: var(--sello-500);
 }
@@ -92,21 +99,18 @@
 }
 
 .ui-dropzone__remove {
+  min-height: var(--tap-size);
+  padding: 0 var(--space-12);
   background: none;
   border: none;
-  padding: 0;
+  border-radius: var(--radius-default);
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
-  color: var(--semantic-danger);
+  color: var(--semantic-danger-hover);
   cursor: pointer;
 }
 
-.ui-dropzone__remove:hover {
-  color: var(--semantic-danger-hover);
-}
-
-/* error: NO verificado contra Figma, ver comentario en Dropzone.tsx */
 .ui-dropzone--error {
   border-style: solid;
   border-color: var(--semantic-danger);
@@ -114,9 +118,8 @@
 }
 
 .ui-dropzone__error {
-  margin: 0;
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--text-sm);
   font-weight: 500;
-  color: var(--semantic-danger);
+  color: var(--semantic-danger-hover);
 }

@@ -1,7 +1,6 @@
-import { useEffect, useId } from "react";
-import type { MouseEvent as ReactMouseEvent } from "react";
 import { Button } from "./Button";
-import "./GeneratePdfDialog.css";
+import { Dialog } from "./Dialog";
+import { Notice } from "./Notice";
 
 interface LiquidacionSummary {
   cedulaCatastral: string;
@@ -25,69 +24,31 @@ export function GeneratePdfDialog({
   onCancel,
   onGenerate,
 }: GeneratePdfDialogProps) {
-  const titleId = useId();
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onCancel();
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open, onCancel]);
-
-  if (!open || !liquidacion) {
-    return null;
-  }
-
-  function handleOverlayClick(event: ReactMouseEvent<HTMLDivElement>) {
-    if (event.target === event.currentTarget) {
-      onCancel();
-    }
-  }
-
   return (
-    <div
-      className="ui-generate-pdf-dialog__overlay"
-      onClick={handleOverlayClick}
+    <Dialog
+      open={open && liquidacion !== null}
+      title="Generar liquidación oficial"
+      onClose={() => {
+        if (!isGenerating) onCancel();
+      }}
     >
-      <div
-        className="ui-generate-pdf-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-      >
-        <h2 className="ui-generate-pdf-dialog__title" id={titleId}>
-          Generar liquidación oficial
-        </h2>
-        <div className="ui-generate-pdf-dialog__body">
-          <p className="ui-generate-pdf-dialog__detail">
-            <strong>Cédula catastral:</strong> {liquidacion.cedulaCatastral}
-          </p>
-          <p className="ui-generate-pdf-dialog__detail">
-            <strong>Propietario:</strong> {liquidacion.propietario}
-          </p>
-        </div>
-        {error && (
-          <p className="ui-generate-pdf-dialog__error" role="alert">
-            {error}
-          </p>
-        )}
-        <div className="ui-generate-pdf-dialog__actions">
-          <Button variant="secondary" onClick={onCancel}>
-            Cancelar
-          </Button>
-          <Button variant="primary" loading={isGenerating} onClick={onGenerate}>
-            Generar PDF
-          </Button>
-        </div>
+      <div className="ui-dialog__body">
+        <p>
+          <strong>Cédula catastral:</strong> {liquidacion?.cedulaCatastral}
+        </p>
+        <p>
+          <strong>Propietario:</strong> {liquidacion?.propietario}
+        </p>
       </div>
-    </div>
+      {error && <Notice className="ui-dialog__notice">{error}</Notice>}
+      <div className="ui-dialog__actions">
+        <Button variant="secondary" onClick={onCancel} disabled={isGenerating}>
+          Cancelar
+        </Button>
+        <Button variant="primary" loading={isGenerating} onClick={onGenerate}>
+          Generar PDF
+        </Button>
+      </div>
+    </Dialog>
   );
 }

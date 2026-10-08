@@ -6,7 +6,7 @@
 
 .ui-input-label {
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--semantic-text);
 }
@@ -22,23 +22,22 @@
   height: 44px;
   padding: 0 var(--space-16);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--semantic-text);
-  background-color: #ffffff;
-  border: 1px solid var(--grafito-100);
+  background-color: var(--semantic-surface);
+  border: 1px solid var(--grafito-500);
   border-radius: var(--radius-default);
   box-sizing: border-box;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color var(--duration-fast) ease;
 }
 
 .ui-input::placeholder {
   color: var(--grafito-400);
 }
 
-.ui-input:focus {
-  outline: none;
+.ui-input:focus-visible {
   border-color: var(--tinta-500);
-  box-shadow: 0 0 0 3px var(--tinta-50);
+  outline-offset: 0;
 }
 
 .ui-input--with-toggle {
@@ -49,18 +48,17 @@
   border-color: var(--semantic-danger);
 }
 
-.ui-input--error:focus {
-  box-shadow: 0 0 0 3px var(--semantic-danger-bg);
-}
-
 .ui-input-toggle {
   position: absolute;
-  right: var(--space-12);
+  right: 0;
+  min-width: var(--tap-size);
+  height: var(--tap-size);
   background: none;
   border: none;
-  padding: 0;
+  padding: 0 var(--space-12);
+  border-radius: var(--radius-default);
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--tinta-500);
   cursor: pointer;
@@ -73,6 +71,6 @@
 .ui-input-error {
   margin: 0;
   font-family: var(--font-sans);
-  font-size: 13px;
-  color: var(--semantic-danger);
+  font-size: var(--text-sm);
+  color: var(--semantic-danger-hover);
 }

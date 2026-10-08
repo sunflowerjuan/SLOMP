@@ -13,7 +13,7 @@ export function Table({ columns, children }: TableProps) {
         <thead className="ui-table__head">
           <tr>
             {columns.map((column) => (
-              <th key={column} className="ui-table__header-cell">
+              <th key={column} scope="col" className="ui-table__header-cell">
                 {column}
               </th>
             ))}
