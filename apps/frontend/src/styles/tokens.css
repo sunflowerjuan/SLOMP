@@ -44,7 +44,7 @@
   --semantic-bg-selected: var(--tinta-50);
 
   /* Typography */
-  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
 
   /* Spacing */
   --space-4: 4px;
@@ -61,4 +61,35 @@
   /* Radius */
   --radius-default: 6px;
   --radius-lg: 8px;
+
+  /* Type scale */
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
+
+  /* Floating panels (sidebar, detail sheet) and the controls nested in them */
+  --radius-xl: 24px;
+  --radius-ctl: 12px;
+
+  /* Elevation: a card shadow and an overlay shadow, nothing in between */
+  --shadow-card: 0 10px 30px rgba(19, 20, 23, 0.06);
+  --shadow-overlay: 0 20px 40px rgba(19, 20, 23, 0.2);
+  --overlay: rgba(19, 20, 23, 0.5);
+
+  /* Misc */
+  --semantic-on-primary: #ffffff;
+  --focus-ring: 2px solid var(--tinta-500);
+  --tap-size: 44px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+  --duration-press: 100ms;
+  --duration-fast: 150ms;
+  --duration-base: 240ms;
+  --duration-sheet: 380ms;
+  --duration-enter: 480ms;
 }
