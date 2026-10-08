@@ -15,12 +15,15 @@ import {
   SETTLEMENT_STATUS_VARIANT,
 } from "../../domain/settlementStatus";
 import { Button } from "../../components/ui/Button";
+import { Card } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
+import { Notice } from "../../components/ui/Notice";
+import { PageHeader } from "../../components/ui/PageHeader";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { Table } from "../../components/ui/Table";
 import { TableRow } from "../../components/ui/TableRow";
-import { ADMIN_HREF } from "../../routes";
 import { triggerBrowserDownload } from "../../utils/downloadBlob";
+import { formatPeriods } from "../../utils/formatPeriods";
 import "./PublicConsultationPage.css";
 
 // Exact match on at least 2 of the 3 fields.
@@ -83,12 +86,6 @@ const currencyWithCentsFormatter = new Intl.NumberFormat("es-CO", {
   maximumFractionDigits: 2,
 });
 
-const dateFormatter = new Intl.DateTimeFormat("es-CO", {
-  day: "2-digit",
-  month: "short",
-  year: "numeric",
-});
-
 function formatAmount(amount: number): string {
   if (!Number.isFinite(amount)) {
     return String(amount);
@@ -98,9 +95,14 @@ function formatAmount(amount: number): string {
     : currencyWithCentsFormatter.format(amount);
 }
 
-function formatDate(iso: string): string {
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? iso : dateFormatter.format(date);
+function StatusCell({ status }: { status: PublicSettlement["status"] }) {
+  return status === "MIXED" ? (
+    <StatusBadge variant="neutral">Mixto</StatusBadge>
+  ) : (
+    <StatusBadge variant={SETTLEMENT_STATUS_VARIANT[status]}>
+      {SETTLEMENT_STATUS_LABEL[status]}
+    </StatusBadge>
+  );
 }
 
 export function PublicConsultationPage() {
@@ -113,8 +115,15 @@ export function PublicConsultationPage() {
     {},
   );
   const abortRef = useRef<AbortController | null>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => () => abortRef.current?.abort(), []);
+
+  const settled = search.kind !== "idle" && search.kind !== "loading";
+  useEffect(() => {
+    // Bring the outcome into view and into the screen reader's focus.
+    if (settled) resultsRef.current?.focus();
+  }, [settled, search]);
 
   const filledCount = Object.keys(toCriteria(values)).length;
 
@@ -211,38 +220,16 @@ export function PublicConsultationPage() {
               Tributaria Predial
             </span>
           </div>
-          <a className="public-consultation__admin-link" href={ADMIN_HREF}>
-            Acceso administrador
-          </a>
         </div>
       </header>
 
       <main className="public-consultation__main">
-        <header className="public-consultation__header">
-          <h1 className="public-consultation__title">
-            Consulta de liquidaciones del impuesto predial
-          </h1>
-          <p className="public-consultation__subtitle">
-            Consulta las liquidaciones oficiales de tu predio. No necesitas
-            crear una cuenta.
-          </p>
-        </header>
+        <PageHeader title="Consulta de liquidaciones del impuesto predial" />
 
-        <section
-          className="public-consultation__card"
-          aria-labelledby="public-consultation-form-title"
+        <Card
+          title="Datos del predio"
+          subtitle="Ingresa al menos 2 de los 3 datos tal como aparecen en tu liquidación o en el recibo del predio."
         >
-          <h2
-            id="public-consultation-form-title"
-            className="public-consultation__card-title"
-          >
-            Datos del predio
-          </h2>
-          <p className="public-consultation__card-subtitle">
-            Ingresa al menos 2 de los 3 datos tal como aparecen en tu
-            liquidación o en el recibo del predio.
-          </p>
-
           <form
             className="public-consultation__form"
             onSubmit={handleSubmit}
@@ -310,52 +297,37 @@ export function PublicConsultationPage() {
               </div>
             </div>
 
-            {formError && (
-              <p
-                className="public-consultation__message public-consultation__message--danger"
-                role="alert"
-              >
-                {formError}
-              </p>
-            )}
+            {formError && <Notice>{formError}</Notice>}
           </form>
-        </section>
+        </Card>
 
-        <div aria-live="polite">
+        <div
+          ref={resultsRef}
+          className="public-consultation__results"
+          role="region"
+          aria-label="Resultado de la consulta"
+          tabIndex={-1}
+        >
+          {search.kind === "loading" && (
+            <Notice variant="info">Buscando liquidaciones…</Notice>
+          )}
+
           {search.kind === "not-found" && (
-            <section className="public-consultation__card">
-              <h2 className="public-consultation__card-title">
-                No encontramos liquidaciones vigentes
-              </h2>
-              <p className="public-consultation__card-subtitle">
-                Verifica que los datos coincidan exactamente con los registrados
-                en tu liquidación o recibo del predio. Si el problema continúa,
-                acércate a la Secretaría de Hacienda del municipio.
-              </p>
-            </section>
+            <Card
+              title="No encontramos liquidaciones vigentes"
+              subtitle="Verifica que los datos coincidan exactamente con los registrados en tu liquidación o recibo del predio. Si el problema continúa, acércate a la Secretaría de Hacienda del municipio."
+            >
+              {null}
+            </Card>
           )}
 
-          {search.kind === "error" && (
-            <p
-              className="public-consultation__message public-consultation__message--danger"
-              role="alert"
-            >
-              {search.message}
-            </p>
-          )}
+          {search.kind === "error" && <Notice>{search.message}</Notice>}
 
           {search.kind === "found" && (
-            <section
-              className="public-consultation__card"
-              aria-labelledby="public-consultation-results-title"
+            <Card
+              title="Liquidaciones del predio"
+              className="public-consultation__found"
             >
-              <h2
-                id="public-consultation-results-title"
-                className="public-consultation__card-title"
-              >
-                Liquidaciones del predio
-              </h2>
-
               <dl className="public-consultation__property">
                 <div>
                   <dt>Cédula catastral</dt>
@@ -374,49 +346,21 @@ export function PublicConsultationPage() {
               {/* Desktop: table. Mobile: stacked cards. */}
               <div className="public-consultation__table">
                 <Table
-                  columns={[
-                    "Periodo",
-                    "Fecha de expedición",
-                    "Valor total",
-                    "Estado",
-                    "Liquidación",
-                  ]}
+                  columns={["Periodos", "Valor total", "Estado", "Liquidación"]}
                 >
                   {search.results.map((settlement) => (
                     <TableRow
                       key={settlement.settlementId}
                       cells={[
-                        settlement.period,
-                        formatDate(settlement.issuedAt),
+                        formatPeriods(settlement.periods),
                         formatAmount(settlement.totalAmount),
-                        <StatusBadge
-                          key="estado"
-                          variant={SETTLEMENT_STATUS_VARIANT[settlement.status]}
-                        >
-                          {SETTLEMENT_STATUS_LABEL[settlement.status]}
-                        </StatusBadge>,
-                        <div
+                        <StatusCell key="estado" status={settlement.status} />,
+                        <PdfButton
                           key="pdf"
-                          className="public-consultation__pdf-cell"
-                        >
-                          <Button
-                            variant="secondary"
-                            loading={pdfState[settlement.settlementId]?.loading}
-                            onClick={() =>
-                              handleDownloadPdf(settlement.settlementId)
-                            }
-                          >
-                            Descargar PDF
-                          </Button>
-                          {pdfState[settlement.settlementId]?.error && (
-                            <p
-                              className="public-consultation__pdf-error"
-                              role="alert"
-                            >
-                              {pdfState[settlement.settlementId]?.error}
-                            </p>
-                          )}
-                        </div>,
+                          settlementId={settlement.settlementId}
+                          state={pdfState[settlement.settlementId]}
+                          onDownload={handleDownloadPdf}
+                        />,
                       ]}
                     />
                   ))}
@@ -431,51 +375,55 @@ export function PublicConsultationPage() {
                   >
                     <div className="public-consultation__item-head">
                       <span className="public-consultation__item-period">
-                        Periodo {settlement.period}
+                        Periodos {formatPeriods(settlement.periods)}
                       </span>
-                      <StatusBadge
-                        variant={SETTLEMENT_STATUS_VARIANT[settlement.status]}
-                      >
-                        {SETTLEMENT_STATUS_LABEL[settlement.status]}
-                      </StatusBadge>
+                      <StatusCell status={settlement.status} />
                     </div>
                     <dl className="public-consultation__item-data">
-                      <div>
-                        <dt>Expedición</dt>
-                        <dd>{formatDate(settlement.issuedAt)}</dd>
-                      </div>
                       <div>
                         <dt>Valor total</dt>
                         <dd>{formatAmount(settlement.totalAmount)}</dd>
                       </div>
                     </dl>
-                    <div className="public-consultation__item-actions">
-                      <Button
-                        variant="secondary"
-                        fullWidth
-                        loading={pdfState[settlement.settlementId]?.loading}
-                        onClick={() =>
-                          handleDownloadPdf(settlement.settlementId)
-                        }
-                      >
-                        Descargar PDF
-                      </Button>
-                      {pdfState[settlement.settlementId]?.error && (
-                        <p
-                          className="public-consultation__pdf-error"
-                          role="alert"
-                        >
-                          {pdfState[settlement.settlementId]?.error}
-                        </p>
-                      )}
-                    </div>
+                    <PdfButton
+                      settlementId={settlement.settlementId}
+                      state={pdfState[settlement.settlementId]}
+                      onDownload={handleDownloadPdf}
+                      fullWidth
+                    />
                   </li>
                 ))}
               </ul>
-            </section>
+            </Card>
           )}
         </div>
       </main>
+    </div>
+  );
+}
+
+function PdfButton({
+  settlementId,
+  state,
+  onDownload,
+  fullWidth,
+}: {
+  settlementId: number;
+  state: PdfDownloadState | undefined;
+  onDownload: (settlementId: number) => void;
+  fullWidth?: boolean;
+}) {
+  return (
+    <div className="public-consultation__pdf-cell">
+      <Button
+        variant="secondary"
+        fullWidth={fullWidth}
+        loading={state?.loading}
+        onClick={() => onDownload(settlementId)}
+      >
+        Descargar PDF
+      </Button>
+      {state?.error && <Notice>{state.error}</Notice>}
     </div>
   );
 }

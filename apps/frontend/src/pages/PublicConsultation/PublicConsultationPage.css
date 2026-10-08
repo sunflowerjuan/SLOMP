@@ -1,5 +1,6 @@
 .public-consultation {
   min-height: 100vh;
+  min-height: 100dvh;
   background-color: var(--semantic-surface-muted);
 }
 
@@ -16,7 +17,6 @@
 .public-consultation__topbar-inner {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-16);
   max-width: 1040px;
   margin: 0 auto;
@@ -30,34 +30,17 @@
 }
 
 .public-consultation__brand-tag {
-  font-family: var(--font-sans);
-  font-size: 24px;
+  font-size: var(--text-xl);
   font-weight: 700;
-  color: #ffffff;
+  color: var(--semantic-on-primary);
   letter-spacing: 1px;
   text-transform: uppercase;
 }
 
 .public-consultation__brand-name {
-  font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--tinta-100);
-}
-
-.public-consultation__admin-link {
-  font-family: var(--font-sans);
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--tinta-100);
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.public-consultation__admin-link:hover,
-.public-consultation__admin-link:focus-visible {
-  color: #ffffff;
-  text-decoration: underline;
 }
 
 .public-consultation__main {
@@ -69,61 +52,23 @@
   padding: var(--space-48) var(--space-24);
 }
 
-.public-consultation__main > div[aria-live] {
+.public-consultation__results {
   display: flex;
   flex-direction: column;
   gap: var(--space-24);
 }
 
-.public-consultation__main > div[aria-live]:empty {
-  display: none;
+.public-consultation__found {
+  animation: rise-in var(--duration-enter) var(--ease-out) backwards;
 }
 
-.public-consultation__header {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
+.public-consultation__results:focus {
+  outline: none;
 }
 
-.public-consultation__title {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--semantic-text);
-}
-
-.public-consultation__subtitle {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: 15px;
-  color: var(--semantic-text-muted);
-}
-
-.public-consultation__card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-16);
-  padding: var(--space-32);
-  background-color: var(--semantic-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 10px 30px rgba(19, 20, 23, 0.06);
-}
-
-.public-consultation__card-title {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--semantic-text);
-}
-
-.public-consultation__card-subtitle {
-  margin: calc(var(--space-8) * -1) 0 0;
-  font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 1.5;
-  color: var(--semantic-text-muted);
+/* Always in the tree (it is a landmark and a live target) but takes no room. */
+.public-consultation__results:empty {
+  margin-top: calc(var(--space-24) * -1);
 }
 
 .public-consultation__form {
@@ -148,8 +93,7 @@
 
 .public-consultation__counter {
   margin: 0;
-  font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--semantic-text-muted);
 }
@@ -163,19 +107,6 @@
   gap: var(--space-12);
 }
 
-.public-consultation__message {
-  margin: 0;
-  padding: var(--space-12) var(--space-16);
-  font-family: var(--font-sans);
-  font-size: 14px;
-  border-radius: var(--radius-default);
-}
-
-.public-consultation__message--danger {
-  color: var(--semantic-danger-hover);
-  background-color: var(--semantic-danger-bg);
-}
-
 .public-consultation__property {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -184,20 +115,17 @@
   padding: var(--space-16);
   background-color: var(--tinta-50);
   border-radius: var(--radius-default);
-  font-family: var(--font-sans);
 }
 
 .public-consultation__property dt {
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--semantic-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
 }
 
 .public-consultation__property dd {
   margin: var(--space-4) 0 0;
-  font-size: 15px;
+  font-size: var(--text-md);
   font-weight: 600;
   color: var(--tinta-700);
   overflow-wrap: anywhere;
@@ -217,9 +145,8 @@
   flex-direction: column;
   gap: var(--space-12);
   padding: var(--space-16);
-  border: 1px solid var(--grafito-100);
+  border: 1px solid var(--semantic-border);
   border-radius: var(--radius-default);
-  font-family: var(--font-sans);
 }
 
 .public-consultation__item-head {
@@ -230,7 +157,7 @@
 }
 
 .public-consultation__item-period {
-  font-size: 16px;
+  font-size: var(--text-md);
   font-weight: 700;
   color: var(--tinta-700);
 }
@@ -243,13 +170,13 @@
 }
 
 .public-consultation__item-data dt {
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--semantic-text-muted);
 }
 
 .public-consultation__item-data dd {
   margin: var(--space-4) 0 0;
-  font-size: 14px;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--semantic-text);
 }
@@ -266,14 +193,106 @@
   gap: var(--space-8);
 }
 
-.public-consultation__pdf-error {
-  margin: 0;
-  padding: var(--space-8) var(--space-12);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  color: var(--semantic-danger-hover);
-  background-color: var(--semantic-danger-bg);
-  border-radius: var(--radius-default);
+/* Wide: the band, the title and the form stay put; only the results scroll
+   (the table header stays with them). Narrow screens scroll as a page. */
+@media (min-width: 769px) {
+  .public-consultation {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  .public-consultation__topbar {
+    flex: none;
+  }
+
+  .public-consultation__main {
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+    padding-top: var(--space-32);
+    padding-bottom: var(--space-32);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .public-consultation__results {
+    flex: 1;
+    min-height: 420px;
+  }
+
+  .public-consultation__found {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .public-consultation__table {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .public-consultation__topbar-inner {
+    padding-block: var(--space-16);
+  }
+
+  .public-consultation__found .ui-table__wrapper {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+/* Room for it: the form moves to a column on the left and the results take
+   the full height on the right. */
+@media (min-width: 1000px) {
+  .public-consultation__main {
+    display: grid;
+    grid-template-columns: 360px minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    align-items: stretch;
+    max-width: 1240px;
+    overflow: hidden;
+  }
+
+  .public-consultation__topbar-inner {
+    max-width: 1240px;
+  }
+
+  .public-consultation__main > .ui-page-header {
+    grid-column: 1 / -1;
+  }
+
+  .public-consultation__results {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .public-consultation__fields {
+    grid-template-columns: 1fr;
+  }
+
+  /* The form card reaches the same bottom as the results; its actions sit
+     at the foot of the card. */
+  .public-consultation__form {
+    flex: 1;
+  }
+
+  .public-consultation__form-footer {
+    margin-top: auto;
+  }
+
+  .public-consultation__form-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .public-consultation__actions .ui-button {
+    flex: 1;
+  }
 }
 
 @media (max-width: 768px) {
@@ -291,14 +310,6 @@
 
   .public-consultation__main {
     padding: var(--space-24) var(--space-16);
-  }
-
-  .public-consultation__title {
-    font-size: 22px;
-  }
-
-  .public-consultation__card {
-    padding: var(--space-24);
   }
 
   .public-consultation__fields,
