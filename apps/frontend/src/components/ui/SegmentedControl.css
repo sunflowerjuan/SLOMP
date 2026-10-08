@@ -1,0 +1,90 @@
+.ui-segmented {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+  padding: 3px;
+  border-radius: var(--radius-ctl);
+  background-color: var(--semantic-surface-muted);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.ui-segmented[data-axis="x"] {
+  touch-action: pan-y;
+}
+
+.ui-segmented[data-dragging] {
+  cursor: grabbing;
+}
+
+.ui-segmented__indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: calc(var(--radius-ctl) - 3px);
+  background-color: var(--semantic-surface);
+  box-shadow:
+    0 0 0 1px rgba(19, 20, 23, 0.06),
+    0 1px 2px rgba(19, 20, 23, 0.1);
+  pointer-events: none;
+  transition:
+    transform var(--duration-sheet) var(--ease-sheet),
+    width var(--duration-sheet) var(--ease-sheet);
+}
+
+.ui-segmented[data-dragging] .ui-segmented__indicator {
+  transition: width var(--duration-fast) var(--ease-out);
+}
+
+.ui-segmented__option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap-size);
+  padding: 0 var(--space-16);
+  border-radius: calc(var(--radius-ctl) - 3px);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ui-segmented__option:has(input:checked) {
+  font-weight: 600;
+}
+
+.ui-segmented__option:has(input:focus-visible) {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.ui-segmented__option input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+
+/* Narrow screens: fill the row and let long labels wrap instead of overflow. */
+@media (max-width: 560px) {
+  .ui-segmented {
+    display: flex;
+    width: 100%;
+  }
+
+  .ui-segmented__option {
+    flex: 1;
+    padding: 0 var(--space-8);
+    line-height: 1.2;
+    text-align: center;
+    white-space: normal;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-segmented__indicator {
+    transition-duration: 0.01ms;
+  }
+}
