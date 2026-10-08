@@ -20,16 +20,17 @@ export interface PublicConsultationCriteria {
 
 // Mirrors PublicSettlementQueryResult
 // (apps/backend/src/settlements/public-settlement-query.service.ts) -- one
-// row per settlement, not grouped by property, since co-owned predios list
-// the same cadastralCode/address on every row.
+// row per PDF: the periods of a Resolution come together. `settlementId` is
+// the group's earliest period and triggers its PDF.
 export interface PublicSettlement {
   settlementId: number;
   cadastralCode: string;
   address: string;
   ownerName: string;
-  period: number;
-  status: SettlementStatus;
-  issuedAt: string;
+  resolutionNumber: string | null;
+  periods: number[];
+  // "MIXED" only for legacy data with different statuses in one resolution.
+  status: SettlementStatus | "MIXED";
   totalAmount: number;
 }
 
