@@ -4,6 +4,7 @@ import { getErrorMessage } from "../../api/ApiError";
 import { useAuth } from "../../auth/useAuth";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
+import { Notice } from "../../components/ui/Notice";
 import { PUBLIC_CONSULTATION_HREF } from "../../routes";
 import "./LoginPage.css";
 
@@ -72,19 +73,16 @@ export function LoginPage() {
 
           <form className="login-page__form" onSubmit={handleSubmit} noValidate>
             {sessionExpired && !submitError && (
-              <p className="login-page__notice" role="status">
+              <Notice variant="info">
                 Tu sesión expiró. Vuelve a iniciar sesión para continuar.
-              </p>
+              </Notice>
             )}
-            {submitError && (
-              <p className="login-page__form-error" role="alert">
-                {submitError}
-              </p>
-            )}
+            {submitError && <Notice>{submitError}</Notice>}
             <Input
               label="Correo electrónico"
               type="email"
               autoComplete="username"
+              autoFocus
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               error={errors.email}

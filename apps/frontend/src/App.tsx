@@ -1,4 +1,4 @@
-import { useState } from "react";
+import type { ReactNode } from "react";
 import { AdminLayout } from "./components/layout/AdminLayout";
 import type { AdminNavItem } from "./components/layout/AdminLayout";
 import { AuthProvider } from "./auth/AuthProvider";
@@ -7,25 +7,64 @@ import { TaxRollUploadPage } from "./pages/TaxRollUpload/TaxRollUploadPage";
 import { PublicConsultationPage } from "./pages/PublicConsultation/PublicConsultationPage";
 import { SettlementsPage } from "./pages/Settlements/SettlementsPage";
 import { LoginPage } from "./pages/Login/LoginPage";
-import { useIsPublicConsultationRoute } from "./routes";
+import {
+  ADMIN_SECTION_HREF,
+  useAdminSection,
+  useIsPublicConsultationRoute,
+} from "./routes";
+
+function NavIcon({ children }: { children: ReactNode }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
 
 const NAV_ITEMS: AdminNavItem[] = [
-  { id: "tax-roll-upload", label: "Carga de Excel" },
-  { id: "settlements", label: "Liquidaciones" },
+  {
+    id: "cargas",
+    label: "Carga de Excel",
+    href: ADMIN_SECTION_HREF.cargas,
+    icon: (
+      <NavIcon>
+        <path d="M12 16V4M8 8l4-4 4 4" />
+        <path d="M4 20h16" />
+      </NavIcon>
+    ),
+  },
+  {
+    id: "liquidaciones",
+    label: "Liquidaciones",
+    href: ADMIN_SECTION_HREF.liquidaciones,
+    icon: (
+      <NavIcon>
+        <path d="M6 3h8l4 4v14H6z" />
+        <path d="M14 3v4h4M9 13h6M9 17h6" />
+      </NavIcon>
+    ),
+  },
 ];
 
 function AdminPanel() {
   const { signOut } = useAuth();
-  const [activeId, setActiveId] = useState(NAV_ITEMS[0].id);
+  const section = useAdminSection();
 
   return (
-    <AdminLayout
-      items={NAV_ITEMS}
-      activeId={activeId}
-      onNavigate={setActiveId}
-      onSignOut={signOut}
-    >
-      {activeId === "settlements" ? <SettlementsPage /> : <TaxRollUploadPage />}
+    <AdminLayout items={NAV_ITEMS} activeId={section} onSignOut={signOut}>
+      {section === "liquidaciones" ? (
+        <SettlementsPage />
+      ) : (
+        <TaxRollUploadPage />
+      )}
     </AdminLayout>
   );
 }

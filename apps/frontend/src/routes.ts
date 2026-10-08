@@ -1,7 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-// Minimal hash-based routing (no react-router): today the frontend has a
-// single public entry point, the taxpayer consultation.
+// Minimal hash-based routing (no react-router).
 //
 // A hash (`/#/consulta`) is used instead of a real path (`/consulta`) because
 // the frontend is served from a Storage static website
@@ -11,6 +10,13 @@ import { useSyncExternalStore } from "react";
 export const PUBLIC_CONSULTATION_HREF = "#/consulta";
 export const ADMIN_HREF = "#/";
 
+export type AdminSection = "cargas" | "liquidaciones";
+
+export const ADMIN_SECTION_HREF: Record<AdminSection, string> = {
+  cargas: "#/cargas",
+  liquidaciones: "#/liquidaciones",
+};
+
 function isPublicConsultationHash(hash: string): boolean {
   return (
     hash === PUBLIC_CONSULTATION_HREF ||
@@ -18,15 +24,21 @@ function isPublicConsultationHash(hash: string): boolean {
   );
 }
 
+function adminSectionOf(hash: string): AdminSection {
+  return hash === ADMIN_SECTION_HREF.liquidaciones ? "liquidaciones" : "cargas";
+}
+
 function subscribe(onChange: () => void) {
   window.addEventListener("hashchange", onChange);
   return () => window.removeEventListener("hashchange", onChange);
 }
 
-function getSnapshot(): boolean {
-  return isPublicConsultationHash(window.location.hash);
-}
+const getHash = () => window.location.hash;
 
 export function useIsPublicConsultationRoute(): boolean {
-  return useSyncExternalStore(subscribe, getSnapshot);
+  return isPublicConsultationHash(useSyncExternalStore(subscribe, getHash));
+}
+
+export function useAdminSection(): AdminSection {
+  return adminSectionOf(useSyncExternalStore(subscribe, getHash));
 }

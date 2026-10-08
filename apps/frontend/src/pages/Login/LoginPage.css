@@ -1,6 +1,7 @@
 .login-page {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
   background-color: var(--semantic-surface-muted);
 }
 
@@ -34,17 +35,15 @@
 }
 
 .login-page__brand-tag {
-  font-family: var(--font-sans);
-  font-size: 40px;
+  font-size: var(--text-3xl);
   font-weight: 700;
-  color: #ffffff;
+  color: var(--semantic-on-primary);
   letter-spacing: 1px;
   text-transform: uppercase;
 }
 
 .login-page__brand-name {
-  font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--tinta-100);
   letter-spacing: 0.2px;
@@ -65,14 +64,13 @@
   padding: var(--space-40);
   background-color: var(--semantic-surface);
   border-radius: var(--radius-lg);
-  box-shadow: 0 10px 30px rgba(19, 20, 23, 0.08);
+  border: 1px solid var(--semantic-border);
   box-sizing: border-box;
 }
 
 .login-page__title {
   margin: 0 0 var(--space-24);
-  font-family: var(--font-sans);
-  font-size: 24px;
+  font-size: var(--text-xl);
   font-weight: 700;
   color: var(--semantic-text);
 }
@@ -83,38 +81,20 @@
   gap: var(--space-20);
 }
 
-.login-page__form-error,
-.login-page__notice {
-  margin: 0;
-  padding: var(--space-12) var(--space-16);
-  font-family: var(--font-sans);
-  font-size: 14px;
-  border-radius: var(--radius-default);
-}
-
-.login-page__form-error {
-  color: var(--semantic-danger-hover);
-  background-color: var(--semantic-danger-bg);
-}
-
-.login-page__notice {
-  color: var(--semantic-text);
-  background-color: var(--semantic-warning-bg);
-}
-
 .login-page__public-link {
   margin: var(--space-24) 0 0;
   padding-top: var(--space-20);
   border-top: 1px solid var(--semantic-border);
-  font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--semantic-text-muted);
   text-align: center;
 }
 
 .login-page__public-link a {
-  color: var(--semantic-primary);
+  color: var(--semantic-primary-hover);
   font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .login-page__public-link a:hover {
@@ -145,6 +125,14 @@
 
   .login-page__card {
     padding: var(--space-24);
-    box-shadow: none;
+    border: 0;
   }
+}
+
+.login-page__institutional {
+  animation: fade-in 600ms var(--ease-out) backwards;
+}
+
+.login-page__card {
+  animation: rise-in var(--duration-enter) var(--ease-out) 120ms backwards;
 }
