@@ -51,75 +51,87 @@ export function SettlementDetailSheet({
   const total = entry ? formatCop(entry.totalAmount) : "";
 
   return (
-    <aside
-      ref={ref}
-      id={id}
-      className="settlement-sheet"
-      data-open={open}
-      aria-label="Detalle de la liquidación"
-      inert={!open}
-    >
-      {entry && (
-        <>
-          <header className="settlement-sheet__header" {...bind}>
-            <div>
-              <h2 className="settlement-sheet__title">Liquidación {periods}</h2>
-              <p
-                className="settlement-sheet__amount"
-                style={{ fontSize: amountSize(total) }}
-              >
-                {total}
-              </p>
-            </div>
-            <button
-              type="button"
-              className="settlement-sheet__close"
-              aria-label="Cerrar detalle"
-              onClick={onClose}
-            >
-              <CloseIcon />
-            </button>
-          </header>
-          <dl className="settlement-sheet__details">
-            <div>
-              <dt>Estado</dt>
-              <dd>
-                <SettlementStatusCell
-                  status={entry.status}
-                  description={`${entry.cadastralCode}, periodos ${periods}`}
-                  editing={editing}
-                  saving={saving}
-                  editLocked={editLocked}
-                  onEdit={onEdit}
-                  onSave={onSave}
-                  onCancel={onCancel}
-                />
-              </dd>
-            </div>
-            {entry.resolutionNumber && (
+    <>
+      {/* Below the wide layout the panel covers the list: dim it, and a tap
+          outside closes the panel. */}
+      <div
+        className="settlement-sheet__scrim"
+        data-open={open}
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <aside
+        ref={ref}
+        id={id}
+        className="settlement-sheet"
+        data-open={open}
+        aria-label="Detalle de la liquidación"
+        inert={!open}
+      >
+        {entry && (
+          <>
+            <header className="settlement-sheet__header" {...bind}>
               <div>
-                <dt>Resolución</dt>
-                <dd>{entry.resolutionNumber}</dd>
+                <h2 className="settlement-sheet__title">
+                  Liquidación {periods}
+                </h2>
+                <p
+                  className="settlement-sheet__amount"
+                  style={{ fontSize: amountSize(total) }}
+                >
+                  {total}
+                </p>
               </div>
-            )}
-            <div>
-              <dt>Propietario</dt>
-              <dd>{entry.ownerName}</dd>
-            </div>
-            <div>
-              <dt>Cédula catastral</dt>
-              <dd>{entry.cadastralCode}</dd>
-            </div>
-            <div>
-              <dt>Dirección</dt>
-              <dd>{entry.address}</dd>
-            </div>
-          </dl>
-          <Button fullWidth size="lg" onClick={onGenerate}>
-            Generar PDF
-          </Button>
-        </>
-      )}
-    </aside>
+              <button
+                type="button"
+                className="settlement-sheet__close"
+                aria-label="Cerrar detalle"
+                onClick={onClose}
+              >
+                <CloseIcon />
+              </button>
+            </header>
+            <dl className="settlement-sheet__details">
+              <div>
+                <dt>Estado</dt>
+                <dd>
+                  <SettlementStatusCell
+                    status={entry.status}
+                    description={`${entry.cadastralCode}, periodos ${periods}`}
+                    editing={editing}
+                    saving={saving}
+                    editLocked={editLocked}
+                    onEdit={onEdit}
+                    onSave={onSave}
+                    onCancel={onCancel}
+                  />
+                </dd>
+              </div>
+              {entry.resolutionNumber && (
+                <div>
+                  <dt>Resolución</dt>
+                  <dd>{entry.resolutionNumber}</dd>
+                </div>
+              )}
+              <div>
+                <dt>Propietario</dt>
+                <dd>{entry.ownerName}</dd>
+              </div>
+              <div>
+                <dt>Cédula catastral</dt>
+                <dd>{entry.cadastralCode}</dd>
+              </div>
+              <div>
+                <dt>Dirección</dt>
+                <dd>{entry.address}</dd>
+              </div>
+            </dl>
+            <Button fullWidth size="lg" onClick={onGenerate}>
+              Generar PDF
+            </Button>
+          </>
+        )}
+      </aside>
+    </>
   );
 }
