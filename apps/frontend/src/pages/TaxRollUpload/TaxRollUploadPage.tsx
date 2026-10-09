@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { getErrorMessage } from "../../api/ApiError";
-import { messageForRowIssue } from "../../api/errorMessages";
 import { importTaxRoll, listTaxRollImports } from "../../api/taxRoll";
 import { BulkZipPanel } from "./BulkZipPanel";
+import { TaxRollIssueList } from "./TaxRollIssueList";
+import { TaxRollStat } from "./TaxRollStat";
 import type {
   TaxRollImportHistoryEntry,
   TaxRollImportResult,
@@ -252,24 +253,24 @@ export function TaxRollUploadPage() {
                 }
               >
                 <dl className="tax-roll-upload-page__stats">
-                  <Stat
+                  <TaxRollStat
                     value={result.persisted.settlements}
                     label="liquidaciones generadas"
                   />
-                  <Stat
+                  <TaxRollStat
                     value={result.persisted.properties}
                     label="predios procesados"
                   />
-                  <Stat
+                  <TaxRollStat
                     value={result.persisted.owners}
                     label="propietarios procesados"
                   />
-                  <Stat
+                  <TaxRollStat
                     value={result.invalidRows.length}
                     label="filas inválidas omitidas"
                     tone={result.invalidRows.length > 0 ? "danger" : undefined}
                   />
-                  <Stat
+                  <TaxRollStat
                     value={result.warnings.length}
                     label="con advertencias"
                     tone={result.warnings.length > 0 ? "warning" : undefined}
@@ -289,11 +290,14 @@ export function TaxRollUploadPage() {
                     )}
                   </Notice>
                 )}
-                <IssueList
+                <TaxRollIssueList
                   title="Filas inválidas"
                   issues={result.invalidRows}
                 />
-                <IssueList title="Advertencias" issues={result.warnings} />
+                <TaxRollIssueList
+                  title="Advertencias"
+                  issues={result.warnings}
+                />
               </Card>
             </div>
           )}
@@ -308,50 +312,5 @@ export function TaxRollUploadPage() {
         onConfirm={handleConfirmReplace}
       />
     </div>
-  );
-}
-
-function Stat({
-  value,
-  label,
-  tone,
-}: {
-  value: number;
-  label: string;
-  tone?: "danger" | "warning";
-}) {
-  return (
-    <div className="tax-roll-upload-page__stat" data-tone={tone}>
-      <dt>{label}</dt>
-      <dd>{value}</dd>
-    </div>
-  );
-}
-
-// Collapsed by default; a long list scrolls inside instead of the page.
-function IssueList({
-  title,
-  issues,
-}: {
-  title: string;
-  issues: TaxRollImportResult["invalidRows"];
-}) {
-  if (issues.length === 0) {
-    return null;
-  }
-
-  return (
-    <details className="tax-roll-upload-page__issues">
-      <summary>
-        {title} ({issues.length})
-      </summary>
-      <ul>
-        {issues.map((issue) => (
-          <li key={`${issue.row}-${issue.code}`}>
-            {messageForRowIssue(issue)}
-          </li>
-        ))}
-      </ul>
-    </details>
   );
 }

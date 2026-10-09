@@ -10,20 +10,18 @@ import type {
   PublicConsultationCriteria,
   PublicSettlement,
 } from "../../api/publicConsultation";
-import {
-  SETTLEMENT_STATUS_LABEL,
-  SETTLEMENT_STATUS_VARIANT,
-} from "../../domain/settlementStatus";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
 import { Notice } from "../../components/ui/Notice";
 import { PageHeader } from "../../components/ui/PageHeader";
-import { StatusBadge } from "../../components/ui/StatusBadge";
 import { Table } from "../../components/ui/Table";
 import { TableRow } from "../../components/ui/TableRow";
 import { triggerBrowserDownload } from "../../utils/downloadBlob";
 import { formatPeriods } from "../../utils/formatPeriods";
+import { PdfButton } from "./PdfButton";
+import type { PdfDownloadState } from "./PdfButton";
+import { PublicStatusCell } from "./PublicStatusCell";
 import "./PublicConsultationPage.css";
 
 // Exact match on at least 2 of the 3 fields.
@@ -47,11 +45,6 @@ type SearchState =
   | { kind: "not-found" }
   | { kind: "error"; message: string }
   | { kind: "found"; results: PublicSettlement[] };
-
-interface PdfDownloadState {
-  loading: boolean;
-  error: string | null;
-}
 
 function toCriteria(values: FormValues) {
   // Only filled-in fields are sent. trim() is the frontend's only
@@ -93,16 +86,6 @@ function formatAmount(amount: number): string {
   return Number.isInteger(amount)
     ? currencyFormatter.format(amount)
     : currencyWithCentsFormatter.format(amount);
-}
-
-function StatusCell({ status }: { status: PublicSettlement["status"] }) {
-  return status === "MIXED" ? (
-    <StatusBadge variant="neutral">Mixto</StatusBadge>
-  ) : (
-    <StatusBadge variant={SETTLEMENT_STATUS_VARIANT[status]}>
-      {SETTLEMENT_STATUS_LABEL[status]}
-    </StatusBadge>
-  );
 }
 
 export function PublicConsultationPage() {
@@ -354,7 +337,10 @@ export function PublicConsultationPage() {
                       cells={[
                         formatPeriods(settlement.periods),
                         formatAmount(settlement.totalAmount),
-                        <StatusCell key="estado" status={settlement.status} />,
+                        <PublicStatusCell
+                          key="estado"
+                          status={settlement.status}
+                        />,
                         <PdfButton
                           key="pdf"
                           settlementId={settlement.settlementId}
@@ -377,7 +363,7 @@ export function PublicConsultationPage() {
                       <span className="public-consultation__item-period">
                         Periodos {formatPeriods(settlement.periods)}
                       </span>
-                      <StatusCell status={settlement.status} />
+                      <PublicStatusCell status={settlement.status} />
                     </div>
                     <dl className="public-consultation__item-data">
                       <div>
@@ -398,32 +384,6 @@ export function PublicConsultationPage() {
           )}
         </div>
       </main>
-    </div>
-  );
-}
-
-function PdfButton({
-  settlementId,
-  state,
-  onDownload,
-  fullWidth,
-}: {
-  settlementId: number;
-  state: PdfDownloadState | undefined;
-  onDownload: (settlementId: number) => void;
-  fullWidth?: boolean;
-}) {
-  return (
-    <div className="public-consultation__pdf-cell">
-      <Button
-        variant="secondary"
-        fullWidth={fullWidth}
-        loading={state?.loading}
-        onClick={() => onDownload(settlementId)}
-      >
-        Descargar PDF
-      </Button>
-      {state?.error && <Notice>{state.error}</Notice>}
     </div>
   );
 }
