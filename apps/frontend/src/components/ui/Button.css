@@ -11,6 +11,7 @@
   transition:
     background-color var(--duration-fast) ease,
     border-color var(--duration-fast) ease,
+    opacity var(--duration-base) ease,
     transform var(--duration-press) var(--ease-out);
   white-space: nowrap;
 }

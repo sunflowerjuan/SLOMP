@@ -221,10 +221,28 @@ export function BulkZipPanel({ refreshKey }: BulkZipPanelProps) {
 
   return (
     <Card title="Liquidaciones listas para generar" className="bulk-zip-panel">
-      {countsLoading && (
-        <p className="bulk-zip-panel__muted" role="status">
-          Cargando liquidaciones pendientes…
-        </p>
+      {/* First load only: the placeholder rows keep the panel's height, so the
+          real rows replace them without moving anything. */}
+      {countsLoading && !counts && (
+        <div
+          className="bulk-zip-panel__rows"
+          role="status"
+          aria-label="Cargando liquidaciones pendientes"
+        >
+          {[0, 1].map((row) => (
+            <div
+              className="bulk-zip-panel__row bulk-zip-panel__row--skeleton"
+              key={row}
+              aria-hidden="true"
+            >
+              <div>
+                <i />
+                <i />
+              </div>
+              <b />
+            </div>
+          ))}
+        </div>
       )}
       {!countsLoading && countsError && (
         <Notice className="bulk-zip-panel__retry">
@@ -239,7 +257,7 @@ export function BulkZipPanel({ refreshKey }: BulkZipPanelProps) {
         </Notice>
       )}
       {counts && (
-        <div className="bulk-zip-panel__rows">
+        <div className="bulk-zip-panel__rows bulk-zip-panel__enter">
           {[
             {
               kind: "NORMAL" as const,
@@ -275,41 +293,50 @@ export function BulkZipPanel({ refreshKey }: BulkZipPanelProps) {
           ))}
         </div>
       )}
-      {active && job && (
-        <div
-          className="bulk-zip-panel__status bulk-zip-panel__enter"
-          role="status"
-        >
-          <strong>
-            {job.kind === "NORMAL"
-              ? "Generando liquidaciones actuales…"
-              : "Generando liquidaciones con riesgo de prescripción…"}
-          </strong>
-          <div
-            className="bulk-zip-panel__progress"
-            role="progressbar"
-            aria-label="Progreso de generación del ZIP"
-            aria-valuemin={0}
-            aria-valuemax={job.total || 1}
-            aria-valuenow={job.completed}
-          >
-            <span style={{ transform: `scaleX(${progress / 100})` }} />
-          </div>
-          <p className="bulk-zip-panel__live" aria-live="off">
-            {job.completed} de {job.total} PDF · {progress}%
-          </p>
-          <p className="bulk-zip-panel__live" aria-live="off">
-            {eta}
-          </p>
+      {/* Stays mounted so it can fold away instead of vanishing: the page
+          below would otherwise jump when a generation ends. */}
+      <div
+        className="bulk-zip-panel__collapse"
+        data-open={active && job !== null}
+        inert={!(active && job !== null)}
+      >
+        <div className="bulk-zip-panel__collapse-inner">
+          {job && (
+            <div className="bulk-zip-panel__status" role="status">
+              <strong>
+                {job.kind === "NORMAL"
+                  ? "Generando liquidaciones actuales…"
+                  : "Generando liquidaciones con riesgo de prescripción…"}
+              </strong>
+              <div
+                className="bulk-zip-panel__progress"
+                role="progressbar"
+                aria-label="Progreso de generación del ZIP"
+                aria-valuemin={0}
+                aria-valuemax={job.total || 1}
+                aria-valuenow={job.completed}
+              >
+                <span style={{ transform: `scaleX(${progress / 100})` }} />
+              </div>
+              <p className="bulk-zip-panel__live" aria-live="off">
+                {job.completed} de {job.total} PDF · {progress}%
+              </p>
+              <p className="bulk-zip-panel__live" aria-live="off">
+                {eta}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+      {notice && (
+        <div className="bulk-zip-panel__reveal">
+          <Notice variant={notice.kind}>{notice.text}</Notice>
         </div>
       )}
-      {notice && (
-        <Notice variant={notice.kind} className="bulk-zip-panel__enter">
-          {notice.text}
-        </Notice>
-      )}
       {jobError && (
-        <Notice className="bulk-zip-panel__enter">{jobError}</Notice>
+        <div className="bulk-zip-panel__reveal">
+          <Notice>{jobError}</Notice>
+        </div>
       )}
     </Card>
   );

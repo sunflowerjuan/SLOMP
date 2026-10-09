@@ -42,7 +42,6 @@
   color: var(--semantic-text);
 }
 
-.bulk-zip-panel__muted,
 .bulk-zip-panel__status p {
   margin: 0;
 }
@@ -68,6 +67,89 @@
   color: var(--semantic-text-muted);
 }
 
+/* Placeholder rows while the counts load: same box as the real rows. */
+.bulk-zip-panel__row--skeleton i,
+.bulk-zip-panel__row--skeleton b {
+  display: block;
+  background-color: var(--semantic-surface-muted);
+  border-radius: var(--radius-default);
+  animation: bulk-zip-pulse 1.2s ease-in-out infinite;
+}
+
+/* Each bar sits in a 21px line (the text's line height), so the row is as
+   tall as the real one. */
+.bulk-zip-panel__row--skeleton i {
+  box-sizing: border-box;
+  width: 9rem;
+  height: 21px;
+  padding-block: 3px;
+  background-clip: content-box;
+}
+
+.bulk-zip-panel__row--skeleton i + i {
+  width: 4.5rem;
+  padding-block: 4px;
+}
+
+.bulk-zip-panel__row--skeleton b {
+  width: 7.5rem;
+  height: 40px;
+}
+
+@keyframes bulk-zip-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Folds the progress block away (and back) instead of popping it. The margin
+   cancels the panel's flex gap while it is closed. */
+.bulk-zip-panel__collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-top: calc(var(--space-20) * -1);
+  opacity: 0;
+  transition:
+    grid-template-rows var(--duration-sheet) var(--ease-sheet-soft),
+    margin-top var(--duration-sheet) var(--ease-sheet-soft),
+    opacity var(--duration-base) ease;
+}
+
+.bulk-zip-panel__collapse[data-open="true"] {
+  grid-template-rows: 1fr;
+  margin-top: 0;
+  opacity: 1;
+}
+
+.bulk-zip-panel__collapse-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* A notice grows into place rather than shoving what is below it. */
+.bulk-zip-panel__reveal {
+  display: grid;
+  animation: bulk-zip-reveal var(--duration-sheet) var(--ease-sheet-soft) both;
+}
+
+.bulk-zip-panel__reveal > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@keyframes bulk-zip-reveal {
+  from {
+    grid-template-rows: 0fr;
+    margin-top: calc(var(--space-20) * -1);
+    opacity: 0;
+  }
+  to {
+    grid-template-rows: 1fr;
+    margin-top: 0;
+    opacity: 1;
+  }
+}
+
 .bulk-zip-panel__enter {
   animation: bulk-zip-enter var(--duration-base) var(--ease-out) both;
 }
@@ -90,6 +172,14 @@
 
   .bulk-zip-panel__progress span {
     transition: none;
+  }
+
+  .bulk-zip-panel__collapse {
+    transition-duration: 0.01ms;
+  }
+
+  .bulk-zip-panel__reveal {
+    animation: bulk-zip-fade var(--duration-fast) ease-out both;
   }
 }
 
