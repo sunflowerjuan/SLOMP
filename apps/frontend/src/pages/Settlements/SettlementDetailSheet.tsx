@@ -1,6 +1,7 @@
 import type { SettlementSearchResult } from "../../api/settlements";
 import type { SettlementStatus } from "../../domain/settlementStatus";
 import { Button } from "../../components/ui/Button";
+import { useSwipeToDismiss } from "../../hooks/useSwipeToDismiss";
 import { formatPeriods } from "../../utils/formatPeriods";
 import { formatCop } from "./formatCop";
 import { SettlementStatusCell } from "./SettlementStatusCell";
@@ -40,11 +41,17 @@ export function SettlementDetailSheet({
   onClose,
   onGenerate,
 }: SettlementDetailSheetProps) {
+  // Phone: a bottom sheet that is also dismissed by dragging its header down.
+  const { ref, bind } = useSwipeToDismiss<HTMLElement>(onClose, {
+    axis: "y",
+    media: "(max-width: 900px)",
+  });
   const periods = entry ? formatPeriods(entry.periods) : "";
   const total = entry ? formatCop(entry.totalAmount) : "";
 
   return (
     <aside
+      ref={ref}
       id={id}
       className="settlement-sheet"
       data-open={open}
@@ -53,7 +60,7 @@ export function SettlementDetailSheet({
     >
       {entry && (
         <>
-          <header className="settlement-sheet__header">
+          <header className="settlement-sheet__header" {...bind}>
             <div>
               <h2 className="settlement-sheet__title">Liquidación {periods}</h2>
               <p

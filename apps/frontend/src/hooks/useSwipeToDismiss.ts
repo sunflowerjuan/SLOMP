@@ -1,17 +1,29 @@
 import { useRef } from "react";
 import type { PointerEvent } from "react";
 
-const DISTANCE = 0.35; // fraction of the width that commits the swipe
+const DISTANCE = 0.35; // fraction of the size that commits the swipe
 const FLICK_SPEED = 0.5; // px/ms: a quick flick commits too
 const FLICK_MIN = 40; // ...but not a twitch
+const SNAP_BACK_MS = 320;
 
-// Horizontal touch swipe: the element follows the finger. Past the threshold
-// it calls onDismiss (the caller plays the exit from the current transform);
-// otherwise it springs back. Mouse is ignored -- desktop has a close button.
-// The element needs `touch-action: pan-y` so the browser leaves the
-// horizontal gesture to us and keeps vertical scrolling.
+interface Options {
+  // "x": either side (a card). "y": downward only (a bottom sheet).
+  axis?: "x" | "y";
+  // Touch swipes only count while this media query matches.
+  media?: string;
+}
+
+// Touch swipe to dismiss: the element follows the finger. Past the threshold
+// it calls onDismiss; otherwise it springs back. Mouse is ignored -- desktop
+// has a close button. The gesture surface needs `touch-action: pan-y` (x) or
+// `pan-x` (y) so the browser leaves this axis to us.
+//
+// Exit: for "x" the inline transform stays, so the caller's exit animation
+// starts from where the finger left it. For "y" the inline styles are
+// released, so the sheet's own closed-state transition takes over from there.
 export function useSwipeToDismiss<T extends HTMLElement>(
   onDismiss: (direction: 1 | -1) => void,
+  { axis = "x", media }: Options = {},
 ) {
   const ref = useRef<T>(null);
   const drag = useRef<{
@@ -20,6 +32,12 @@ export function useSwipeToDismiss<T extends HTMLElement>(
     t: number;
     active: boolean;
   } | null>(null);
+  const horizontal = axis === "x";
+
+  const along = (event: PointerEvent, start: { x: number; y: number }) =>
+    horizontal ? event.clientX - start.x : Math.max(event.clientY - start.y, 0);
+  const across = (event: PointerEvent, start: { x: number; y: number }) =>
+    horizontal ? event.clientY - start.y : event.clientX - start.x;
 
   function finish(event: PointerEvent<T>, cancelled: boolean) {
     const start = drag.current;
@@ -27,26 +45,36 @@ export function useSwipeToDismiss<T extends HTMLElement>(
     drag.current = null;
     if (!start?.active || !el) return;
 
-    const dx = event.clientX - start.x;
-    const speed = Math.abs(dx) / Math.max(event.timeStamp - start.t, 1);
+    const distance = along(event, start);
+    const size = horizontal ? el.offsetWidth : el.offsetHeight;
+    const speed = Math.abs(distance) / Math.max(event.timeStamp - start.t, 1);
     const committed =
       !cancelled &&
-      (Math.abs(dx) > el.offsetWidth * DISTANCE ||
-        (speed > FLICK_SPEED && Math.abs(dx) > FLICK_MIN));
+      (Math.abs(distance) > size * DISTANCE ||
+        (speed > FLICK_SPEED && Math.abs(distance) > FLICK_MIN));
 
     if (committed) {
-      onDismiss(dx > 0 ? 1 : -1);
+      onDismiss(distance > 0 ? 1 : -1);
+      if (!horizontal) {
+        el.style.transition = "";
+        el.style.transform = "";
+      }
       return;
     }
-    el.style.transition =
-      "transform 320ms var(--ease-out), opacity 320ms var(--ease-out)";
+    el.style.transition = `transform ${SNAP_BACK_MS}ms var(--ease-out), opacity ${SNAP_BACK_MS}ms var(--ease-out)`;
     el.style.transform = "";
     el.style.opacity = "";
+    // The inline transition must not outlive the spring-back: it would
+    // override the stylesheet's own transitions.
+    setTimeout(() => {
+      if (!drag.current) el.style.transition = "";
+    }, SNAP_BACK_MS);
   }
 
   const bind = {
     onPointerDown(event: PointerEvent<T>) {
       if (event.pointerType !== "touch") return;
+      if (media && !window.matchMedia(media).matches) return;
       drag.current = {
         x: event.clientX,
         y: event.clientY,
@@ -58,21 +86,25 @@ export function useSwipeToDismiss<T extends HTMLElement>(
       const start = drag.current;
       const el = ref.current;
       if (!start || !el) return;
-      const dx = event.clientX - start.x;
+      const distance = along(event, start);
       if (!start.active) {
         if (
-          Math.abs(dx) < 8 ||
-          Math.abs(dx) < Math.abs(event.clientY - start.y)
+          Math.abs(distance) < 8 ||
+          Math.abs(distance) < Math.abs(across(event, start))
         )
           return;
         start.active = true;
-        el.setPointerCapture(event.pointerId);
+        event.currentTarget.setPointerCapture(event.pointerId);
         el.style.transition = "none";
       }
-      el.style.transform = `translateX(${dx}px)`;
-      el.style.opacity = String(
-        1 - Math.min(Math.abs(dx) / el.offsetWidth, 1) * 0.6,
-      );
+      if (horizontal) {
+        el.style.transform = `translateX(${distance}px)`;
+        el.style.opacity = String(
+          1 - Math.min(Math.abs(distance) / el.offsetWidth, 1) * 0.6,
+        );
+      } else {
+        el.style.transform = `translateY(${distance}px)`;
+      }
     },
     onPointerUp: (event: PointerEvent<T>) => finish(event, false),
     onPointerCancel: (event: PointerEvent<T>) => finish(event, true),

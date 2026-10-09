@@ -31,6 +31,7 @@
 }
 
 .settlement-sheet__header {
+  position: relative;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -100,12 +101,14 @@
 }
 
 @media (max-width: 900px) {
+  /* Phone: a bottom sheet that is as tall as its content. */
   .settlement-sheet {
-    top: var(--space-8);
+    top: auto;
     right: var(--space-8);
-    bottom: var(--space-8);
+    bottom: max(var(--space-8), env(safe-area-inset-bottom, 0px));
     left: var(--space-8);
     width: auto;
+    max-height: calc(100dvh - var(--space-16));
     /* Mobile: rises from the bottom edge and goes back down on close. */
     transform: translateY(calc(100% + var(--space-8)));
     /* Full-height travel: an ease-out front-loads ~80% of it into the first
@@ -119,6 +122,23 @@
     transition:
       transform 520ms var(--ease-sheet-soft),
       visibility 0s;
+  }
+
+  /* The header is the drag handle; the grip says so. */
+  .settlement-sheet__header {
+    touch-action: pan-x;
+  }
+
+  .settlement-sheet__header::before {
+    content: "";
+    position: absolute;
+    top: calc(var(--space-16) * -1);
+    left: 50%;
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background-color: var(--grafito-400);
+    transform: translateX(-50%);
   }
 }
 
