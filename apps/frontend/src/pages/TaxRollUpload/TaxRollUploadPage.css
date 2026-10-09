@@ -11,6 +11,11 @@
   display: contents;
 }
 
+.tax-roll-upload-page {
+  /* The swipe-out carries the result card past the screen edge. */
+  overflow-x: clip;
+}
+
 .tax-roll-upload-page__upload {
   order: 1;
 }
@@ -23,11 +28,59 @@
   margin: -6px;
   padding: 6px;
   overflow: hidden;
-  animation: tax-roll-result-enter 460ms var(--ease-sheet) both;
+  /* Backwards fill: nothing is held after the entry, so the swipe can set
+     its own transform. */
+  animation: tax-roll-result-enter 460ms var(--ease-sheet) backwards;
+  /* Horizontal swipes are ours; vertical ones keep scrolling the page. */
+  touch-action: pan-y;
+}
+
+/* Exit: the close button collapses it where it entered from; a swipe carries
+   it off to the side from wherever the finger left it (no `from`: it starts
+   at the element's current, inline transform). */
+.tax-roll-upload-page__result-reveal[data-leaving] {
+  pointer-events: none;
+}
+
+.tax-roll-upload-page__result-reveal[data-leaving="fade"] {
+  animation: tax-roll-result-leave-fade 460ms var(--ease-sheet-soft) forwards;
+}
+
+.tax-roll-upload-page__result-reveal[data-leaving="1"] {
+  animation: tax-roll-result-leave-right 360ms var(--ease-out) forwards;
+}
+
+.tax-roll-upload-page__result-reveal[data-leaving="-1"] {
+  animation: tax-roll-result-leave-left 360ms var(--ease-out) forwards;
 }
 
 .tax-roll-upload-page__result {
   min-height: 0;
+}
+
+/* A collapsing grid row can't go below the card's padding and border, so
+   they shrink with it; otherwise the layout jumps when the card is removed. */
+.tax-roll-upload-page__result-reveal .tax-roll-upload-page__result {
+  animation: tax-roll-result-card-in 460ms var(--ease-sheet) backwards;
+}
+
+.tax-roll-upload-page__result-reveal[data-leaving]
+  .tax-roll-upload-page__result {
+  animation: tax-roll-result-card-out 460ms var(--ease-sheet-soft) forwards;
+}
+
+@keyframes tax-roll-result-card-in {
+  from {
+    padding-block: 0;
+    border-block-width: 0;
+  }
+}
+
+@keyframes tax-roll-result-card-out {
+  to {
+    padding-block: 0;
+    border-block-width: 0;
+  }
 }
 
 .tax-roll-upload-page__result-reveal:focus {
@@ -52,6 +105,30 @@
     grid-template-rows: 1fr;
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes tax-roll-result-leave-fade {
+  to {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes tax-roll-result-leave-right {
+  to {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transform: translateX(110%);
+  }
+}
+
+@keyframes tax-roll-result-leave-left {
+  to {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transform: translateX(-110%);
   }
 }
 
@@ -297,6 +374,22 @@
 
 @media (prefers-reduced-motion: reduce) {
   .tax-roll-upload-page__result-reveal {
-    animation: tax-roll-result-fade 150ms ease-out both;
+    animation: tax-roll-result-fade 150ms ease-out backwards;
+  }
+
+  .tax-roll-upload-page__result-reveal .tax-roll-upload-page__result,
+  .tax-roll-upload-page__result-reveal[data-leaving]
+    .tax-roll-upload-page__result {
+    animation: none;
+  }
+
+  .tax-roll-upload-page__result-reveal[data-leaving] {
+    animation: tax-roll-result-leave-dim 150ms ease-out forwards;
+  }
+
+  @keyframes tax-roll-result-leave-dim {
+    to {
+      opacity: 0;
+    }
   }
 }

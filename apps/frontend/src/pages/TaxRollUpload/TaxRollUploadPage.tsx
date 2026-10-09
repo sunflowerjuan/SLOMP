@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { getErrorMessage } from "../../api/ApiError";
 import { messageForRowIssue } from "../../api/errorMessages";
 import { importTaxRoll, listTaxRollImports } from "../../api/taxRoll";
@@ -11,6 +11,7 @@ import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Dropzone } from "../../components/ui/Dropzone";
 import { Notice } from "../../components/ui/Notice";
+import { useSwipeToDismiss } from "../../hooks/useSwipeToDismiss";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { ReplaceConfirmDialog } from "../../components/ui/ReplaceConfirmDialog";
 import { StatusBadge } from "../../components/ui/StatusBadge";
@@ -74,9 +75,16 @@ export function TaxRollUploadPage() {
       .finally(() => setIsHistoryLoading(false));
   }, []);
 
+  // How the result card leaves: faded by its close button, or swiped away
+  // to one side. The card is removed once that exit animation ends.
+  const [leaving, setLeaving] = useState<"fade" | 1 | -1 | null>(null);
+  const { ref: resultRef, bind: swipeBind } =
+    useSwipeToDismiss<HTMLDivElement>(setLeaving);
+
   function resetOutcome() {
     setResult(null);
     setError(null);
+    setLeaving(null);
   }
 
   async function handleProcess() {
@@ -126,31 +134,23 @@ export function TaxRollUploadPage() {
     }
   }
 
-  const resultRef = useRef<HTMLDivElement>(null);
   const resultImportId = result?.importId;
   useEffect(() => {
     // Announce the outcome: move focus to the result region.
     if (resultImportId !== undefined) {
       resultRef.current?.focus({ preventScroll: true });
     }
-  }, [resultImportId]);
+  }, [resultImportId, resultRef]);
 
   const conflictCount = result?.persisted.conflicts.length ?? 0;
 
   return (
     <div className="page tax-roll-upload-page">
-      <PageHeader
-        title="Carga de Excel"
-        subtitle="Sube el Excel con la información de predios y deudas para generar las liquidaciones del periodo actual."
-      />
+      <PageHeader title="Carga de Excel" />
 
       <div className="tax-roll-upload-page__layout">
         <div className="tax-roll-upload-page__main">
-          <Card
-            title="Nueva carga"
-            subtitle="Cada predio y periodo solo puede liquidarse una vez. Si el periodo ya fue liquidado, el sistema te avisará antes de reemplazarlo."
-            className="tax-roll-upload-page__upload"
-          >
+          <Card title="Nueva carga" className="tax-roll-upload-page__upload">
             <Dropzone
               file={file}
               onFileSelect={(selected) => {
@@ -225,6 +225,13 @@ export function TaxRollUploadPage() {
             <div
               ref={resultRef}
               className="tax-roll-upload-page__result-reveal"
+              data-leaving={leaving === null ? undefined : String(leaving)}
+              onAnimationEnd={(event) => {
+                if (event.animationName.startsWith("tax-roll-result-leave")) {
+                  resetOutcome();
+                }
+              }}
+              {...swipeBind}
               role="region"
               aria-label="Resultado de la carga"
               tabIndex={-1}
@@ -237,7 +244,7 @@ export function TaxRollUploadPage() {
                     type="button"
                     className="tax-roll-upload-page__close"
                     aria-label="Cerrar resultado de la carga"
-                    onClick={resetOutcome}
+                    onClick={() => setLeaving("fade")}
                   >
                     <svg
                       viewBox="0 0 16 16"
