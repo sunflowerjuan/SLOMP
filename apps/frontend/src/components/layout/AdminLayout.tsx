@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { useSlidingIndicator } from "../../hooks/useSlidingIndicator";
 import "./AdminLayout.css";
 
@@ -10,10 +10,18 @@ export interface AdminNavItem {
   icon: ReactNode;
 }
 
+// Entry of the account menu that opens from the logo.
+export interface AdminMenuItem {
+  id: string;
+  label: string;
+  icon: ReactNode;
+  onSelect: () => void;
+}
+
 interface AdminLayoutProps {
   items: AdminNavItem[];
   activeId: string;
-  onSignOut: () => void;
+  menuItems: AdminMenuItem[];
   children: ReactNode;
 }
 
@@ -30,10 +38,12 @@ const SVG_PROPS = {
 export function AdminLayout({
   items,
   activeId,
-  onSignOut,
+  menuItems,
   children,
 }: AdminLayoutProps) {
   const mainRef = useRef<HTMLElement>(null);
+  const brandRef = useRef<HTMLDivElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const isFirstRender = useRef(true);
   const activeIndex = items.findIndex((item) => item.id === activeId);
   const { containerRef, indicatorStyle, dragging, axis, bind } =
@@ -50,6 +60,39 @@ export function AdminLayout({
     mainRef.current?.focus({ preventScroll: true });
   }, [activeId]);
 
+  // The logo opens the account menu; Escape or a tap elsewhere closes it.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (event: Event) => {
+      if (event.type === "keydown" && (event as KeyboardEvent).key !== "Escape")
+        return;
+      if (
+        event.type === "pointerdown" &&
+        brandRef.current?.contains(event.target as Node)
+      )
+        return;
+      setMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [menuOpen]);
+
+  // Arrow keys walk the menu items (wrapping), as role="menu" promises.
+  function moveFocus(event: ReactKeyboardEvent<HTMLDivElement>) {
+    const step = { ArrowDown: 1, ArrowUp: -1 }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const entries = [
+      ...event.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+    ];
+    const next = entries.indexOf(document.activeElement as HTMLElement) + step;
+    entries.at(next % entries.length)?.focus();
+  }
+
   return (
     <div className="admin-layout">
       <button
@@ -60,19 +103,50 @@ export function AdminLayout({
         Saltar al contenido
       </button>
       <aside className="admin-layout__side">
-        <div className="admin-layout__brandbar">
-          <div className="admin-layout__mark" aria-hidden="true">
-            <svg {...SVG_PROPS}>
-              <path d="M6 3h8l4 4v14H6z" />
-              <path d="M14 3v4h4" />
-              <circle cx="12" cy="14" r="2.6" />
-              <path d="M10.6 16.4L10 20l2-1 2 1-.6-3.6" />
-            </svg>
-          </div>
-          <div>
+        <div ref={brandRef} className="admin-layout__brandbar">
+          <button
+            type="button"
+            className="admin-layout__brand-button"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            aria-label="Menú de cuenta"
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            <span className="admin-layout__mark" aria-hidden="true">
+              <svg {...SVG_PROPS}>
+                <path d="M6 3h8l4 4v14H6z" />
+                <path d="M14 3v4h4" />
+                <circle cx="12" cy="14" r="2.6" />
+                <path d="M10.6 16.4L10 20l2-1 2 1-.6-3.6" />
+              </svg>
+            </span>
             <span className="admin-layout__brand">SLOMP</span>
-            <span className="admin-layout__brand-sub">Municipio de Páez</span>
-          </div>
+          </button>
+          {menuOpen && (
+            <div
+              className="admin-layout__menu"
+              role="menu"
+              aria-label="Cuenta"
+              onKeyDown={moveFocus}
+            >
+              {menuItems.map((item, index) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="menuitem"
+                  className="admin-layout__menu-item"
+                  autoFocus={index === 0}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    item.onSelect();
+                  }}
+                >
+                  {item.icon}
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <nav
           ref={containerRef}
@@ -103,16 +177,6 @@ export function AdminLayout({
             </a>
           ))}
         </nav>
-        <button
-          type="button"
-          className="admin-layout__signout"
-          onClick={onSignOut}
-        >
-          <svg {...SVG_PROPS}>
-            <path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9" />
-          </svg>
-          <span>Cerrar sesión</span>
-        </button>
       </aside>
       <main ref={mainRef} className="admin-layout__main" tabIndex={-1}>
         {children}

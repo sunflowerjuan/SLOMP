@@ -41,10 +41,58 @@
 }
 
 .admin-layout__brandbar {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-12);
   padding: var(--space-4) var(--space-8) var(--space-24);
+}
+
+/* The logo is the account menu trigger. */
+.admin-layout__brand-button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-ctl);
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: transform var(--duration-press) var(--ease-out);
+}
+
+.admin-layout__brand-button:active {
+  transform: scale(0.97);
+}
+
+.admin-layout__menu {
+  position: absolute;
+  top: calc(100% - var(--space-12));
+  left: 0;
+  z-index: 10;
+  min-width: 220px;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background-color: var(--semantic-surface);
+  box-shadow: var(--shadow-overlay);
+  transform-origin: top left;
+  animation: admin-layout-menu-in var(--duration-base) var(--ease-out);
+}
+
+@keyframes admin-layout-menu-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+}
+
+@keyframes admin-layout-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
 }
 
 .admin-layout__mark {
@@ -64,22 +112,11 @@
 }
 
 .admin-layout__brand {
-  display: block;
   font-size: var(--text-2xl);
   font-weight: 700;
   letter-spacing: -0.015em;
   line-height: 1;
   color: var(--tinta-700);
-}
-
-.admin-layout__brand-sub {
-  display: block;
-  margin-top: var(--space-4);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  line-height: 1.2;
-  /* Muted grey is only 3.9:1 on the sidebar's grey. */
-  color: var(--tinta-600);
 }
 
 .admin-layout__nav {
@@ -127,7 +164,7 @@
 }
 
 .admin-layout__link,
-.admin-layout__signout {
+.admin-layout__menu-item {
   position: relative;
   display: flex;
   align-items: center;
@@ -149,7 +186,7 @@
 }
 
 .admin-layout__link svg,
-.admin-layout__signout svg {
+.admin-layout__menu-item svg {
   flex: none;
   width: 22px;
   height: 22px;
@@ -159,18 +196,17 @@
   font-weight: 600;
 }
 
-.admin-layout__signout {
-  margin-top: auto;
+.admin-layout__menu-item {
   transition: transform var(--duration-press) var(--ease-out);
 }
 
-.admin-layout__signout:active {
+.admin-layout__menu-item:active {
   transform: scale(0.98);
 }
 
 @media (hover: hover) and (pointer: fine) {
   .admin-layout__link:not([aria-current="page"]):hover,
-  .admin-layout__signout:hover {
+  .admin-layout__menu-item:hover {
     background-color: rgba(19, 20, 23, 0.05);
   }
 }
@@ -189,18 +225,29 @@
     flex-direction: column;
   }
 
+  /* Action bar at the bottom, within thumb reach; the page leaves room. */
   .admin-layout__side {
-    top: var(--space-8);
+    position: fixed;
+    top: auto;
+    right: var(--space-8);
+    bottom: max(var(--space-8), env(safe-area-inset-bottom));
+    left: var(--space-8);
     z-index: 5;
     flex-direction: row;
     align-items: center;
-    align-self: stretch;
     gap: var(--space-8);
     width: auto;
     height: 68px;
-    margin: var(--space-8);
+    margin: 0;
     padding: 6px;
-    overflow: hidden;
+    /* Not clipped: the account menu opens above the bar. */
+    overflow: visible;
+  }
+
+  .admin-layout__main {
+    padding-bottom: calc(
+      68px + var(--space-16) + max(var(--space-8), env(safe-area-inset-bottom))
+    );
   }
 
   .admin-layout__brandbar {
@@ -216,7 +263,6 @@
     font-size: var(--text-xl);
   }
 
-  .admin-layout__brand-sub,
   .admin-layout__link svg {
     display: none;
   }
@@ -235,27 +281,17 @@
     white-space: nowrap;
   }
 
-  .admin-layout__signout {
-    flex: none;
-    justify-content: center;
-    width: 52px;
-    min-height: 52px;
-    margin: 0;
-    padding: 0;
-  }
-
-  .admin-layout__signout span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
+  /* The menu opens upward from the logo, above the bar. */
+  .admin-layout__menu {
+    top: auto;
+    bottom: calc(100% + var(--space-12));
+    transform-origin: bottom left;
+    animation-name: admin-layout-menu-in-up;
   }
 }
 
 @media (max-width: 520px) {
-  .admin-layout__brandbar div:last-child {
+  .admin-layout__brand {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -280,8 +316,12 @@
 
 @media (prefers-reduced-motion: reduce) {
   .admin-layout__indicator,
-  .admin-layout__signout {
+  .admin-layout__menu-item {
     transition-duration: 0.01ms;
+  }
+
+  .admin-layout__menu {
+    animation-duration: 0.01ms;
   }
 }
 
@@ -293,7 +333,20 @@
   }
 }
 
+@keyframes admin-layout-bar-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+
 .admin-layout__side {
   animation: admin-layout-side-in 900ms cubic-bezier(0.16, 1, 0.3, 1) 150ms
     backwards;
+}
+
+@media (max-width: 900px) {
+  .admin-layout__side {
+    animation-name: admin-layout-bar-in;
+  }
 }

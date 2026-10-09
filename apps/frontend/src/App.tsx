@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
 import { AdminLayout } from "./components/layout/AdminLayout";
-import type { AdminNavItem } from "./components/layout/AdminLayout";
+import type {
+  AdminMenuItem,
+  AdminNavItem,
+} from "./components/layout/AdminLayout";
 import { AuthProvider } from "./auth/AuthProvider";
 import { useAuth } from "./auth/useAuth";
 import { TaxRollUploadPage } from "./pages/TaxRollUpload/TaxRollUploadPage";
@@ -54,12 +57,31 @@ const NAV_ITEMS: AdminNavItem[] = [
   },
 ];
 
+function menuItems(signOut: () => void): AdminMenuItem[] {
+  return [
+    {
+      id: "sign-out",
+      label: "Cerrar sesión",
+      icon: (
+        <NavIcon>
+          <path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9" />
+        </NavIcon>
+      ),
+      onSelect: signOut,
+    },
+  ];
+}
+
 function AdminPanel() {
   const { signOut } = useAuth();
   const section = useAdminSection();
 
   return (
-    <AdminLayout items={NAV_ITEMS} activeId={section} onSignOut={signOut}>
+    <AdminLayout
+      items={NAV_ITEMS}
+      activeId={section}
+      menuItems={menuItems(signOut)}
+    >
       {section === "liquidaciones" ? (
         <SettlementsPage />
       ) : (
