@@ -7,6 +7,7 @@ import {
 } from "../../domain/settlementStatus";
 import type { SettlementStatus } from "../../domain/settlementStatus";
 import { StatusBadge } from "../../components/ui/StatusBadge";
+import { Icon } from "../../components/ui/Icon";
 import "./SettlementStatusCell.css";
 
 interface SettlementStatusCellProps {
@@ -19,16 +20,6 @@ interface SettlementStatusCellProps {
   onSave: (status: SettlementStatus) => void;
   onCancel: () => void;
 }
-
-const ICON_PROPS = {
-  viewBox: "0 0 16 16",
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 1.75,
-  strokeLinecap: "round",
-  strokeLinejoin: "round",
-  "aria-hidden": true,
-} as const;
 
 export function SettlementStatusCell({
   status,
@@ -98,9 +89,9 @@ export function SettlementStatusCell({
             disabled={saving}
             onClick={() => onSave(draft)}
           >
-            <svg {...ICON_PROPS}>
+            <Icon>
               <path d="M3 8.5l3.2 3.2L13 4.5" />
-            </svg>
+            </Icon>
           </button>
           <button
             type="button"
@@ -109,9 +100,9 @@ export function SettlementStatusCell({
             disabled={saving}
             onClick={onCancel}
           >
-            <svg {...ICON_PROPS}>
+            <Icon>
               <path d="M4 4l8 8M12 4l-8 8" />
-            </svg>
+            </Icon>
           </button>
         </>
       ) : (
@@ -131,9 +122,9 @@ export function SettlementStatusCell({
             disabled={editLocked}
             onClick={startEditing}
           >
-            <svg {...ICON_PROPS}>
+            <Icon>
               <path d="M11 2.5l2.5 2.5L5.5 13H3v-2.5z" />
-            </svg>
+            </Icon>
           </button>
         </>
       )}

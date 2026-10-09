@@ -1,9 +1,9 @@
-import type { ReactNode } from "react";
 import { AdminLayout } from "./components/layout/AdminLayout";
 import type {
   AdminMenuItem,
   AdminNavItem,
 } from "./components/layout/AdminLayout";
+import { Icon } from "./components/ui/Icon";
 import { AuthProvider } from "./auth/AuthProvider";
 import { useAuth } from "./auth/useAuth";
 import { TaxRollUploadPage } from "./pages/TaxRollUpload/TaxRollUploadPage";
@@ -16,32 +16,16 @@ import {
   useIsPublicConsultationRoute,
 } from "./routes";
 
-function NavIcon({ children }: { children: ReactNode }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      {children}
-    </svg>
-  );
-}
-
 const NAV_ITEMS: AdminNavItem[] = [
   {
     id: "cargas",
     label: "Carga de Excel",
     href: ADMIN_SECTION_HREF.cargas,
     icon: (
-      <NavIcon>
+      <Icon box={24}>
         <path d="M12 16V4M8 8l4-4 4 4" />
         <path d="M4 20h16" />
-      </NavIcon>
+      </Icon>
     ),
   },
   {
@@ -49,10 +33,10 @@ const NAV_ITEMS: AdminNavItem[] = [
     label: "Liquidaciones",
     href: ADMIN_SECTION_HREF.liquidaciones,
     icon: (
-      <NavIcon>
+      <Icon box={24}>
         <path d="M6 3h8l4 4v14H6z" />
         <path d="M14 3v4h4M9 13h6M9 17h6" />
-      </NavIcon>
+      </Icon>
     ),
   },
 ];
@@ -63,9 +47,9 @@ function menuItems(signOut: () => void): AdminMenuItem[] {
       id: "sign-out",
       label: "Cerrar sesión",
       icon: (
-        <NavIcon>
+        <Icon box={24}>
           <path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9" />
-        </NavIcon>
+        </Icon>
       ),
       onSelect: signOut,
     },

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
+import { Icon } from "../ui/Icon";
 import { useSlidingIndicator } from "../../hooks/useSlidingIndicator";
 import "./AdminLayout.css";
 
@@ -24,16 +25,6 @@ interface AdminLayoutProps {
   menuItems: AdminMenuItem[];
   children: ReactNode;
 }
-
-const SVG_PROPS = {
-  viewBox: "0 0 24 24",
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 1.75,
-  strokeLinecap: "round",
-  strokeLinejoin: "round",
-  "aria-hidden": true,
-} as const;
 
 export function AdminLayout({
   items,
@@ -113,12 +104,12 @@ export function AdminLayout({
             onClick={() => setMenuOpen((open) => !open)}
           >
             <span className="admin-layout__mark" aria-hidden="true">
-              <svg {...SVG_PROPS}>
+              <Icon box={24}>
                 <path d="M6 3h8l4 4v14H6z" />
                 <path d="M14 3v4h4" />
                 <circle cx="12" cy="14" r="2.6" />
                 <path d="M10.6 16.4L10 20l2-1 2 1-.6-3.6" />
-              </svg>
+              </Icon>
             </span>
             <span className="admin-layout__brand">SLOMP</span>
           </button>

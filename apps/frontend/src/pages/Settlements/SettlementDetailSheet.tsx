@@ -1,6 +1,7 @@
 import type { SettlementSearchResult } from "../../api/settlements";
 import type { SettlementStatus } from "../../domain/settlementStatus";
 import { Button } from "../../components/ui/Button";
+import { CloseIcon } from "../../components/ui/CloseIcon";
 import { useSwipeToDismiss } from "../../hooks/useSwipeToDismiss";
 import { formatPeriods } from "../../utils/formatPeriods";
 import { formatCop } from "./formatCop";
@@ -76,16 +77,7 @@ export function SettlementDetailSheet({
               aria-label="Cerrar detalle"
               onClick={onClose}
             >
-              <svg
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={1.75}
-                strokeLinecap="round"
-                aria-hidden="true"
-              >
-                <path d="M4 4l8 8M12 4l-8 8" />
-              </svg>
+              <CloseIcon />
             </button>
           </header>
           <dl className="settlement-sheet__details">
