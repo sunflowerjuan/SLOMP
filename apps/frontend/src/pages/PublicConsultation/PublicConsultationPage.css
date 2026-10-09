@@ -286,6 +286,13 @@
     margin-top: auto;
   }
 
+  /* Until there are results to line up with, the card keeps its own height
+     instead of stretching over an empty column. */
+  .public-consultation__main:has(.public-consultation__results:empty)
+    .public-consultation__form-card {
+    align-self: start;
+  }
+
   .public-consultation__form-footer {
     flex-direction: column;
     align-items: stretch;
@@ -293,6 +300,13 @@
 
   .public-consultation__actions .ui-button {
     flex: 1;
+  }
+}
+
+/* The 30-digit code keeps its own column instead of breaking mid-number. */
+@media (min-width: 1280px) {
+  .public-consultation__property {
+    grid-template-columns: max-content minmax(0, 1fr) max-content;
   }
 }
 

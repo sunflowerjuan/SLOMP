@@ -210,6 +210,7 @@ export function PublicConsultationPage() {
         <PageHeader title="Consulta de liquidaciones del impuesto predial" />
 
         <Card
+          className="public-consultation__form-card"
           title="Datos del predio"
           subtitle="Ingresa al menos 2 de los 3 datos tal como aparecen en tu liquidación o en el recibo del predio."
         >
