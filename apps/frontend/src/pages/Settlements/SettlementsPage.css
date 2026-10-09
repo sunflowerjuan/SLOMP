@@ -30,10 +30,15 @@
   }
 }
 
-/* On narrow screens the nav is a sticky bar of 68px plus its 8px margins. */
+/* On narrow screens the nav is a fixed bar at the bottom; the main area keeps
+   room for it (same sum as .admin-layout__main's bottom padding), so this
+   page is exactly one screen tall and the document does not scroll. */
 @media (max-width: 900px) {
   .settlements-page {
-    height: calc(100dvh - 84px);
+    height: calc(
+      100dvh - 68px - var(--space-16) -
+        max(var(--space-8), env(safe-area-inset-bottom, 0px))
+    );
   }
 }
 

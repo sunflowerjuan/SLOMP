@@ -282,14 +282,9 @@
     flex: 1;
   }
 
-  .public-consultation__form-footer {
-    margin-top: auto;
-  }
-
-  /* Until there are results to line up with, the card keeps its own height
-     instead of stretching over an empty column. */
-  .public-consultation__main:has(.public-consultation__results:empty)
-    .public-consultation__form-card {
+  /* The form card keeps its own height, with or without results: stretching
+     it to the results column left a gap between the fields and the footer. */
+  .public-consultation__form-card {
     align-self: start;
   }
 
