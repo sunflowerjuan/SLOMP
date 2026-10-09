@@ -6,7 +6,7 @@ import "./SettlementSearchBar.css";
 export type SearchField = "cadastralCode" | "owner" | "address";
 
 const FIELD_OPTIONS: { value: SearchField; label: string }[] = [
-  { value: "cadastralCode", label: "Cédula catastral" },
+  { value: "cadastralCode", label: "Cédula" },
   { value: "owner", label: "Propietario" },
   { value: "address", label: "Dirección" },
 ];

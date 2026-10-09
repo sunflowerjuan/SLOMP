@@ -156,15 +156,20 @@
   .settlement-list__row--body {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
-      "code status"
-      "owner owner"
+      "code code"
+      "owner status"
       "periods total";
     row-gap: var(--space-4);
     padding: var(--space-12) var(--space-8);
   }
 
+  /* The 30-digit code gets a row of its own so it never breaks mid-number. */
   .settlement-list__code {
     grid-area: code;
+  }
+
+  .settlement-list__code button {
+    font-size: var(--text-sm);
   }
 
   .settlement-list__status {

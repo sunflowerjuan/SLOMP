@@ -247,7 +247,7 @@ export function PublicConsultationPage() {
               />
               <Input
                 label="Propietario"
-                placeholder="Nombre completo del propietario"
+                placeholder="Nombre completo"
                 autoComplete="name"
                 value={values.ownerName}
                 onChange={(event) =>
