@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { login } from "../api/auth";
 import { setUnauthorizedHandler } from "../api/httpClient";
 import { clearToken, getToken, setToken } from "../api/tokenStorage";
@@ -24,8 +25,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     const { accessToken } = await login(email, password);
     setToken(accessToken);
-    setSessionExpired(false);
-    setIsAuthenticated(true);
+    const enterPanel = () => {
+      setSessionExpired(false);
+      setIsAuthenticated(true);
+    };
+    // Cross-fade login -> panel instead of swapping the screens in one frame.
+    if (document.startViewTransition) {
+      document.startViewTransition(() => flushSync(enterPanel));
+    } else {
+      enterPanel();
+    }
   }, []);
 
   const signOut = useCallback(() => {

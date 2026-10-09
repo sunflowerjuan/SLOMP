@@ -1,31 +1,54 @@
 .ui-status-badge {
   display: inline-flex;
   align-items: center;
-  height: 24px;
+  gap: var(--space-8);
+  min-height: 28px;
   padding: 0 var(--space-12);
   border-radius: var(--radius-default);
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
+  color: var(--semantic-text);
   white-space: nowrap;
+}
+
+.ui-status-badge::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: currentColor;
 }
 
 .ui-status-badge--success {
   background-color: var(--semantic-success-bg);
+}
+
+.ui-status-badge--success::before {
   color: var(--semantic-success);
 }
 
 .ui-status-badge--warning {
   background-color: var(--semantic-warning-bg);
+}
+
+.ui-status-badge--warning::before {
   color: var(--semantic-warning);
 }
 
 .ui-status-badge--danger {
   background-color: var(--semantic-danger-bg);
+}
+
+.ui-status-badge--danger::before {
   color: var(--semantic-danger);
 }
 
 .ui-status-badge--neutral {
-  background-color: var(--grafito-100);
+  background-color: var(--semantic-surface-muted);
+}
+
+.ui-status-badge--neutral::before {
   color: var(--grafito-500);
 }

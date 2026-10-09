@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy:static": "sh scripts/deploy-static.sh",
+    "check:cache": "sh scripts/check-cache.sh"
   },
   "dependencies": {
     "@fontsource/ibm-plex-sans": "^5.3.0",

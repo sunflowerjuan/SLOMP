@@ -1,0 +1,109 @@
+.ui-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  padding: var(--space-32);
+  background-color: var(--semantic-surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--semantic-border);
+}
+
+.ui-card__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.ui-card__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+
+.ui-card__title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--semantic-text);
+}
+
+.ui-card__subtitle {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+/* Collapsible: the gap lives inside the animated body, so a closed card has
+   no trailing space. */
+.ui-card--collapsible {
+  gap: 0;
+}
+
+.ui-card__toggle {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  min-height: var(--tap-size);
+  margin: calc((var(--tap-size) - 1.5em) / -2) 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ui-card__toggle svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--semantic-text-muted);
+  transition: transform var(--duration-sheet) var(--ease-sheet-soft);
+}
+
+.ui-card--collapsible[data-open="true"] .ui-card__toggle svg {
+  transform: rotate(180deg);
+}
+
+.ui-card__body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--duration-sheet) var(--ease-sheet-soft);
+}
+
+.ui-card--collapsible[data-open="true"] .ui-card__body {
+  grid-template-rows: 1fr;
+}
+
+.ui-card__body-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  min-height: 0;
+  /* Padding can't collapse with the row, so it animates with it. */
+  padding-top: 0;
+  overflow: hidden;
+  transition: padding-top var(--duration-sheet) var(--ease-sheet-soft);
+}
+
+.ui-card--collapsible[data-open="true"] .ui-card__body-inner {
+  padding-top: var(--space-16);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-card__body,
+  .ui-card__body-inner,
+  .ui-card__toggle svg {
+    transition-duration: 0.01ms;
+  }
+}
+
+@media (max-width: 768px) {
+  .ui-card {
+    padding: var(--space-24);
+  }
+}

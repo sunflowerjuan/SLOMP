@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import type { ChangeEvent, DragEvent, KeyboardEvent } from "react";
+import type { ChangeEvent, DragEvent } from "react";
 import "./Dropzone.css";
 
 interface DropzoneProps {
@@ -18,19 +18,12 @@ function formatFileSize(bytes: number): string {
   return `${(kb / 1024).toFixed(1)} MB`;
 }
 
-// Dropzone visual state. Names taken straight from the Figma component.
-// "idle" is verified against node 10:12 of the "Tributaria Predial" file.
-// "dragover" / "uploaded" / "error" could NOT be verified in this task (the
-// Figma MCP hit its call limit on the Starter plan): the layout and copy
-// for those three states are a reasonable guess, consistent with "idle"'s
-// tone, but someone on the team should check them against the real design
-// in Figma once the plan limit resets.
 type DropzoneState = "idle" | "dragover" | "uploaded" | "error";
 
 export function Dropzone({
   file,
   error,
-  accept = ".xlsx,.csv",
+  accept = ".xlsx",
   onFileSelect,
   onClear,
 }: DropzoneProps) {
@@ -47,19 +40,6 @@ export function Dropzone({
 
   function openFileDialog() {
     inputRef.current?.click();
-  }
-
-  function handleZoneClick() {
-    if (state !== "uploaded") {
-      openFileDialog();
-    }
-  }
-
-  function handleZoneKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (state !== "uploaded" && (event.key === "Enter" || event.key === " ")) {
-      event.preventDefault();
-      openFileDialog();
-    }
   }
 
   function handleDragOver(event: DragEvent<HTMLDivElement>) {
@@ -88,13 +68,11 @@ export function Dropzone({
     event.target.value = "";
   }
 
+  const hint = `${accept.split(",").join(" o ")} — máximo 10 MB`;
+
   return (
     <div
       className={`ui-dropzone ui-dropzone--${state}`}
-      role="button"
-      tabIndex={0}
-      onClick={handleZoneClick}
-      onKeyDown={handleZoneKeyDown}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -104,6 +82,8 @@ export function Dropzone({
         type="file"
         accept={accept}
         className="ui-dropzone__input"
+        tabIndex={-1}
+        aria-hidden="true"
         onChange={handleInputChange}
       />
 
@@ -116,30 +96,33 @@ export function Dropzone({
           <button
             type="button"
             className="ui-dropzone__remove"
-            onClick={(event) => {
-              event.stopPropagation();
-              onClear();
-            }}
+            onClick={onClear}
           >
             Quitar
           </button>
         </div>
       ) : (
-        <>
+        <button
+          type="button"
+          className="ui-dropzone__pick"
+          onClick={openFileDialog}
+        >
           <span className="ui-dropzone__icon" aria-hidden="true">
             +
           </span>
           {state === "error" ? (
-            <p className="ui-dropzone__error">{error}</p>
+            <span className="ui-dropzone__error" role="alert">
+              {error}
+            </span>
           ) : (
             <>
-              <p className="ui-dropzone__text">
+              <span className="ui-dropzone__text">
                 Arrastra tu archivo aquí o haz clic para seleccionar
-              </p>
-              <p className="ui-dropzone__hint">.xlsx o .csv — máximo 10 MB</p>
+              </span>
+              <span className="ui-dropzone__hint">{hint}</span>
             </>
           )}
-        </>
+        </button>
       )}
     </div>
   );

@@ -1,22 +1,26 @@
 import { useEffect, useState } from "react";
 import { getErrorMessage } from "../../api/ApiError";
-import { messageForRowIssue } from "../../api/errorMessages";
 import { importTaxRoll, listTaxRollImports } from "../../api/taxRoll";
 import { BulkZipPanel } from "./BulkZipPanel";
+import { TaxRollIssueList } from "./TaxRollIssueList";
+import { TaxRollStat } from "./TaxRollStat";
 import type {
   TaxRollImportHistoryEntry,
   TaxRollImportResult,
 } from "../../api/taxRoll";
 import { Button } from "../../components/ui/Button";
+import { CloseIcon } from "../../components/ui/CloseIcon";
+import { Card } from "../../components/ui/Card";
 import { Dropzone } from "../../components/ui/Dropzone";
+import { Notice } from "../../components/ui/Notice";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
+import { useSwipeToDismiss } from "../../hooks/useSwipeToDismiss";
+import { PageHeader } from "../../components/ui/PageHeader";
 import { ReplaceConfirmDialog } from "../../components/ui/ReplaceConfirmDialog";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { Table } from "../../components/ui/Table";
 import { TableRow } from "../../components/ui/TableRow";
 import "./TaxRollUploadPage.css";
-
-// How many problem rows get listed before summarizing the rest.
-const MAX_LISTED_ISSUES = 10;
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("es-CO", {
   dateStyle: "short",
@@ -49,6 +53,10 @@ export function TaxRollUploadPage() {
   const [history, setHistory] = useState<TaxRollImportHistoryEntry[]>([]);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
+  // The history only collapses below the wide layout, where it is closed
+  // until asked for; the wide layout always shows it.
+  const isWide = useMediaQuery("(min-width: 1100px)");
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   // isHistoryLoading starts true (useState above) for the first fetch; it's
   // not set back to true on later refreshes (after an import) so the table
@@ -74,9 +82,16 @@ export function TaxRollUploadPage() {
       .finally(() => setIsHistoryLoading(false));
   }, []);
 
+  // How the result card leaves: faded by its close button, or swiped away
+  // to one side. The card is removed once that exit animation ends.
+  const [leaving, setLeaving] = useState<"fade" | 1 | -1 | null>(null);
+  const { ref: resultRef, bind: swipeBind } =
+    useSwipeToDismiss<HTMLDivElement>(setLeaving);
+
   function resetOutcome() {
     setResult(null);
     setError(null);
+    setLeaving(null);
   }
 
   async function handleProcess() {
@@ -126,27 +141,23 @@ export function TaxRollUploadPage() {
     }
   }
 
+  const resultImportId = result?.importId;
+  useEffect(() => {
+    // Announce the outcome: move focus to the result region.
+    if (resultImportId !== undefined) {
+      resultRef.current?.focus({ preventScroll: true });
+    }
+  }, [resultImportId, resultRef]);
+
   const conflictCount = result?.persisted.conflicts.length ?? 0;
 
   return (
-    <div className="tax-roll-upload-page">
-      <header className="tax-roll-upload-page__header">
-        <h1 className="tax-roll-upload-page__title">Carga de archivo Excel</h1>
-        <p className="tax-roll-upload-page__subtitle">
-          Sube el Excel con la información de predios y deudas para generar las
-          liquidaciones del periodo actual.
-        </p>
-      </header>
+    <div className="page tax-roll-upload-page">
+      <PageHeader title="Carga de Excel" />
 
       <div className="tax-roll-upload-page__layout">
         <div className="tax-roll-upload-page__main">
-          <section className="tax-roll-upload-page__card tax-roll-upload-page__upload">
-            <h2 className="tax-roll-upload-page__card-title">Nueva carga</h2>
-            <p className="tax-roll-upload-page__card-subtitle">
-              Cada predio y periodo solo puede liquidarse una vez. Si el periodo
-              ya fue liquidado, el sistema te avisará antes de reemplazarlo.
-            </p>
-
+          <Card title="Nueva carga" className="tax-roll-upload-page__upload">
             <Dropzone
               file={file}
               onFileSelect={(selected) => {
@@ -159,11 +170,7 @@ export function TaxRollUploadPage() {
               }}
             />
 
-            {error && (
-              <p className="tax-roll-upload-page__error" role="alert">
-                {error}
-              </p>
-            )}
+            {error && <Notice>{error}</Notice>}
 
             <div className="tax-roll-upload-page__actions">
               <Button
@@ -175,75 +182,25 @@ export function TaxRollUploadPage() {
                 Procesar archivo
               </Button>
             </div>
-          </section>
+          </Card>
 
-          {result && (
-            <div className="tax-roll-upload-page__result-reveal">
-              <section
-                className="tax-roll-upload-page__card tax-roll-upload-page__result"
-                aria-live="polite"
-              >
-                <h2 className="tax-roll-upload-page__card-title">
-                  Resultado de la carga
-                </h2>
-                <ul className="tax-roll-upload-page__summary">
-                  <li>
-                    <strong>{result.persisted.settlements}</strong>{" "}
-                    liquidaciones generadas
-                  </li>
-                  <li>
-                    <strong>{result.persisted.properties}</strong> predios y{" "}
-                    <strong>{result.persisted.owners}</strong> propietarios
-                    procesados
-                  </li>
-                  {conflictCount > 0 && (
-                    <li>
-                      <strong>{conflictCount}</strong> predios y periodos ya
-                      tenían una liquidación y no se modificaron
-                      {!isReplaceDialogOpen && (
-                        <>
-                          {" "}
-                          <Button
-                            variant="secondary"
-                            onClick={() => setIsReplaceDialogOpen(true)}
-                          >
-                            Reemplazar
-                          </Button>
-                        </>
-                      )}
-                    </li>
-                  )}
-                  <li>
-                    <strong>{result.invalidRows.length}</strong> filas inválidas
-                    omitidas, <strong>{result.warnings.length}</strong> con
-                    advertencias
-                  </li>
-                </ul>
-                <IssueList
-                  title="Filas inválidas"
-                  issues={result.invalidRows}
-                />
-                <IssueList title="Advertencias" issues={result.warnings} />
-              </section>
-            </div>
-          )}
+          <Card
+            title="Historial de cargas"
+            subtitle="Últimos archivos procesados por el sistema."
+            className="tax-roll-upload-page__history"
+            open={isWide || isHistoryOpen}
+            onToggle={isWide ? undefined : () => setIsHistoryOpen((o) => !o)}
+          >
+            {historyError && <Notice>{historyError}</Notice>}
 
-          <section className="tax-roll-upload-page__card tax-roll-upload-page__history">
-            <h2 className="tax-roll-upload-page__card-title">
-              Historial de cargas
-            </h2>
-            <p className="tax-roll-upload-page__card-subtitle">
-              Últimos archivos procesados por el sistema.
-            </p>
-
-            {historyError && (
-              <p className="tax-roll-upload-page__error" role="alert">
-                {historyError}
+            {isHistoryLoading && (
+              <p className="tax-roll-upload-page__muted" role="status">
+                Cargando historial…
               </p>
             )}
 
             {!historyError && !isHistoryLoading && history.length === 0 && (
-              <p className="tax-roll-upload-page__card-subtitle">
+              <p className="tax-roll-upload-page__muted">
                 Todavía no se ha procesado ningún archivo.
               </p>
             )}
@@ -270,9 +227,89 @@ export function TaxRollUploadPage() {
                 })}
               </Table>
             )}
-          </section>
+          </Card>
         </div>
-        <BulkZipPanel refreshKey={result?.importId} />
+        <div className="tax-roll-upload-page__side">
+          {result && (
+            <div
+              ref={resultRef}
+              className="tax-roll-upload-page__result-reveal"
+              data-leaving={leaving === null ? undefined : String(leaving)}
+              onAnimationEnd={(event) => {
+                if (event.animationName.startsWith("tax-roll-result-leave")) {
+                  resetOutcome();
+                }
+              }}
+              {...swipeBind}
+              role="region"
+              aria-label="Resultado de la carga"
+              tabIndex={-1}
+            >
+              <Card
+                title="Resultado de la carga"
+                className="tax-roll-upload-page__result"
+                action={
+                  <button
+                    type="button"
+                    className="tax-roll-upload-page__close"
+                    aria-label="Cerrar resultado de la carga"
+                    onClick={() => setLeaving("fade")}
+                  >
+                    <CloseIcon />
+                  </button>
+                }
+              >
+                <dl className="tax-roll-upload-page__stats">
+                  <TaxRollStat
+                    value={result.persisted.settlements}
+                    label="liquidaciones generadas"
+                  />
+                  <TaxRollStat
+                    value={result.persisted.properties}
+                    label="predios procesados"
+                  />
+                  <TaxRollStat
+                    value={result.persisted.owners}
+                    label="propietarios procesados"
+                  />
+                  <TaxRollStat
+                    value={result.invalidRows.length}
+                    label="filas inválidas omitidas"
+                    tone={result.invalidRows.length > 0 ? "danger" : undefined}
+                  />
+                  <TaxRollStat
+                    value={result.warnings.length}
+                    label="con advertencias"
+                    tone={result.warnings.length > 0 ? "warning" : undefined}
+                  />
+                </dl>
+                {conflictCount > 0 && (
+                  <Notice variant="info">
+                    {conflictCount} predios y periodos ya tenían una liquidación
+                    y no se modificaron.{" "}
+                    {!isReplaceDialogOpen && (
+                      <Button
+                        variant="secondary"
+                        onClick={() => setIsReplaceDialogOpen(true)}
+                      >
+                        Reemplazar
+                      </Button>
+                    )}
+                  </Notice>
+                )}
+                <TaxRollIssueList
+                  title="Filas inválidas"
+                  issues={result.invalidRows}
+                />
+                <TaxRollIssueList
+                  title="Advertencias"
+                  issues={result.warnings}
+                />
+              </Card>
+            </div>
+          )}
+          <BulkZipPanel refreshKey={result?.importId} />
+        </div>
       </div>
 
       <ReplaceConfirmDialog
@@ -281,35 +318,6 @@ export function TaxRollUploadPage() {
         onCancel={() => setIsReplaceDialogOpen(false)}
         onConfirm={handleConfirmReplace}
       />
-    </div>
-  );
-}
-
-function IssueList({
-  title,
-  issues,
-}: {
-  title: string;
-  issues: TaxRollImportResult["invalidRows"];
-}) {
-  if (issues.length === 0) {
-    return null;
-  }
-
-  const listed = issues.slice(0, MAX_LISTED_ISSUES);
-  const hidden = issues.length - listed.length;
-
-  return (
-    <div className="tax-roll-upload-page__issues">
-      <h3 className="tax-roll-upload-page__issues-title">{title}</h3>
-      <ul>
-        {listed.map((issue) => (
-          <li key={`${issue.row}-${issue.code}`}>
-            {messageForRowIssue(issue)}
-          </li>
-        ))}
-        {hidden > 0 && <li>y {hidden} más…</li>}
-      </ul>
     </div>
   );
 }

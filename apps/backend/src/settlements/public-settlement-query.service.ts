@@ -1,8 +1,12 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type { SettlementStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { errorBody } from '../common/errors/error-body.js';
 import { ErrorCode } from '../common/errors/error-codes.js';
+import { currentYearInColombia } from '../tax-roll/period-rules.js';
+import {
+  groupSettlementsByResolution,
+  type SettlementGroup,
+} from './group-search-results.js';
 
 export interface PublicSettlementQueryCriteria {
   cadastralCode?: string;
@@ -10,15 +14,13 @@ export interface PublicSettlementQueryCriteria {
   address?: string;
 }
 
-export interface PublicSettlementQueryResult {
-  settlementId: number;
+// One row per PDF (a Resolution, or the one it will become), the same
+// grouping the Administrator sees. `settlementId` is the earliest period of
+// the group and works as the trigger for its PDF.
+export interface PublicSettlementQueryResult extends SettlementGroup {
   cadastralCode: string;
   address: string;
   ownerName: string;
-  period: number;
-  status: SettlementStatus;
-  issuedAt: Date;
-  totalAmount: number;
 }
 
 // This is an anonymous, public endpoint — it must never leak which part of
@@ -76,6 +78,7 @@ export class PublicSettlementQueryService {
         },
       },
       include: {
+        resolution: true,
         property: {
           include: { owners: { include: { owner: true } } },
         },
@@ -83,17 +86,35 @@ export class PublicSettlementQueryService {
       orderBy: { period: 'asc' },
     });
 
-    return settlements.map((settlement) => ({
-      settlementId: settlement.id,
-      cadastralCode: settlement.property.cadastralCode,
-      address: settlement.property.address,
-      ownerName: settlement.property.owners
+    const byProperty = new Map<number, typeof settlements>();
+    for (const settlement of settlements) {
+      byProperty.set(settlement.propertyId, [
+        ...(byProperty.get(settlement.propertyId) ?? []),
+        settlement,
+      ]);
+    }
+
+    const currentYear = currentYearInColombia();
+    return [...byProperty.values()].flatMap((members) => {
+      const { property } = members[0];
+      const ownerName = property.owners
         .map((propertyOwner) => propertyOwner.owner.name)
-        .join(', '),
-      period: settlement.period,
-      status: settlement.status,
-      issuedAt: settlement.issuedAt,
-      totalAmount: settlement.totalAmount.toNumber(),
-    }));
+        .join(', ');
+      return groupSettlementsByResolution(
+        members.map((settlement) => ({
+          id: settlement.id,
+          period: settlement.period,
+          status: settlement.status,
+          totalAmount: settlement.totalAmount.toNumber(),
+          resolution: settlement.resolution,
+        })),
+        currentYear,
+      ).map((group) => ({
+        ...group,
+        cadastralCode: property.cadastralCode,
+        address: property.address,
+        ownerName,
+      }));
+    });
   }
 }

@@ -1,0 +1,76 @@
+.status-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}
+
+.status-cell__select {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--tap-size);
+  padding: 0 var(--space-8);
+  border: 1px solid var(--grafito-500);
+  border-radius: var(--radius-default);
+  background-color: var(--semantic-surface);
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--semantic-text);
+  animation: status-cell-in var(--duration-fast) var(--ease-out);
+}
+
+.status-cell__select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@keyframes status-cell-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+.status-cell__button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--tap-size);
+  height: var(--tap-size);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-default);
+  background: none;
+  color: var(--semantic-text-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) ease,
+    color var(--duration-fast) ease,
+    transform var(--duration-press) var(--ease-out);
+}
+
+.status-cell__button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.status-cell__button:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.status-cell__button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.status-cell__button--confirm {
+  color: var(--semantic-success);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .status-cell__button:hover:not(:disabled) {
+    color: var(--semantic-text);
+    background-color: var(--semantic-surface-muted);
+  }
+}

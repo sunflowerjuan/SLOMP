@@ -1,0 +1,183 @@
+.settlement-sheet {
+  position: fixed;
+  top: var(--space-12);
+  right: var(--space-12);
+  bottom: var(--space-12);
+  z-index: 7;
+  width: 360px;
+  padding: var(--space-24);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--radius-xl);
+  background-color: var(--semantic-surface-muted);
+  transform: translateX(calc(100% + 24px));
+  visibility: hidden;
+  transition:
+    transform var(--duration-base) var(--ease-sheet),
+    visibility 0s var(--duration-base);
+}
+
+.settlement-sheet[data-open="true"] {
+  transform: none;
+  visibility: visible;
+  transition:
+    transform var(--duration-sheet) var(--ease-sheet),
+    visibility 0s;
+}
+
+.settlement-sheet__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  background-color: var(--overlay);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--duration-base) ease,
+    visibility 0s var(--duration-base);
+}
+
+.settlement-sheet__scrim[data-open="true"] {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity var(--duration-base) ease;
+}
+
+/* From 1440px the panel pushes the list instead of covering it. */
+@media (min-width: 1440px) {
+  .settlement-sheet__scrim {
+    display: none;
+  }
+}
+
+.settlement-sheet * {
+  min-width: 0;
+}
+
+.settlement-sheet__header {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+
+.settlement-sheet__header > div {
+  flex: 1;
+}
+
+.settlement-sheet__title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.settlement-sheet__amount {
+  margin: var(--space-4) 0 0;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.settlement-sheet__close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--tap-size);
+  height: var(--tap-size);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-ctl);
+  background: none;
+  color: var(--semantic-text);
+  cursor: pointer;
+  transition: transform var(--duration-press) var(--ease-out);
+}
+
+.settlement-sheet__close:active {
+  transform: scale(0.92);
+}
+
+.settlement-sheet__close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.settlement-sheet__details {
+  display: grid;
+  gap: 22px;
+  margin: 28px 0;
+}
+
+.settlement-sheet__details dt {
+  font-size: var(--text-sm);
+  /* Muted grey is only 3.9:1 on the sheet's grey. */
+  color: var(--tinta-600);
+}
+
+.settlement-sheet__details dd {
+  margin: 2px 0 0;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  /* Phone: a bottom sheet that is as tall as its content. */
+  .settlement-sheet {
+    top: auto;
+    right: var(--space-8);
+    bottom: max(var(--space-8), env(safe-area-inset-bottom, 0px));
+    left: var(--space-8);
+    width: auto;
+    max-height: calc(100dvh - var(--space-16));
+    /* Mobile: rises from the bottom edge and goes back down on close. */
+    transform: translateY(calc(100% + var(--space-8)));
+    /* Full-height travel: an ease-out front-loads ~80% of it into the first
+       200ms and reads as fast whatever the duration, so use an even curve. */
+    transition:
+      transform var(--duration-base) var(--ease-sheet-soft),
+      visibility 0s var(--duration-base);
+  }
+
+  .settlement-sheet[data-open="true"] {
+    transition:
+      transform var(--duration-sheet-slow) var(--ease-sheet-soft),
+      visibility 0s;
+  }
+
+  /* The header is the drag handle; the grip says so. */
+  .settlement-sheet__header {
+    touch-action: pan-x;
+  }
+
+  .settlement-sheet__header::before {
+    content: "";
+    position: absolute;
+    top: calc(var(--space-16) * -1);
+    left: 50%;
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background-color: var(--grafito-400);
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settlement-sheet {
+    transform: none;
+    opacity: 0;
+    transition:
+      opacity var(--duration-fast) linear,
+      visibility 0s var(--duration-fast);
+  }
+
+  .settlement-sheet[data-open="true"] {
+    opacity: 1;
+    transition: opacity var(--duration-fast) linear;
+  }
+}

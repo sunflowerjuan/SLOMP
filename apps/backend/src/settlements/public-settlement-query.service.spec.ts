@@ -12,14 +12,13 @@ function decimal(value: number) {
   return { toNumber: () => value };
 }
 
-const ISSUED_AT = new Date('2024-02-01T00:00:00.000Z');
-
 const ONE_SETTLEMENT = {
   id: 1,
+  propertyId: 7,
   period: 2024,
   status: SettlementStatus.VIGENTE,
   replacedAt: null,
-  issuedAt: ISSUED_AT,
+  resolution: null,
   totalAmount: decimal(54590),
   property: {
     cadastralCode: '000100010001',
@@ -64,17 +63,18 @@ describe('PublicSettlementQueryService', () => {
       }),
     );
     expect(result).toEqual([
-      {
+      expect.objectContaining({
         settlementId: 1,
         cadastralCode: '000100010001',
         address: 'Finca La Esperanza',
         ownerName: 'Juan Pérez',
-        period: 2024,
+        resolutionNumber: null,
+        periods: [2024],
         status: SettlementStatus.VIGENTE,
-        issuedAt: ISSUED_AT,
         totalAmount: 54590,
-      },
+      }),
     ]);
+    expect(result[0]).not.toHaveProperty('issuedAt');
   });
 
   it('accepts all 3 fields, AND-ing them together', async () => {
@@ -104,17 +104,11 @@ describe('PublicSettlementQueryService', () => {
     );
   });
 
-  it('only returns the current (non-replaced) settlement, one row per period, regardless of payment status', async () => {
-    const otherPeriod = {
-      ...ONE_SETTLEMENT,
-      id: 2,
-      period: 2025,
-      status: SettlementStatus.PAGADA,
-    };
-    const prisma = buildPrisma([ONE_SETTLEMENT, otherPeriod]);
+  it('only asks for the current (non-replaced) settlements, regardless of payment status', async () => {
+    const prisma = buildPrisma([]);
     const service = new PublicSettlementQueryService(prisma as never);
 
-    const result = await service.query({
+    await service.query({
       cadastralCode: '000100010001',
       address: 'Finca La Esperanza',
     });
@@ -125,12 +119,44 @@ describe('PublicSettlementQueryService', () => {
         orderBy: { period: 'asc' },
       }),
     );
+  });
+
+  it('groups the periods of one Resolution into a single row, and keeps another Resolution apart', async () => {
+    const resolutionA = { id: 10, number: '001-2026', kind: 'NORMAL' };
+    const resolutionB = { id: 11, number: '002-2026', kind: 'NORMAL' };
+    const rows = [
+      { ...ONE_SETTLEMENT, id: 1, period: 2024, resolution: resolutionA },
+      {
+        ...ONE_SETTLEMENT,
+        id: 2,
+        period: 2025,
+        status: SettlementStatus.PAGADA,
+        totalAmount: decimal(1000),
+        resolution: resolutionA,
+      },
+      { ...ONE_SETTLEMENT, id: 3, period: 2026, resolution: resolutionB },
+    ];
+    const prisma = buildPrisma(rows);
+    const service = new PublicSettlementQueryService(prisma as never);
+
+    const result = await service.query({
+      cadastralCode: '000100010001',
+      address: 'Finca La Esperanza',
+    });
+
     expect(result).toHaveLength(2);
-    expect(result.map((r) => r.period)).toEqual([2024, 2025]);
-    expect(result.map((r) => r.status)).toEqual([
-      SettlementStatus.VIGENTE,
-      SettlementStatus.PAGADA,
-    ]);
+    expect(result[0]).toMatchObject({
+      settlementId: 1,
+      resolutionNumber: '001-2026',
+      periods: [2024, 2025],
+      status: 'MIXED',
+      totalAmount: 55590,
+    });
+    expect(result[1]).toMatchObject({
+      settlementId: 3,
+      resolutionNumber: '002-2026',
+      periods: [2026],
+    });
   });
 
   it('returns nothing when the given fields do not all match the same predio (RNF-04: no partial or suggested results)', async () => {

@@ -42,9 +42,9 @@ export function Input({
           id={inputId}
           type={resolvedType}
           className={classes}
-          aria-invalid={Boolean(error)}
-          aria-describedby={error ? errorId : undefined}
           {...rest}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? errorId : rest["aria-describedby"]}
         />
         {isPassword && (
           <button

@@ -1,5 +1,4 @@
-import { useState } from "react";
-import type { FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { getErrorMessage } from "../../api/ApiError";
 import { messageForErrorCode } from "../../api/errorMessages";
 import {
@@ -8,90 +7,111 @@ import {
   searchSettlements,
 } from "../../api/settlements";
 import type { SettlementSearchResult } from "../../api/settlements";
-import { triggerBrowserDownload } from "../../utils/downloadBlob";
-import { formatPeriods } from "../../utils/formatPeriods";
+import { SETTLEMENT_STATUS_LABEL } from "../../domain/settlementStatus";
 import type { SettlementStatus } from "../../domain/settlementStatus";
-import { Button } from "../../components/ui/Button";
 import { GeneratePdfDialog } from "../../components/ui/GeneratePdfDialog";
-import { Input } from "../../components/ui/Input";
-import { Table } from "../../components/ui/Table";
-import { TableRow } from "../../components/ui/TableRow";
-import { SettlementStatusCell } from "./SettlementStatusCell";
+import { Notice } from "../../components/ui/Notice";
+import { PageHeader } from "../../components/ui/PageHeader";
+import { Toast } from "../../components/ui/Toast";
+import { triggerBrowserDownload } from "../../utils/downloadBlob";
+import { SettlementDetailSheet } from "./SettlementDetailSheet";
+import { SettlementList } from "./SettlementList";
+import type { ListState } from "./SettlementList";
+import { SettlementSearchBar } from "./SettlementSearchBar";
+import type { SearchField } from "./SettlementSearchBar";
 import "./SettlementsPage.css";
 
-interface Filters {
-  cedulaCatastral: string;
-  propietario: string;
-  direccion: string;
-}
+const DETAIL_ID = "settlement-detail";
+const TOAST_MS = 2400;
 
-const COP = new Intl.NumberFormat("es-CO", {
-  style: "currency",
-  currency: "COP",
-  maximumFractionDigits: 0,
-});
-
-const EMPTY_FILTERS: Filters = {
-  cedulaCatastral: "",
-  propietario: "",
-  direccion: "",
-};
+type Editing = { id: number; where: "row" | "sheet" } | null;
 
 export function SettlementsPage() {
-  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const [field, setField] = useState<SearchField>("cadastralCode");
+  const [query, setQuery] = useState("");
   const [results, setResults] = useState<SettlementSearchResult[]>([]);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
+  const [listState, setListState] = useState<ListState>("idle");
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [selectedSettlementId, setSelectedSettlementId] = useState<
-    number | null
-  >(null);
-  const [pdfDialogLiquidacion, setPdfDialogLiquidacion] =
-    useState<SettlementSearchResult | null>(null);
-  const [isPdfDialogOpen, setIsPdfDialogOpen] = useState(false);
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  const [pdfError, setPdfError] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  // The sheet keeps showing the last selection while it slides out.
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [sheetEntryId, setSheetEntryId] = useState<number | null>(null);
+  const [editing, setEditing] = useState<Editing>(null);
   const [statusChangeId, setStatusChangeId] = useState<number | null>(null);
   const [statusChangeError, setStatusChangeError] = useState<string | null>(
     null,
   );
+  const [isPdfDialogOpen, setIsPdfDialogOpen] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
-  function handleFilterChange(field: keyof Filters, value: string) {
-    setFilters((current) => ({ ...current, [field]: value }));
+  const sheetEntry =
+    results.find((entry) => entry.settlementId === sheetEntryId) ?? null;
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), TOAST_MS);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  function closeSheet() {
+    const id = selectedId;
+    setSelectedId(null);
+    setEditing(null);
+    // Back to the row that opened it.
+    setTimeout(() =>
+      document.querySelector<HTMLElement>(`[data-rowlink="${id}"]`)?.focus(),
+    );
   }
 
-  async function handleSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  useEffect(() => {
+    if (selectedId === null) return;
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !isPdfDialogOpen) closeSheet();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  });
 
-    const cedulaCatastral = filters.cedulaCatastral.trim();
-    const propietario = filters.propietario.trim();
-    const direccion = filters.direccion.trim();
-
-    if (!cedulaCatastral && !propietario && !direccion) {
+  async function handleSearch() {
+    const text = query.trim();
+    if (!text) {
       setSearchError(
         messageForErrorCode("SETTLEMENT_SEARCH_CRITERIA_REQUIRED"),
       );
       return;
     }
 
-    setIsSearching(true);
+    setListState("loading");
     setSearchError(null);
+    setStatusChangeError(null);
+    setSelectedId(null);
+    setSheetEntryId(null);
+    setEditing(null);
     try {
-      const found = await searchSettlements({
-        cadastralCode: cedulaCatastral,
-        owner: propietario,
-        address: direccion,
-      });
+      const found = await searchSettlements({ [field]: text });
       setResults(found);
-      setHasSearched(true);
-      setSelectedSettlementId(null);
-      setEditingId(null);
+      setListState(found.length ? "results" : "empty");
     } catch (caught) {
       setSearchError(getErrorMessage(caught));
-    } finally {
-      setIsSearching(false);
+      setListState("idle");
     }
+  }
+
+  function handleFieldChange(next: SearchField) {
+    setField(next);
+    setQuery("");
+  }
+
+  function handleToggle(id: number) {
+    if (selectedId === id) {
+      closeSheet();
+      return;
+    }
+    setSelectedId(id);
+    setSheetEntryId(id);
+    setEditing(null);
+    setStatusChangeError(null);
   }
 
   async function handleStatusChange(
@@ -99,7 +119,8 @@ export function SettlementsPage() {
     status: SettlementStatus,
   ) {
     if (status === entry.status) {
-      setEditingId(null);
+      setEditing(null);
+      setToast("El estado no cambió.");
       return;
     }
 
@@ -112,7 +133,8 @@ export function SettlementsPage() {
           row.settlementId === entry.settlementId ? { ...row, status } : row,
         ),
       );
-      setEditingId(null);
+      setEditing(null);
+      setToast(`Estado actualizado a «${SETTLEMENT_STATUS_LABEL[status]}».`);
     } catch (caught) {
       setStatusChangeError(getErrorMessage(caught));
     } finally {
@@ -120,28 +142,18 @@ export function SettlementsPage() {
     }
   }
 
-  function handleRowClick(entry: SettlementSearchResult) {
-    setSelectedSettlementId(entry.settlementId);
-    setPdfDialogLiquidacion(entry);
-    setPdfError(null);
-    setIsPdfDialogOpen(true);
-  }
-
-  function handleCancelPdfDialog() {
-    setIsPdfDialogOpen(false);
-  }
-
   async function handleGeneratePdf() {
-    if (!pdfDialogLiquidacion) return;
+    if (!sheetEntry) return;
 
     setIsGeneratingPdf(true);
     setPdfError(null);
     try {
       const { blob, fileName } = await generateLiquidationPdf(
-        pdfDialogLiquidacion.settlementId,
+        sheetEntry.settlementId,
       );
       triggerBrowserDownload(blob, fileName ?? "liquidacion.pdf");
       setIsPdfDialogOpen(false);
+      setToast("PDF generado. La descarga comenzó.");
     } catch (caught) {
       setPdfError(getErrorMessage(caught));
     } finally {
@@ -149,138 +161,92 @@ export function SettlementsPage() {
     }
   }
 
+  const countText =
+    listState === "results" || listState === "empty"
+      ? `${results.length} ${results.length === 1 ? "liquidación" : "liquidaciones"}`
+      : "";
+
   return (
-    <div className="settlements-page">
-      <header className="settlements-page__header">
-        <h1 className="settlements-page__title">Panel de liquidaciones</h1>
-        <p className="settlements-page__subtitle">
-          Consulta, filtra y genera las liquidaciones oficiales del predio.
-        </p>
-      </header>
+    <div
+      className="page settlements-page"
+      data-sheet={selectedId !== null ? "open" : "closed"}
+    >
+      <PageHeader
+        title="Liquidaciones"
+        subtitle="Consulta las liquidaciones oficiales por predio y genera su PDF."
+      />
 
-      <section className="settlements-page__card">
-        <h2 className="settlements-page__card-title">Filtros de búsqueda</h2>
-        <p className="settlements-page__card-subtitle">
-          Al menos un criterio permite ubicar las liquidaciones del predio.
-        </p>
+      <SettlementSearchBar
+        field={field}
+        query={query}
+        isSearching={listState === "loading"}
+        onFieldChange={handleFieldChange}
+        onQueryChange={setQuery}
+        onSubmit={handleSearch}
+      />
 
-        <form className="settlements-page__filters" onSubmit={handleSearch}>
-          <div className="settlements-page__filter-field">
-            <Input
-              label="Cédula catastral"
-              placeholder="000-00-0000-000"
-              value={filters.cedulaCatastral}
-              onChange={(event) =>
-                handleFilterChange("cedulaCatastral", event.target.value)
-              }
-            />
-          </div>
-          <div className="settlements-page__filter-field">
-            <Input
-              label="Propietario"
-              placeholder="Nombre del propietario"
-              value={filters.propietario}
-              onChange={(event) =>
-                handleFilterChange("propietario", event.target.value)
-              }
-            />
-          </div>
-          <div className="settlements-page__filter-field">
-            <Input
-              label="Dirección del predio"
-              placeholder="Calle 00 # 00-00"
-              value={filters.direccion}
-              onChange={(event) =>
-                handleFilterChange("direccion", event.target.value)
-              }
-            />
-          </div>
-          <div className="settlements-page__filter-action">
-            <Button type="submit" loading={isSearching}>
-              Buscar
-            </Button>
-          </div>
-        </form>
+      {searchError && <Notice>{searchError}</Notice>}
+      {statusChangeError && <Notice>{statusChangeError}</Notice>}
 
-        {searchError && (
-          <p className="settlements-page__error" role="alert">
-            {searchError}
-          </p>
-        )}
-      </section>
+      <p className="settlements-page__count" aria-live="polite">
+        {countText}
+      </p>
 
-      {hasSearched && (
-        <section className="settlements-page__card">
-          <h2 className="settlements-page__card-title">Resultados</h2>
-          <p className="settlements-page__card-subtitle">
-            {results.length} liquidaciones encontradas para los criterios
-            ingresados.
-          </p>
+      <div className="settlements-page__scroll">
+        <SettlementList
+          state={listState}
+          results={results}
+          selectedId={selectedId}
+          editingId={editing?.where === "row" ? editing.id : null}
+          editLocked={editing !== null}
+          statusChangeId={statusChangeId}
+          detailId={DETAIL_ID}
+          onToggle={handleToggle}
+          onEdit={(id) => setEditing({ id, where: "row" })}
+          onSave={handleStatusChange}
+          onCancel={() => setEditing(null)}
+        />
+      </div>
 
-          {statusChangeError && (
-            <p className="settlements-page__error" role="alert">
-              {statusChangeError}
-            </p>
-          )}
-
-          <Table
-            columns={[
-              "Cédula catastral",
-              "Propietario",
-              "Periodos",
-              "Total",
-              "Estado",
-            ]}
-          >
-            {results.map((entry) => (
-              <TableRow
-                key={entry.settlementId}
-                selected={entry.settlementId === selectedSettlementId}
-                onClick={() => handleRowClick(entry)}
-                cells={[
-                  entry.cadastralCode,
-                  entry.ownerName,
-                  formatPeriods(entry.periods),
-                  COP.format(entry.totalAmount),
-                  <SettlementStatusCell
-                    key="estado"
-                    status={entry.status}
-                    description={`${entry.cadastralCode}, periodos ${formatPeriods(entry.periods)}`}
-                    editing={editingId === entry.settlementId}
-                    saving={statusChangeId === entry.settlementId}
-                    editLocked={editingId !== null}
-                    onEdit={() => {
-                      setEditingId(entry.settlementId);
-                      setStatusChangeError(null);
-                    }}
-                    onSave={(status) => handleStatusChange(entry, status)}
-                    onCancel={() => {
-                      setEditingId(null);
-                      setStatusChangeError(null);
-                    }}
-                  />,
-                ]}
-              />
-            ))}
-          </Table>
-        </section>
-      )}
+      <SettlementDetailSheet
+        id={DETAIL_ID}
+        open={selectedId !== null}
+        entry={sheetEntry}
+        editing={editing?.where === "sheet"}
+        editLocked={editing !== null}
+        saving={statusChangeId === sheetEntryId}
+        onEdit={() =>
+          sheetEntryId !== null &&
+          setEditing({ id: sheetEntryId, where: "sheet" })
+        }
+        onSave={(status) =>
+          sheetEntry && handleStatusChange(sheetEntry, status)
+        }
+        onCancel={() => setEditing(null)}
+        onClose={closeSheet}
+        onGenerate={() => {
+          setPdfError(null);
+          setIsPdfDialogOpen(true);
+        }}
+      />
 
       <GeneratePdfDialog
         open={isPdfDialogOpen}
         liquidacion={
-          pdfDialogLiquidacion
+          sheetEntry
             ? {
-                cedulaCatastral: pdfDialogLiquidacion.cadastralCode,
-                propietario: pdfDialogLiquidacion.ownerName,
+                cedulaCatastral: sheetEntry.cadastralCode,
+                propietario: sheetEntry.ownerName,
               }
             : null
         }
         isGenerating={isGeneratingPdf}
         error={pdfError}
-        onCancel={handleCancelPdfDialog}
+        onCancel={() => setIsPdfDialogOpen(false)}
         onGenerate={handleGeneratePdf}
       />
+
+      <Toast message={toast} />
     </div>
   );
 }

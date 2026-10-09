@@ -28,7 +28,7 @@ export function TableRow({ cells, selected = false, onClick }: TableRowProps) {
       onClick={onClick}
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? handleKeyDown : undefined}
-      aria-selected={onClick ? selected : undefined}
+      aria-current={selected ? "true" : undefined}
     >
       {cells.map((cell, index) => (
         <td key={index} className="ui-table__cell">

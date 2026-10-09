@@ -8,7 +8,11 @@
   border: 1px solid transparent;
   border-radius: var(--radius-default);
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+  transition:
+    background-color var(--duration-fast) ease,
+    border-color var(--duration-fast) ease,
+    opacity var(--duration-base) ease,
+    transform var(--duration-press) var(--ease-out);
   white-space: nowrap;
 }
 
@@ -16,27 +20,47 @@
   width: 100%;
 }
 
+.ui-button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
 /* Sizes */
 .ui-button--md {
   height: 40px;
   padding: 0 var(--space-16);
-  font-size: 14px;
+  font-size: var(--text-sm);
+}
+
+@media (pointer: coarse) {
+  .ui-button--md {
+    height: var(--tap-size);
+  }
 }
 
 .ui-button--lg {
   height: 48px;
   padding: 0 var(--space-24);
-  font-size: 16px;
+  font-size: var(--text-md);
 }
 
 /* Variants */
 .ui-button--primary {
   background-color: var(--semantic-primary);
-  color: #ffffff;
+  color: var(--semantic-on-primary);
 }
 
-.ui-button--primary:hover:not(:disabled) {
-  background-color: var(--semantic-primary-hover);
+@media (hover: hover) and (pointer: fine) {
+  .ui-button--primary:hover:not(:disabled) {
+    background-color: var(--semantic-primary-hover);
+  }
+
+  .ui-button--secondary:hover:not(:disabled) {
+    background-color: var(--tinta-50);
+  }
+
+  .ui-button--danger:hover:not(:disabled) {
+    background-color: var(--semantic-danger-hover);
+  }
 }
 
 .ui-button--primary:active:not(:disabled) {
@@ -46,19 +70,15 @@
 .ui-button--secondary {
   background-color: transparent;
   border-color: var(--tinta-100);
-  color: var(--tinta-600);
-}
-
-.ui-button--secondary:hover:not(:disabled) {
-  background-color: var(--tinta-50);
+  color: var(--semantic-primary-hover);
 }
 
 .ui-button--danger {
   background-color: var(--semantic-danger);
-  color: #ffffff;
+  color: var(--semantic-on-primary);
 }
 
-.ui-button--danger:hover:not(:disabled) {
+.ui-button--danger:active:not(:disabled) {
   background-color: var(--semantic-danger-hover);
 }
 
@@ -75,7 +95,7 @@
   width: 14px;
   height: 14px;
   border: 2px solid rgba(255, 255, 255, 0.5);
-  border-top-color: #ffffff;
+  border-top-color: var(--semantic-on-primary);
   border-radius: 50%;
   animation: ui-button-spin 0.6s linear infinite;
 }

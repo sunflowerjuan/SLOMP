@@ -14,6 +14,8 @@ import type {
   PendingLiquidationCounts,
 } from "../../api/resolutions";
 import { Button } from "../../components/ui/Button";
+import { Card } from "../../components/ui/Card";
+import { Notice } from "../../components/ui/Notice";
 import { triggerBrowserDownload } from "../../utils/downloadBlob";
 import "./BulkZipPanel.css";
 
@@ -218,23 +220,32 @@ export function BulkZipPanel({ refreshKey }: BulkZipPanelProps) {
   const active = job?.status === "running" || downloading;
 
   return (
-    <section
-      className="bulk-zip-panel tax-roll-upload-page__card"
-      aria-labelledby="bulk-zip-panel-title"
-    >
-      <h2
-        className="tax-roll-upload-page__card-title"
-        id="bulk-zip-panel-title"
-      >
-        Liquidaciones listas para generar
-      </h2>
-      {countsLoading && (
-        <p className="bulk-zip-panel__muted" role="status">
-          Cargando liquidaciones pendientes…
-        </p>
+    <Card title="Liquidaciones listas para generar" className="bulk-zip-panel">
+      {/* First load only: the placeholder rows keep the panel's height, so the
+          real rows replace them without moving anything. */}
+      {countsLoading && !counts && (
+        <div
+          className="bulk-zip-panel__rows"
+          role="status"
+          aria-label="Cargando liquidaciones pendientes"
+        >
+          {[0, 1].map((row) => (
+            <div
+              className="bulk-zip-panel__row bulk-zip-panel__row--skeleton"
+              key={row}
+              aria-hidden="true"
+            >
+              <div>
+                <i />
+                <i />
+              </div>
+              <b />
+            </div>
+          ))}
+        </div>
       )}
       {!countsLoading && countsError && (
-        <div className="bulk-zip-panel__notice" role="alert">
+        <Notice className="bulk-zip-panel__retry">
           {countsError}
           <Button
             type="button"
@@ -243,10 +254,10 @@ export function BulkZipPanel({ refreshKey }: BulkZipPanelProps) {
           >
             Reintentar
           </Button>
-        </div>
+        </Notice>
       )}
       {counts && (
-        <div className="bulk-zip-panel__rows">
+        <div className="bulk-zip-panel__rows bulk-zip-panel__enter">
           {[
             {
               kind: "NORMAL" as const,
@@ -282,50 +293,51 @@ export function BulkZipPanel({ refreshKey }: BulkZipPanelProps) {
           ))}
         </div>
       )}
-      {active && job && (
-        <div
-          className="bulk-zip-panel__status bulk-zip-panel__enter"
-          role="status"
-        >
-          <strong>
-            {job.kind === "NORMAL"
-              ? "Generando liquidaciones actuales…"
-              : "Generando liquidaciones con riesgo de prescripción…"}
-          </strong>
-          <div
-            className="bulk-zip-panel__progress"
-            role="progressbar"
-            aria-label="Progreso de generación del ZIP"
-            aria-valuemin={0}
-            aria-valuemax={job.total || 1}
-            aria-valuenow={job.completed}
-          >
-            <span style={{ transform: `scaleX(${progress / 100})` }} />
-          </div>
-          <p className="bulk-zip-panel__live" aria-live="off">
-            {job.completed} de {job.total} PDF · {progress}%
-          </p>
-          <p className="bulk-zip-panel__live" aria-live="off">
-            {eta}
-          </p>
+      {/* Stays mounted so it can fold away instead of vanishing: the page
+          below would otherwise jump when a generation ends. */}
+      <div
+        className="bulk-zip-panel__collapse"
+        data-open={active && job !== null}
+        inert={!(active && job !== null)}
+      >
+        <div className="bulk-zip-panel__collapse-inner">
+          {job && (
+            <div className="bulk-zip-panel__status" role="status">
+              <strong>
+                {job.kind === "NORMAL"
+                  ? "Generando liquidaciones actuales…"
+                  : "Generando liquidaciones con riesgo de prescripción…"}
+              </strong>
+              <div
+                className="bulk-zip-panel__progress"
+                role="progressbar"
+                aria-label="Progreso de generación del ZIP"
+                aria-valuemin={0}
+                aria-valuemax={job.total || 1}
+                aria-valuenow={job.completed}
+              >
+                <span style={{ transform: `scaleX(${progress / 100})` }} />
+              </div>
+              <p className="bulk-zip-panel__live" aria-live="off">
+                {job.completed} de {job.total} PDF · {progress}%
+              </p>
+              <p className="bulk-zip-panel__live" aria-live="off">
+                {eta}
+              </p>
+            </div>
+          )}
         </div>
-      )}
+      </div>
       {notice && (
-        <div
-          className={`bulk-zip-panel__notice bulk-zip-panel__notice--${notice.kind} bulk-zip-panel__enter`}
-          role="status"
-        >
-          {notice.text}
+        <div className="bulk-zip-panel__reveal">
+          <Notice variant={notice.kind}>{notice.text}</Notice>
         </div>
       )}
       {jobError && (
-        <div
-          className="bulk-zip-panel__notice bulk-zip-panel__enter"
-          role="alert"
-        >
-          {jobError}
+        <div className="bulk-zip-panel__reveal">
+          <Notice>{jobError}</Notice>
         </div>
       )}
-    </section>
+    </Card>
   );
 }

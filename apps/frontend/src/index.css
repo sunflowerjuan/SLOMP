@@ -6,12 +6,109 @@
   box-sizing: border-box;
 }
 
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  /* No rubber band on the page; inner scroll areas set their own. */
+  overscroll-behavior: none;
+}
+
 body {
   margin: 0;
   font-family: var(--font-sans);
+  font-size: var(--text-md);
+  line-height: 1.5;
   color: var(--semantic-text);
 }
 
 #root {
   min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* Arrivals: content eases in from slightly below, never pops. Backwards fill
+   keeps transform off the element afterwards (fixed children stay fixed). */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* Login -> panel: the old screen dissolves into the new one. */
+::view-transition-group(root) {
+  animation-duration: var(--duration-intro);
+  animation-timing-function: var(--ease-enter);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(root),
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.01ms;
+  }
+}
+
+/* Shared by every admin screen. */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+  max-width: 1180px;
+  padding: var(--space-32) var(--space-32) var(--space-64);
+  /* Opacity only: the settlements sheet is position: fixed inside it. */
+  animation: fade-in var(--duration-enter) var(--ease-out) backwards;
+}
+
+/* Big screens: use the room instead of leaving a blank strip on the right. */
+@media (min-width: 1500px) {
+  .page {
+    max-width: none;
+  }
+}
+
+@media (max-width: 900px) {
+  /* viewport-fit=cover: pad away from the notch / status bar ourselves. */
+  .page {
+    padding: calc(var(--space-16) + env(safe-area-inset-top, 0px))
+      max(var(--space-16), env(safe-area-inset-right, 0px)) var(--space-48)
+      max(var(--space-16), env(safe-area-inset-left, 0px));
+  }
+}
+
+:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+button,
+a,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+/* iOS zooms into inputs under 16px. */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Fewer and gentler, not none: movement goes, short fades stay. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
 }
