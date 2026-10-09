@@ -62,12 +62,24 @@
   background: none;
   font: inherit;
   color: inherit;
+}
+
+/* Only the phone's logo is a button; on desktop it is just the brand. */
+button.admin-layout__brand-button {
   cursor: pointer;
   transition: transform var(--duration-press) var(--ease-out);
 }
 
-.admin-layout__brand-button:active {
+button.admin-layout__brand-button:active {
   transform: scale(0.97);
+}
+
+/* Desktop: the account actions sit at the foot of the sidebar. */
+.admin-layout__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: auto;
 }
 
 .admin-layout__menu {
