@@ -247,9 +247,12 @@
   .tax-roll-upload-page__actions .ui-button {
     width: 100%;
   }
+}
 
-  /* History: four columns don't fit a phone, so each row becomes a small
-     card -- file name and status on top, date and count underneath. */
+/* History: four columns don't fit a phone, nor the narrow column beside the
+   result on a small laptop, so each row becomes a small card -- file name and
+   status on top, date and count underneath. */
+@media (max-width: 768px), (min-width: 1100px) and (max-width: 1365px) {
   .tax-roll-upload-page__history .ui-table__head {
     display: none;
   }
@@ -361,10 +364,16 @@
     flex: none;
   }
 
+  /* The card scrolls inside this column: a fade at the foot shows there is
+     more. The extra bottom padding (cancelled by the margin) keeps the end of
+     the content out of the fade. */
   .tax-roll-upload-page__result-reveal {
     min-height: 0;
+    margin-bottom: -26px;
+    padding-bottom: 26px;
     overflow-y: auto;
     overscroll-behavior: contain;
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent);
   }
 
   /* Narrow column: one line per figure, label left and number right. */
@@ -391,6 +400,21 @@
 
   .tax-roll-upload-page__issues summary {
     min-height: 36px;
+  }
+}
+
+/* Table layout (from 1366px): tighter cells so date and count stay on one
+   line beside the result. */
+@media (min-width: 1366px) {
+  .tax-roll-upload-page__history .ui-table__header-cell,
+  .tax-roll-upload-page__history .ui-table__cell {
+    padding-inline: var(--space-8);
+  }
+
+  .tax-roll-upload-page__history .ui-table__header-cell,
+  .tax-roll-upload-page__history .ui-table__cell:nth-child(2),
+  .tax-roll-upload-page__history .ui-table__cell:nth-child(3) {
+    white-space: nowrap;
   }
 }
 
