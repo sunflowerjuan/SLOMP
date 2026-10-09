@@ -13,6 +13,7 @@ import { CloseIcon } from "../../components/ui/CloseIcon";
 import { Card } from "../../components/ui/Card";
 import { Dropzone } from "../../components/ui/Dropzone";
 import { Notice } from "../../components/ui/Notice";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { useSwipeToDismiss } from "../../hooks/useSwipeToDismiss";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { ReplaceConfirmDialog } from "../../components/ui/ReplaceConfirmDialog";
@@ -52,10 +53,10 @@ export function TaxRollUploadPage() {
   const [history, setHistory] = useState<TaxRollImportHistoryEntry[]>([]);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
-  // Open where there is room for it (the wide layout), closed on a phone.
-  const [isHistoryOpen, setIsHistoryOpen] = useState(
-    () => window.matchMedia("(min-width: 1100px)").matches,
-  );
+  // The history only collapses below the wide layout, where it is closed
+  // until asked for; the wide layout always shows it.
+  const isWide = useMediaQuery("(min-width: 1100px)");
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   // isHistoryLoading starts true (useState above) for the first fetch; it's
   // not set back to true on later refreshes (after an import) so the table
@@ -187,8 +188,8 @@ export function TaxRollUploadPage() {
             title="Historial de cargas"
             subtitle="Últimos archivos procesados por el sistema."
             className="tax-roll-upload-page__history"
-            open={isHistoryOpen}
-            onToggle={() => setIsHistoryOpen((open) => !open)}
+            open={isWide || isHistoryOpen}
+            onToggle={isWide ? undefined : () => setIsHistoryOpen((o) => !o)}
           >
             {historyError && <Notice>{historyError}</Notice>}
 
