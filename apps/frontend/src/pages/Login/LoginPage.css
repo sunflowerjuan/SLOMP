@@ -110,8 +110,9 @@
     flex: none;
     max-width: none;
     min-height: 0;
-    height: 120px;
-    padding: var(--space-24);
+    height: calc(120px + env(safe-area-inset-top, 0px));
+    padding: calc(var(--space-24) + env(safe-area-inset-top, 0px))
+      var(--space-24) var(--space-24);
     align-items: center;
   }
 

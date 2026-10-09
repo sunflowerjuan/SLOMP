@@ -67,8 +67,11 @@ body {
 }
 
 @media (max-width: 900px) {
+  /* viewport-fit=cover: pad away from the notch / status bar ourselves. */
   .page {
-    padding: var(--space-16) var(--space-16) var(--space-48);
+    padding: calc(var(--space-16) + env(safe-area-inset-top, 0px))
+      max(var(--space-16), env(safe-area-inset-right, 0px)) var(--space-48)
+      max(var(--space-16), env(safe-area-inset-left, 0px));
   }
 }
 
