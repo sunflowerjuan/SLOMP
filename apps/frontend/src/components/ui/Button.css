@@ -48,8 +48,18 @@
   color: var(--semantic-on-primary);
 }
 
-.ui-button--primary:hover:not(:disabled) {
-  background-color: var(--semantic-primary-hover);
+@media (hover: hover) and (pointer: fine) {
+  .ui-button--primary:hover:not(:disabled) {
+    background-color: var(--semantic-primary-hover);
+  }
+
+  .ui-button--secondary:hover:not(:disabled) {
+    background-color: var(--tinta-50);
+  }
+
+  .ui-button--danger:hover:not(:disabled) {
+    background-color: var(--semantic-danger-hover);
+  }
 }
 
 .ui-button--primary:active:not(:disabled) {
@@ -62,16 +72,11 @@
   color: var(--semantic-primary-hover);
 }
 
-.ui-button--secondary:hover:not(:disabled) {
-  background-color: var(--tinta-50);
-}
-
 .ui-button--danger {
   background-color: var(--semantic-danger);
   color: var(--semantic-on-primary);
 }
 
-.ui-button--danger:hover:not(:disabled),
 .ui-button--danger:active:not(:disabled) {
   background-color: var(--semantic-danger-hover);
 }

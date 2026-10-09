@@ -52,6 +52,9 @@
 .admin-layout__brand-button {
   display: flex;
   align-items: center;
+  justify-content: center;
+  min-width: var(--tap-size);
+  min-height: var(--tap-size);
   gap: var(--space-12);
   padding: 0;
   border: 0;

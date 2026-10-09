@@ -22,7 +22,8 @@
   height: 44px;
   padding: 0 var(--space-16);
   font-family: var(--font-sans);
-  font-size: var(--text-sm);
+  /* 16px: below that, iOS zooms the page when the input gets focus. */
+  font-size: var(--text-md);
   color: var(--semantic-text);
   background-color: var(--semantic-surface);
   border: 1px solid var(--grafito-500);
@@ -64,8 +65,10 @@
   cursor: pointer;
 }
 
-.ui-input-toggle:hover {
-  color: var(--tinta-600);
+@media (hover: hover) and (pointer: fine) {
+  .ui-input-toggle:hover {
+    color: var(--tinta-600);
+  }
 }
 
 .ui-input-error {

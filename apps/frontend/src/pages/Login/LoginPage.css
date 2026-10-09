@@ -95,10 +95,10 @@
   font-weight: 500;
   text-decoration: underline;
   text-underline-offset: 3px;
-}
-
-.login-page__public-link a:hover {
-  color: var(--semantic-primary-hover);
+  /* Touch target of 44px without moving the text around it. */
+  display: inline-block;
+  padding-block: var(--space-12);
+  margin-block: calc(var(--space-12) * -1);
 }
 
 @media (max-width: 768px) {
