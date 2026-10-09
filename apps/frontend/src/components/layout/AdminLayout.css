@@ -150,9 +150,7 @@
   left: 0;
   border-radius: var(--radius-ctl);
   background-color: var(--semantic-surface);
-  box-shadow:
-    0 0 0 1px rgba(19, 20, 23, 0.06),
-    0 1px 2px rgba(19, 20, 23, 0.1);
+  box-shadow: var(--shadow-raised);
   pointer-events: none;
   transition:
     transform var(--duration-sheet) var(--ease-sheet),
@@ -210,7 +208,7 @@
 @media (hover: hover) and (pointer: fine) {
   .admin-layout__link:not([aria-current="page"]):hover,
   .admin-layout__menu-item:hover {
-    background-color: rgba(19, 20, 23, 0.05);
+    background-color: var(--semantic-hover);
   }
 }
 
@@ -344,8 +342,8 @@
 }
 
 .admin-layout__side {
-  animation: admin-layout-side-in 900ms cubic-bezier(0.16, 1, 0.3, 1) 150ms
-    backwards;
+  animation: admin-layout-side-in var(--duration-intro) var(--ease-enter)
+    var(--duration-fast) backwards;
 }
 
 @media (max-width: 900px) {

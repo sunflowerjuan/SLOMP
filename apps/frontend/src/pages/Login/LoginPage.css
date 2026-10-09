@@ -131,7 +131,7 @@
 }
 
 .login-page__institutional {
-  animation: fade-in 600ms var(--ease-out) backwards;
+  animation: fade-in var(--duration-intro) var(--ease-out) backwards;
 }
 
 .login-page__card {

@@ -14,8 +14,8 @@
   transform: translateX(calc(100% + 24px));
   visibility: hidden;
   transition:
-    transform 260ms var(--ease-sheet),
-    visibility 0s 260ms;
+    transform var(--duration-base) var(--ease-sheet),
+    visibility 0s var(--duration-base);
 }
 
 .settlement-sheet[data-open="true"] {
@@ -114,13 +114,13 @@
     /* Full-height travel: an ease-out front-loads ~80% of it into the first
        200ms and reads as fast whatever the duration, so use an even curve. */
     transition:
-      transform 400ms var(--ease-sheet-soft),
-      visibility 0s 400ms;
+      transform var(--duration-sheet) var(--ease-sheet-soft),
+      visibility 0s var(--duration-sheet);
   }
 
   .settlement-sheet[data-open="true"] {
     transition:
-      transform 520ms var(--ease-sheet-soft),
+      transform var(--duration-sheet-slow) var(--ease-sheet-soft),
       visibility 0s;
   }
 

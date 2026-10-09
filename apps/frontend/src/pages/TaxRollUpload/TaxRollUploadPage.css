@@ -30,7 +30,8 @@
   overflow: hidden;
   /* Backwards fill: nothing is held after the entry, so the swipe can set
      its own transform. */
-  animation: tax-roll-result-enter 460ms var(--ease-sheet) backwards;
+  animation: tax-roll-result-enter var(--duration-enter) var(--ease-sheet)
+    backwards;
   /* Horizontal swipes are ours; vertical ones keep scrolling the page. */
   touch-action: pan-y;
 }
@@ -43,15 +44,18 @@
 }
 
 .tax-roll-upload-page__result-reveal[data-leaving="fade"] {
-  animation: tax-roll-result-leave-fade 460ms var(--ease-sheet-soft) forwards;
+  animation: tax-roll-result-leave-fade var(--duration-enter)
+    var(--ease-sheet-soft) forwards;
 }
 
 .tax-roll-upload-page__result-reveal[data-leaving="1"] {
-  animation: tax-roll-result-leave-right 360ms var(--ease-out) forwards;
+  animation: tax-roll-result-leave-right var(--duration-sheet) var(--ease-out)
+    forwards;
 }
 
 .tax-roll-upload-page__result-reveal[data-leaving="-1"] {
-  animation: tax-roll-result-leave-left 360ms var(--ease-out) forwards;
+  animation: tax-roll-result-leave-left var(--duration-sheet) var(--ease-out)
+    forwards;
 }
 
 .tax-roll-upload-page__result {
@@ -61,12 +65,14 @@
 /* A collapsing grid row can't go below the card's padding and border, so
    they shrink with it; otherwise the layout jumps when the card is removed. */
 .tax-roll-upload-page__result-reveal .tax-roll-upload-page__result {
-  animation: tax-roll-result-card-in 460ms var(--ease-sheet) backwards;
+  animation: tax-roll-result-card-in var(--duration-enter) var(--ease-sheet)
+    backwards;
 }
 
 .tax-roll-upload-page__result-reveal[data-leaving]
   .tax-roll-upload-page__result {
-  animation: tax-roll-result-card-out 460ms var(--ease-sheet-soft) forwards;
+  animation: tax-roll-result-card-out var(--duration-enter)
+    var(--ease-sheet-soft) forwards;
 }
 
 @keyframes tax-roll-result-card-in {
@@ -374,7 +380,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .tax-roll-upload-page__result-reveal {
-    animation: tax-roll-result-fade 150ms ease-out backwards;
+    animation: tax-roll-result-fade var(--duration-fast) ease-out backwards;
   }
 
   .tax-roll-upload-page__result-reveal .tax-roll-upload-page__result,
@@ -384,7 +390,7 @@
   }
 
   .tax-roll-upload-page__result-reveal[data-leaving] {
-    animation: tax-roll-result-leave-dim 150ms ease-out forwards;
+    animation: tax-roll-result-leave-dim var(--duration-fast) ease-out forwards;
   }
 
   @keyframes tax-roll-result-leave-dim {

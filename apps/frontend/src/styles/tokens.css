@@ -77,6 +77,10 @@
   /* Elevation: a card shadow and an overlay shadow, nothing in between */
   --shadow-card: 0 10px 30px rgba(19, 20, 23, 0.06);
   --shadow-overlay: 0 20px 40px rgba(19, 20, 23, 0.2);
+  /* The pill that slides under the active segment / nav link */
+  --shadow-raised:
+    0 0 0 1px rgba(19, 20, 23, 0.06), 0 1px 2px rgba(19, 20, 23, 0.1);
+  --semantic-hover: rgba(19, 20, 23, 0.05);
   --overlay: rgba(19, 20, 23, 0.5);
 
   /* Misc */
@@ -89,9 +93,13 @@
   --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
   /* easeInOutSine: even, unhurried travel for full-height mobile sheets. */
   --ease-sheet-soft: cubic-bezier(0.37, 0, 0.63, 1);
+  /* Slow settle for whole-screen arrivals (login -> panel, nav bar). */
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
   --duration-press: 100ms;
   --duration-fast: 150ms;
   --duration-base: 240ms;
   --duration-sheet: 380ms;
+  --duration-sheet-slow: 520ms;
   --duration-enter: 480ms;
+  --duration-intro: 700ms;
 }

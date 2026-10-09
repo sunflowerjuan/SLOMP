@@ -43,8 +43,8 @@ body {
 
 /* Login -> panel: the old screen dissolves into the new one. */
 ::view-transition-group(root) {
-  animation-duration: 700ms;
-  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-duration: var(--duration-intro);
+  animation-timing-function: var(--ease-enter);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -16,7 +16,7 @@
   font: inherit;
   font-size: var(--text-sm);
   color: var(--semantic-text);
-  animation: status-cell-in 160ms var(--ease-out);
+  animation: status-cell-in var(--duration-fast) var(--ease-out);
 }
 
 .status-cell__select:disabled {

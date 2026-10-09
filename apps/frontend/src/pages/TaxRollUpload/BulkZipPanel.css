@@ -61,7 +61,7 @@
   background: var(--semantic-primary);
   transform: scaleX(0);
   transform-origin: left center;
-  transition: transform 300ms var(--ease-out);
+  transition: transform var(--duration-base) var(--ease-out);
 }
 
 .bulk-zip-panel__live {
@@ -69,7 +69,7 @@
 }
 
 .bulk-zip-panel__enter {
-  animation: bulk-zip-enter 240ms var(--ease-out) both;
+  animation: bulk-zip-enter var(--duration-base) var(--ease-out) both;
 }
 
 @keyframes bulk-zip-enter {
@@ -85,7 +85,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .bulk-zip-panel__enter {
-    animation: bulk-zip-fade 150ms ease-out both;
+    animation: bulk-zip-fade var(--duration-fast) ease-out both;
   }
 
   .bulk-zip-panel__progress span {
