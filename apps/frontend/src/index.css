@@ -66,6 +66,13 @@ body {
   animation: fade-in var(--duration-enter) var(--ease-out) backwards;
 }
 
+/* Big screens: use the room instead of leaving a blank strip on the right. */
+@media (min-width: 1500px) {
+  .page {
+    max-width: none;
+  }
+}
+
 @media (max-width: 900px) {
   /* viewport-fit=cover: pad away from the notch / status bar ourselves. */
   .page {
