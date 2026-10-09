@@ -1,7 +1,7 @@
 .settlement-list__row {
   display: grid;
   grid-template-columns:
-    minmax(250px, 1.4fr) minmax(0, 1.5fr) minmax(110px, 0.7fr)
+    minmax(280px, 1.4fr) minmax(0, 1.5fr) minmax(110px, 0.7fr)
     minmax(110px, 0.6fr) minmax(190px, 1fr);
   align-items: center;
   column-gap: var(--space-12);
@@ -139,7 +139,7 @@
 @media (min-width: 1440px) and (max-width: 1699px) {
   .settlements-page[data-sheet="open"] .settlement-list__row {
     grid-template-columns:
-      minmax(250px, 1.4fr) minmax(0, 1fr) minmax(100px, 0.6fr)
+      minmax(280px, 1.4fr) minmax(0, 1fr) minmax(100px, 0.6fr)
       minmax(190px, 0.9fr);
   }
 
@@ -148,7 +148,9 @@
   }
 }
 
-@media (max-width: 900px) {
+/* Below ~1280px the five columns no longer fit beside the sidebar (the owner
+   column shrank to nothing), so the rows become cards. */
+@media (max-width: 1279px) {
   .settlement-list__head {
     display: none;
   }
