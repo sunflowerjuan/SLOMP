@@ -247,7 +247,7 @@ export class SettlementsService {
       throw new ConflictException(
         errorBody(
           ErrorCode.SETTLEMENT_STATUS_TRANSITION_NOT_ALLOWED,
-          `Cannot change a ${settlement.status} liquidation to ${status}.`,
+          `Cannot change the status from ${settlement.status} to ${status}.`,
           { from: settlement.status, to: status, allowed },
         ),
       );
