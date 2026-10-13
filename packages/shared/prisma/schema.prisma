@@ -165,6 +165,10 @@ model Settlement {
   period      Int // Calendar year, e.g. 2026 (the tax roll only has annual periods)
   status      SettlementStatus @default(VIGENTE)
   replacedAt  DateTime? // Non-null once a newer import superseded this row
+  // Non-null once a later import brought this property without this period
+  // (SL-136). Set on the first import that misses it; a later import that
+  // brings the period back replaces this row, so the mark goes with it.
+  missingSince DateTime?
   issuedAt    DateTime         @default(now())
   totalAmount Decimal          @db.Decimal(14, 2)
   createdAt   DateTime         @default(now())

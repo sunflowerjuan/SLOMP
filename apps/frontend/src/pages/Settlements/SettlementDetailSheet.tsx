@@ -5,6 +5,8 @@ import { CloseIcon } from "../../components/ui/CloseIcon";
 import { useSwipeToDismiss } from "../../hooks/useSwipeToDismiss";
 import { formatPeriods } from "../../utils/formatPeriods";
 import { formatCop } from "./formatCop";
+import { primaryMark } from "../../domain/settlementMarks";
+import { SettlementMarks } from "./SettlementMarks";
 import { SettlementStatusCell } from "./SettlementStatusCell";
 import "./SettlementDetailSheet.css";
 
@@ -108,6 +110,23 @@ export function SettlementDetailSheet({
                   />
                 </dd>
               </div>
+              {primaryMark(entry) && (
+                <div>
+                  <dt>Alertas</dt>
+                  <dd>
+                    <SettlementMarks entry={entry} />
+                    {entry.missingPeriods.length > 0 && (
+                      <p className="settlement-sheet__note">
+                        {entry.missingPeriods.length === 1
+                          ? "Este periodo venía en una carga anterior y no vino en la más reciente."
+                          : "Estos periodos venían en una carga anterior y no vinieron en la más reciente."}{" "}
+                        La alerta se quita al cambiar el estado o cuando vuelva
+                        a aparecer en una carga.
+                      </p>
+                    )}
+                  </dd>
+                </div>
+              )}
               {entry.resolutionNumber && (
                 <div>
                   <dt>Resolución</dt>

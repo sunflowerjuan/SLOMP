@@ -12,6 +12,10 @@ export interface SettlementSearchResult {
   // Any settlement of the group: the PDF and the status change cover them all.
   settlementId: number;
   resolutionNumber: string | null;
+  // PRESCRIPTION_RISK: periods up to (current year - 5).
+  kind: "PRESCRIPTION_RISK" | "NORMAL";
+  // Periods still VIGENTE that the latest tax roll no longer brings.
+  missingPeriods: number[];
   cadastralCode: string;
   address: string;
   ownerName: string;
@@ -67,7 +71,8 @@ export function changeSettlementStatus(
     settlementId: number;
     status: SettlementStatus;
     allowedStatuses: SettlementStatus[];
-  }>(`/settlements/${settlementId}/status`, {
+    missingPeriods: number[];
+  }>(municipalityPath(`/settlements/${settlementId}/status`), {
     method: "PATCH",
     body: { status },
   });

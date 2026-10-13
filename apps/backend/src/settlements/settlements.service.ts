@@ -29,6 +29,8 @@ export interface SettlementStatusChangeResult {
   status: SettlementStatus;
   // What the selector may offer next, from the new state.
   allowedStatuses: SettlementStatus[];
+  // Periods of the group still marked as missing after the change.
+  missingPeriods: number[];
 }
 
 // One row per PDF the Administrator can generate: the periods of a property
@@ -136,6 +138,7 @@ export class SettlementsService {
           period: settlement.period,
           status: settlement.status,
           totalAmount: settlement.totalAmount.toNumber(),
+          missingSince: settlement.missingSince,
           resolution: settlement.resolution,
         })),
         currentYear,
@@ -268,6 +271,21 @@ export class SettlementsService {
       data: { status: status as SettlementStatus },
     });
 
+    // The whole group now shares one state, so the mark only survives a
+    // change back to VIGENTE.
+    const stillMissing =
+      status === SettlementStatus.VIGENTE
+        ? await this.prisma.settlement.findMany({
+            where: {
+              id: { in: settlementIds },
+              property: { municipalityId },
+              missingSince: { not: null },
+            },
+            select: { period: true },
+            orderBy: { period: 'asc' },
+          })
+        : [];
+
     return {
       settlementId: id,
       settlementIds,
@@ -276,6 +294,7 @@ export class SettlementsService {
         ...context,
         current: status as SettlementStatus,
       }),
+      missingPeriods: stillMissing.map((member) => member.period),
     };
   }
 }

@@ -4,6 +4,8 @@ import type { SettlementSearchResult } from "../../api/settlements";
 import type { SettlementStatus } from "../../domain/settlementStatus";
 import { formatPeriods } from "../../utils/formatPeriods";
 import { formatCop } from "./formatCop";
+import { primaryMark } from "../../domain/settlementMarks";
+import { SettlementMarks } from "./SettlementMarks";
 import { SettlementStatusCell } from "./SettlementStatusCell";
 import "./SettlementList.css";
 
@@ -119,6 +121,7 @@ export function SettlementList({
               role="row"
               className="settlement-list__row settlement-list__row--body"
               aria-current={selected ? "true" : undefined}
+              data-mark={primaryMark(entry) ?? undefined}
               style={{ "--i": Math.min(index, 12) } as CSSProperties}
               onClick={(event) => handleRowClick(event, entry.settlementId)}
             >
@@ -133,6 +136,7 @@ export function SettlementList({
                 >
                   {entry.cadastralCode}
                 </button>
+                <SettlementMarks entry={entry} />
               </div>
               <div
                 role="cell"
