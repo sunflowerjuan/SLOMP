@@ -19,8 +19,6 @@ async function start(overrides: Partial<HttpDeps> = {}) {
     serviceKey: KEY,
     renderPool: createSlotPool([fakeSlot()]),
     getTemplate: createTemplateCache(blobs),
-    legacyConvert: async () => FAKE_PDF,
-    maxConcurrentConversions: 2,
     log: () => {},
     ...overrides,
   });
@@ -110,22 +108,5 @@ describe('POST /render', () => {
     expect(await response.json()).toMatchObject({
       code: 'TEMPLATE_UNAVAILABLE',
     });
-  });
-});
-
-describe('POST /convert (legacy)', () => {
-  it('still converts raw .docx bytes without the key', async () => {
-    const { base } = await start();
-    const { template } = templateFixture();
-    const response = await fetch(`${base}/convert`, {
-      method: 'POST',
-      body: new Uint8Array(template),
-    });
-    expect(response.status).toBe(200);
-    const invalid = await fetch(`${base}/convert`, {
-      method: 'POST',
-      body: 'text',
-    });
-    expect(await invalid.json()).toEqual({ code: 'INVALID_DOCX' });
   });
 });

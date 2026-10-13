@@ -16,15 +16,10 @@ export interface HttpDeps {
   renderPool: SlotPool<Slot>;
   /** Undefined when Storage isn't configured: /render can't fetch templates. */
   getTemplate: GetTemplate | undefined;
-  /** Legacy /convert: one fresh LibreOffice profile per call. */
-  legacyConvert: (docx: Buffer) => Promise<Buffer>;
-  maxConcurrentConversions: number;
   log?: (message: string) => void;
 }
 
 const MAX_RENDER_BODY = 1024 * 1024;
-const MAX_CONVERT_BODY = 10 * 1024 * 1024;
-const ZIP_MAGIC = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
 
 class TooLarge extends Error {}
 
@@ -138,36 +133,6 @@ async function handleRender(
 }
 
 export function createHttpServer(deps: HttpDeps) {
-  let converting = 0;
-
-  // ponytail: legacy endpoint from SL-112, kept only because the current
-  // backend still converts through it; SL-120 moves the backend to /render
-  // and deletes this.
-  async function handleConvert(req: IncomingMessage, res: ServerResponse) {
-    if (converting >= deps.maxConcurrentConversions) {
-      res.setHeader('Retry-After', '5');
-      return sendJson(res, 503, { code: 'BUSY' });
-    }
-    converting += 1;
-    try {
-      const docx = await readBody(req, MAX_CONVERT_BODY);
-      if (docx.length < 4 || !docx.subarray(0, 4).equals(ZIP_MAGIC)) {
-        return sendJson(res, 400, { code: 'INVALID_DOCX' });
-      }
-      sendPdf(res, await deps.legacyConvert(docx));
-    } catch (error) {
-      if (error instanceof TooLarge)
-        return sendJson(res, 413, { code: 'TOO_LARGE' });
-      const timedOut =
-        error instanceof JobError && error.code === 'PDF_CONVERSION_TIMEOUT';
-      sendJson(res, timedOut ? 504 : 500, {
-        code: timedOut ? 'CONVERSION_TIMEOUT' : 'CONVERSION_FAILED',
-      });
-    } finally {
-      converting -= 1;
-    }
-  }
-
   return createServer((req, res) => {
     const route = `${req.method} ${req.url}`;
     const handled =
@@ -175,9 +140,7 @@ export function createHttpServer(deps: HttpDeps) {
         ? Promise.resolve(sendJson(res, 200, { status: 'ok' }))
         : route === 'POST /render'
           ? handleRender(deps, req, res)
-          : route === 'POST /convert'
-            ? handleConvert(req, res)
-            : Promise.resolve(sendJson(res, 404, { code: 'NOT_FOUND' }));
+          : Promise.resolve(sendJson(res, 404, { code: 'NOT_FOUND' }));
     handled.catch((error) => {
       (deps.log ?? console.log)(
         `unhandled ${route}: ${(error as Error).message}`,
