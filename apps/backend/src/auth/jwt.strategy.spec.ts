@@ -3,30 +3,22 @@ import { describe, expect, it } from 'vitest';
 import { JwtStrategy } from './jwt.strategy.js';
 
 const ADMIN = { id: 1, email: 'admin@example.com' };
+const PAYLOAD = { sub: ADMIN.id, email: ADMIN.email, sid: 'session-1' };
 
-function buildStrategy(admin: typeof ADMIN | null) {
+function buildStrategy(owner: typeof ADMIN | null) {
   process.env.JWT_SECRET ??= 'test-secret';
-  const prisma = {
-    administrator: {
-      findUnique: async () => admin,
-    },
-  };
-  return new JwtStrategy(prisma as never);
+  const sessions = { findActiveOwner: async () => owner };
+  return new JwtStrategy(sessions as never);
 }
 
 describe('JwtStrategy', () => {
-  it('resolves the Administrator for a token whose subject still exists', async () => {
-    const user = await buildStrategy(ADMIN).validate({
-      sub: ADMIN.id,
-      email: ADMIN.email,
-    });
-
-    expect(user).toEqual(ADMIN);
+  it('resolves the Administrator for a token whose session is still open', async () => {
+    expect(await buildStrategy(ADMIN).validate(PAYLOAD)).toEqual(ADMIN);
   });
 
-  it('rejects a token for an Administrator that no longer exists (e.g. deleted since the token was issued)', async () => {
-    await expect(
-      buildStrategy(null).validate({ sub: 999, email: 'gone@example.com' }),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+  it('rejects a token whose session was closed or whose Administrator no longer exists', async () => {
+    await expect(buildStrategy(null).validate(PAYLOAD)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 });

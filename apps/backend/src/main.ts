@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule, ObserveInstrument } from './app.module.js';
+import { allowedOrigins } from './auth/refresh-cookie.js';
 import { validationExceptionFactory } from './common/errors/error-body.js';
 import { setupSecurityHeaders, setupSwagger } from './http-hardening.js';
 
@@ -42,7 +43,10 @@ async function bootstrap() {
   // so the browser needs CORS to call the API. CORS_ORIGIN accepts a
   // comma-separated list of allowed origins.
   app.enableCors({
-    origin: (process.env.CORS_ORIGIN ?? 'http://localhost:5173').split(','),
+    origin: allowedOrigins(),
+    // Lets the browser send and store the refresh token cookie when the
+    // panel is on another origin.
+    credentials: true,
     // Without this, the browser silently drops Content-Disposition from a
     // cross-origin response -- the frontend would never see the suggested
     // PDF file name and would always fall back to a generic one.
