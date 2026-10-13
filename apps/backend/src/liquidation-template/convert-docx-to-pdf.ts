@@ -38,11 +38,88 @@ export function isCompletePdf(pdf: Buffer): boolean {
   );
 }
 
-// Converts a .docx buffer to PDF via headless LibreOffice. Never persists
+// Requests in flight to the PDF service at once. Matches the service's own
+// MAX_CONCURRENT_CONVERSIONS default so a bulk job queues here instead of
+// being answered with 503.
+const PDF_SERVICE_CONCURRENCY = 2;
+let inFlight = 0;
+const waiting: (() => void)[] = [];
+
+async function withServiceSlot<T>(task: () => Promise<T>): Promise<T> {
+  const limit =
+    Number(process.env.PDF_SERVICE_CONCURRENCY) || PDF_SERVICE_CONCURRENCY;
+  if (inFlight >= limit) {
+    await new Promise<void>((resolve) => waiting.push(resolve));
+  } else {
+    inFlight++;
+  }
+  try {
+    return await task();
+  } finally {
+    const next = waiting.shift();
+    if (next) next();
+    else inFlight--;
+  }
+}
+
+// Sends the .docx to the PDF service (apps/pdf-function) instead of running
+// LibreOffice in this process.
+async function convertViaService(
+  docx: Buffer,
+  serviceUrl: string,
+): Promise<Buffer> {
+  let response: Response;
+  try {
+    response = await fetch(`${serviceUrl.replace(/\/+$/, '')}/convert`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream' },
+      body: new Uint8Array(docx),
+      // A little longer than the service's own timeout, so its 504 wins.
+      signal: AbortSignal.timeout(CONVERT_TIMEOUT_MS + 5_000),
+    });
+  } catch (error) {
+    const timedOut = (error as Error).name === 'TimeoutError';
+    throw new PdfConversionError(
+      timedOut
+        ? ErrorCode.PDF_CONVERSION_TIMEOUT
+        : ErrorCode.PDF_CONVERSION_FAILED,
+      timedOut
+        ? 'PDF generation timed out. Please try again; if the problem persists, contact support.'
+        : 'The PDF service is unreachable. Please try again; if the problem persists, contact support.',
+      { cause: error },
+    );
+  }
+  if (!response.ok) {
+    const timedOut = response.status === 504;
+    throw new PdfConversionError(
+      timedOut
+        ? ErrorCode.PDF_CONVERSION_TIMEOUT
+        : ErrorCode.PDF_CONVERSION_FAILED,
+      timedOut
+        ? 'PDF generation timed out. Please try again; if the problem persists, contact support.'
+        : `The PDF service could not convert the liquidation (HTTP ${response.status}). Please try again; if the problem persists, contact support.`,
+    );
+  }
+  const pdf = Buffer.from(await response.arrayBuffer());
+  if (!isCompletePdf(pdf)) {
+    throw new PdfConversionError(
+      ErrorCode.PDF_CONVERSION_FAILED,
+      'The PDF service returned an invalid PDF. No file was generated; please try again.',
+    );
+  }
+  return pdf;
+}
+
+// Converts a .docx buffer to PDF. When PDF_SERVICE_URL is set it goes to the
+// PDF service; otherwise it runs headless LibreOffice locally. Never persists
 // anything: everything happens inside one unique temp directory, deleted
 // before this function returns (success or failure) -- the only artifact
 // that survives is the PDF Buffer this returns to the caller.
 export async function convertDocxToPdf(docx: Buffer): Promise<Buffer> {
+  const serviceUrl = process.env.PDF_SERVICE_URL;
+  if (serviceUrl) {
+    return withServiceSlot(() => convertViaService(docx, serviceUrl));
+  }
   const dir = await mkdtemp(join(tmpdir(), 'liquidation-pdf-'));
   try {
     const docxPath = join(dir, 'liquidacion.docx');
