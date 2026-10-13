@@ -2,7 +2,7 @@
   display: grid;
   grid-template-columns:
     minmax(280px, 1.4fr) minmax(0, 1.5fr) minmax(110px, 0.7fr)
-    minmax(110px, 0.6fr) minmax(190px, 1fr);
+    minmax(110px, 0.6fr) minmax(240px, 1fr);
   align-items: center;
   column-gap: var(--space-12);
 }
@@ -140,7 +140,7 @@
   .settlements-page[data-sheet="open"] .settlement-list__row {
     grid-template-columns:
       minmax(280px, 1.4fr) minmax(0, 1fr) minmax(100px, 0.6fr)
-      minmax(190px, 0.9fr);
+      minmax(240px, 0.9fr);
   }
 
   .settlements-page[data-sheet="open"] .settlement-list__num {
@@ -156,7 +156,9 @@
   }
 
   .settlement-list__row--body {
-    grid-template-columns: minmax(0, 1fr) auto;
+    /* The status never takes more than about half the card, so the owner
+       keeps room beside a long label. */
+    grid-template-columns: minmax(0, 1fr) fit-content(55%);
     grid-template-areas:
       "code code"
       "owner status"

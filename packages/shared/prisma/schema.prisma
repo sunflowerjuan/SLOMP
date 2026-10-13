@@ -11,13 +11,16 @@ datasource db {
 }
 
 // ----------------------------------------------------------------------------
-// Possible states of a Settlement -- the only 4 real states; "Inactiva"
-// does NOT exist here: a replaced settlement doesn't change status,
-// `replacedAt` below marks that instead. The Administrator can force any
-// of these 4 manually.
+// Possible states of a Settlement. "Inactiva" does NOT exist here: a
+// replaced settlement doesn't change status, `replacedAt` below marks that
+// instead. EN_FIRME is set automatically 60 days after the resolution is
+// issued (en-firme.service.ts); which manual changes are allowed lives in
+// settlement-status-rules.ts. PRESCRITA is shown as "Pérdida temporal de
+// competencia" in the frontend.
 // ----------------------------------------------------------------------------
 enum SettlementStatus {
   VIGENTE
+  EN_FIRME
   PAGADA
   ACUERDO_DE_PAGO
   PRESCRITA

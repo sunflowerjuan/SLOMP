@@ -23,6 +23,9 @@ export interface TaxRollPersisted {
   owners: number;
   settlements: number;
   conflicts: TaxRollConflict[];
+  // Property+period pairs whose liquidation is already EN_FIRME: never
+  // replaced from a tax roll, so they were skipped.
+  locked: TaxRollConflict[];
 }
 
 export interface TaxRollImportResult {

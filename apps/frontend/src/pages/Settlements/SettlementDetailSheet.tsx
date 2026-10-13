@@ -97,6 +97,7 @@ export function SettlementDetailSheet({
                 <dd>
                   <SettlementStatusCell
                     status={entry.status}
+                    allowedStatuses={entry.allowedStatuses}
                     description={`${entry.cadastralCode}, periodos ${periods}`}
                     editing={editing}
                     saving={saving}

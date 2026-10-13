@@ -150,6 +150,7 @@ export function TaxRollUploadPage() {
   }, [resultImportId, resultRef]);
 
   const conflictCount = result?.persisted.conflicts.length ?? 0;
+  const lockedCount = result?.persisted.locked.length ?? 0;
 
   return (
     <div className="page tax-roll-upload-page">
@@ -295,6 +296,12 @@ export function TaxRollUploadPage() {
                         Reemplazar
                       </Button>
                     )}
+                  </Notice>
+                )}
+                {lockedCount > 0 && (
+                  <Notice variant="info">
+                    {lockedCount} predios y periodos tienen su liquidación en
+                    firme y no se reemplazaron.
                   </Notice>
                 )}
                 <TaxRollIssueList
