@@ -20,7 +20,7 @@ COPY packages/shared packages/shared
 COPY apps/backend apps/backend
 # prisma.config.ts requires DATABASE_URL to be set even for `generate`, which
 # never connects; this placeholder only exists for that one command.
-RUN DATABASE_URL=postgresql://build:build@localhost:5432/build pnpm --filter shared db:generate \
+RUN DATABASE_URL=postgresql://localhost:5432/build pnpm --filter shared db:generate \
  && pnpm --filter backend build
 
 # Also the image used by `migrate` in docker-compose.yml (needs the Prisma
