@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from './../src/app.module.js';
+import { MAX_FAILED_ATTEMPTS } from './../src/auth/login-attempt-tracker.js';
 
 const SEEDED_ADMIN_EMAIL =
   process.env.SEED_ADMIN_EMAIL ?? 'admin@paez-boyaca.gov.co';
@@ -39,6 +40,22 @@ describe('Auth (e2e)', () => {
       .expect(401);
   });
 
+  it('locks the login after repeated failures, answering like a wrong password', async () => {
+    for (let attempt = 0; attempt < MAX_FAILED_ATTEMPTS; attempt += 1) {
+      await request(app.getHttpServer())
+        .post('/login')
+        .send({ email: SEEDED_ADMIN_EMAIL, password: 'wrong-password' })
+        .expect(401);
+    }
+
+    const response = await request(app.getHttpServer())
+      .post('/login')
+      .send({ email: SEEDED_ADMIN_EMAIL, password: SEEDED_ADMIN_PASSWORD })
+      .expect(401);
+
+    expect(response.body.code).toBe('AUTH_INVALID_CREDENTIALS');
+  });
+
   it('rejects a login missing email/password with 400', async () => {
     await request(app.getHttpServer()).post('/login').send({}).expect(400);
   });
@@ -48,12 +65,14 @@ describe('Auth (e2e)', () => {
   });
 
   it('blocks a panel endpoint when no token is sent', async () => {
-    await request(app.getHttpServer()).post('/tax-roll/import').expect(401);
+    await request(app.getHttpServer())
+      .post('/municipalities/paez/tax-roll/import')
+      .expect(401);
   });
 
   it('blocks a panel endpoint when the token is invalid', async () => {
     await request(app.getHttpServer())
-      .post('/tax-roll/import')
+      .post('/municipalities/paez/tax-roll/import')
       .set('Authorization', 'Bearer not-a-real-token')
       .expect(401);
   });
@@ -66,7 +85,7 @@ describe('Auth (e2e)', () => {
     // No file attached: clears the guard, then fails its own validation as
     // usual (400, not 401) — proves the request reached the controller.
     await request(app.getHttpServer())
-      .post('/tax-roll/import')
+      .post('/municipalities/paez/tax-roll/import')
       .set('Authorization', `Bearer ${login.body.accessToken}`)
       .expect(400);
   });

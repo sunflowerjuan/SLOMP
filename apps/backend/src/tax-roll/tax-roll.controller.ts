@@ -6,6 +6,7 @@ import {
   Post,
   UploadedFile,
   UseFilters,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -19,6 +20,9 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import type { AuthenticatedUser } from '../auth/jwt.strategy.js';
+import { CurrentMunicipality } from '../municipalities/current-municipality.decorator.js';
+import type { MunicipalityContext } from '../municipalities/municipality-context.js';
+import { MunicipalityGuard } from '../municipalities/municipality.guard.js';
 import { TaxRollService } from './tax-roll.service.js';
 import {
   MAX_TAX_ROLL_FILE_SIZE_MB,
@@ -30,7 +34,8 @@ import { ErrorCode } from '../common/errors/error-codes.js';
 
 @ApiTags('tax-roll')
 @ApiBearerAuth()
-@Controller('tax-roll')
+@UseGuards(MunicipalityGuard)
+@Controller('municipalities/:slug/tax-roll')
 export class TaxRollController {
   constructor(private readonly taxRollService: TaxRollService) {}
 
@@ -113,9 +118,10 @@ export class TaxRollController {
   @ApiResponse({
     status: 400,
     description:
-      'No se adjuntó ningún archivo en el campo "file", el archivo no tiene extensión .xlsx, supera el tamaño máximo, no es un .xlsx real (renombrado o dañado), o su contenido no se pudo usar (archivo vacío, encabezados faltantes o fuera de orden, sin filas de datos).',
+      'Si alguna cédula catastral no empieza por el código DANE del municipio (TAX_ROLL_WRONG_MUNICIPALITY), se rechaza todo el archivo. También: no se adjuntó ningún archivo en el campo "file", el archivo no tiene extensión .xlsx, supera el tamaño máximo, no es un .xlsx real (renombrado o dañado), o su contenido no se pudo usar (archivo vacío, encabezados faltantes o fuera de orden, sin filas de datos).',
   })
   import(
+    @CurrentMunicipality() municipality: MunicipalityContext,
     @CurrentUser() user: AuthenticatedUser,
     @UploadedFile() file?: Express.Multer.File,
     // Multipart form fields always arrive as strings.
@@ -141,6 +147,7 @@ export class TaxRollController {
     }
     const parsedPreviousImportId = Number(previousImportId);
     return this.taxRollService.import(
+      municipality,
       file.buffer,
       confirmReplace === 'true',
       file.originalname,
@@ -177,7 +184,7 @@ export class TaxRollController {
       ],
     },
   })
-  listImports() {
-    return this.taxRollService.listImports();
+  listImports(@CurrentMunicipality() municipality: MunicipalityContext) {
+    return this.taxRollService.listImports(municipality.id);
   }
 }

@@ -70,7 +70,12 @@ export class PublicSettlementQueryController {
       ownerName: body?.ownerName,
       address: body?.address,
     });
-    if (!matches.some((settlement) => settlement.settlementId === id)) {
+    const municipalityId = matches.some(
+      (settlement) => settlement.settlementId === id,
+    )
+      ? await this.publicSettlementQueryService.municipalityIdOf(id)
+      : null;
+    if (municipalityId === null) {
       throw new NotFoundException(
         errorBody(
           ErrorCode.SETTLEMENT_NOT_FOUND,
@@ -80,7 +85,10 @@ export class PublicSettlementQueryController {
     }
 
     const { pdf, resolutionNumber } =
-      await this.generateLiquidationPdfService.generateForSettlement(id);
+      await this.generateLiquidationPdfService.generateForSettlement(
+        municipalityId,
+        id,
+      );
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${resolutionNumber}.pdf"`,

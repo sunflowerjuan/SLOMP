@@ -14,7 +14,7 @@ const SEEDED_ADMIN_EMAIL =
   process.env.SEED_ADMIN_EMAIL ?? 'admin@paez-boyaca.gov.co';
 const SEEDED_ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? 'changeme123';
 
-describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
+describe('POST /municipalities/:slug/tax-roll/import (e2e, real Páez tax roll file)', () => {
   let app: INestApplication;
   let accessToken: string;
 
@@ -37,7 +37,9 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
   });
 
   it('rejects the request when no token is sent (this is a panel endpoint)', async () => {
-    await request(app.getHttpServer()).post('/tax-roll/import').expect(401);
+    await request(app.getHttpServer())
+      .post('/municipalities/paez/tax-roll/import')
+      .expect(401);
   });
 
   it('processes the full real file without throwing and without dropping rows', async () => {
@@ -45,7 +47,7 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
     const totalDataRows = 11202; // rows 2..11203 of the fixture, row 1 is the header
 
     const response = await request(app.getHttpServer())
-      .post('/tax-roll/import')
+      .post('/municipalities/paez/tax-roll/import')
       .set('Authorization', `Bearer ${accessToken}`)
       .attach('file', fileBuffer, 'excel_example.xlsx')
       .expect(201);
@@ -76,7 +78,7 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
     const blankBuffer = Buffer.from(await workbook.xlsx.writeBuffer());
 
     const response = await request(app.getHttpServer())
-      .post('/tax-roll/import')
+      .post('/municipalities/paez/tax-roll/import')
       .set('Authorization', `Bearer ${accessToken}`)
       .attach('file', blankBuffer, 'blank.xlsx')
       .expect(400);
@@ -87,7 +89,7 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
 
   it('returns 400 (not a 500) when no file is attached', async () => {
     const response = await request(app.getHttpServer())
-      .post('/tax-roll/import')
+      .post('/municipalities/paez/tax-roll/import')
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(400);
 
@@ -100,7 +102,7 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
   describe('upload restrictions checklist (SL-81)', () => {
     it('returns 400 with a clear message for a CSV renamed to .xlsx', async () => {
       const response = await request(app.getHttpServer())
-        .post('/tax-roll/import')
+        .post('/municipalities/paez/tax-roll/import')
         .set('Authorization', `Bearer ${accessToken}`)
         .attach('file', Buffer.from('a,b\n1,2\n'), 'renamed.xlsx')
         .expect(400);
@@ -113,7 +115,7 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
 
     it('returns 400 for a 0-byte file', async () => {
       const response = await request(app.getHttpServer())
-        .post('/tax-roll/import')
+        .post('/municipalities/paez/tax-roll/import')
         .set('Authorization', `Bearer ${accessToken}`)
         .attach('file', Buffer.alloc(0), 'empty.xlsx')
         .expect(400);
@@ -125,7 +127,7 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
       const workbook = new ExcelJS.Workbook();
       workbook.addWorksheet('TaxRoll').addRow(['Cédula Catastral', 'Destino']);
       const response = await request(app.getHttpServer())
-        .post('/tax-roll/import')
+        .post('/municipalities/paez/tax-roll/import')
         .set('Authorization', `Bearer ${accessToken}`)
         .attach(
           'file',
@@ -140,7 +142,7 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
 
     it('returns 400 for a file over the size limit', async () => {
       const response = await request(app.getHttpServer())
-        .post('/tax-roll/import')
+        .post('/municipalities/paez/tax-roll/import')
         .set('Authorization', `Bearer ${accessToken}`)
         .attach('file', Buffer.alloc(10 * 1024 * 1024 + 1), 'huge.xlsx')
         .expect(400);
@@ -177,7 +179,7 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
       const sheet = workbook.addWorksheet('TaxRoll');
       sheet.addRow(HEADERS);
       sheet.addRow([
-        '000900010001',
+        '155140009000100010001',
         'urbano',
         500000,
         '99988877',
@@ -197,13 +199,13 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
 
     it('alerts instead of replacing when a settlement is already active for that property+period', async () => {
       await request(app.getHttpServer())
-        .post('/tax-roll/import')
+        .post('/municipalities/paez/tax-roll/import')
         .set('Authorization', `Bearer ${accessToken}`)
         .attach('file', await buildOneRowWorkbook(41500), 'first.xlsx')
         .expect(201);
 
       const response = await request(app.getHttpServer())
-        .post('/tax-roll/import')
+        .post('/municipalities/paez/tax-roll/import')
         .set('Authorization', `Bearer ${accessToken}`)
         .attach('file', await buildOneRowWorkbook(99999), 'second.xlsx')
         .expect(201);
@@ -212,19 +214,19 @@ describe('POST /tax-roll/import (e2e, real Páez tax roll file)', () => {
         properties: 1,
         owners: 1,
         settlements: 0,
-        conflicts: [{ cadastralCode: '000900010001', period: 2024 }],
+        conflicts: [{ cadastralCode: '155140009000100010001', period: 2024 }],
       });
     });
 
     it('inactivates the old settlement and creates a new active one once confirmed — never deletes it', async () => {
       await request(app.getHttpServer())
-        .post('/tax-roll/import')
+        .post('/municipalities/paez/tax-roll/import')
         .set('Authorization', `Bearer ${accessToken}`)
         .attach('file', await buildOneRowWorkbook(41500), 'first.xlsx')
         .expect(201);
 
       const response = await request(app.getHttpServer())
-        .post('/tax-roll/import')
+        .post('/municipalities/paez/tax-roll/import')
         .set('Authorization', `Bearer ${accessToken}`)
         .field('confirmReplace', 'true')
         .attach('file', await buildOneRowWorkbook(99999), 'second.xlsx')

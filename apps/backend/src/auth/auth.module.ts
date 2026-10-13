@@ -4,6 +4,7 @@ import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { JwtStrategy } from './jwt.strategy.js';
+import { LoginAttemptTracker } from './login-attempt-tracker.js';
 
 if (!process.env.JWT_SECRET) {
   throw new Error(
@@ -20,6 +21,13 @@ if (!process.env.JWT_SECRET) {
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    {
+      provide: LoginAttemptTracker,
+      useFactory: () => new LoginAttemptTracker(),
+    },
+  ],
 })
 export class AuthModule {}

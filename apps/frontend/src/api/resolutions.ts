@@ -1,5 +1,6 @@
 import { request, requestBlob } from "./httpClient";
 import type { BlobResponse } from "./httpClient";
+import { municipalityPath } from "./municipality";
 
 export type LiquidationKind = "PRESCRIPTION_RISK" | "NORMAL";
 
@@ -23,14 +24,16 @@ export interface LiquidationsZipJob {
 export async function getPendingLiquidationCounts(
   signal?: AbortSignal,
 ): Promise<PendingLiquidationCounts> {
-  return request("/resolutions/liquidations-zip/pending", { signal });
+  return request(municipalityPath("/resolutions/liquidations-zip/pending"), {
+    signal,
+  });
 }
 
 export async function startLiquidationsZip(
   kind: LiquidationKind,
   signal?: AbortSignal,
 ): Promise<{ jobId: string }> {
-  return request("/resolutions/liquidations-zip", {
+  return request(municipalityPath("/resolutions/liquidations-zip"), {
     method: "POST",
     body: { kind },
     signal,
@@ -42,7 +45,9 @@ export async function getLiquidationsZipJob(
   signal?: AbortSignal,
 ): Promise<LiquidationsZipJob> {
   return request(
-    `/resolutions/liquidations-zip/jobs/${encodeURIComponent(jobId)}`,
+    municipalityPath(
+      `/resolutions/liquidations-zip/jobs/${encodeURIComponent(jobId)}`,
+    ),
     { signal },
   );
 }
@@ -50,7 +55,12 @@ export async function getLiquidationsZipJob(
 export async function getActiveLiquidationsZipJob(
   signal?: AbortSignal,
 ): Promise<{ job: LiquidationsZipJob | null }> {
-  return request("/resolutions/liquidations-zip/jobs/active", { signal });
+  return request(
+    municipalityPath("/resolutions/liquidations-zip/jobs/active"),
+    {
+      signal,
+    },
+  );
 }
 
 export function downloadLiquidationsZip(
@@ -58,7 +68,9 @@ export function downloadLiquidationsZip(
   signal?: AbortSignal,
 ): Promise<BlobResponse> {
   return requestBlob(
-    `/resolutions/liquidations-zip/jobs/${encodeURIComponent(jobId)}/download`,
+    municipalityPath(
+      `/resolutions/liquidations-zip/jobs/${encodeURIComponent(jobId)}/download`,
+    ),
     { signal },
   );
 }

@@ -2,9 +2,9 @@ import { createRequire } from 'node:module';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule, ObserveInstrument } from './app.module.js';
 import { validationExceptionFactory } from './common/errors/error-body.js';
+import { setupSecurityHeaders, setupSwagger } from './http-hardening.js';
 
 // Plain require (not an import) so this doesn't need "resolveJsonModule" in
 // tsconfig just to read one field off package.json.
@@ -22,6 +22,8 @@ async function bootstrap() {
     // Behind Application Gateway, req.ip would otherwise be the gateway for every user.
     app.set('trust proxy', trustProxyHops);
   }
+
+  setupSecurityHeaders(app);
 
   // whitelist strips any @Body() property with no class-validator decorator
   // on a real class-typed DTO (interfaces and primitive @Body('x') pulls are
@@ -47,16 +49,7 @@ async function bootstrap() {
     exposedHeaders: ['Content-Disposition'],
   });
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('SLOMP API')
-    .setDescription(
-      'API del sistema de liquidaciones oficiales y mandamientos de pago de impuesto predial.',
-    )
-    .setVersion(packageJson.version)
-    .addBearerAuth()
-    .build();
-  const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, swaggerDocument);
+  setupSwagger(app, packageJson.version);
 
   await app.listen(process.env.PORT ?? 3000);
 }

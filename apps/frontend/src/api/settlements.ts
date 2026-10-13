@@ -1,6 +1,7 @@
 import type { SettlementStatus } from "../domain/settlementStatus";
 import { request, requestBlob } from "./httpClient";
 import type { BlobResponse } from "./httpClient";
+import { municipalityPath } from "./municipality";
 
 export type { SettlementStatus };
 
@@ -42,16 +43,17 @@ export function searchSettlements(criteria: SettlementSearchCriteria) {
   const query = params.toString();
 
   return request<SettlementSearchResult[]>(
-    `/settlements/search${query ? `?${query}` : ""}`,
+    municipalityPath(`/settlements/search${query ? `?${query}` : ""}`),
   );
 }
 
 export function generateLiquidationPdf(
   settlementId: number,
 ): Promise<BlobResponse> {
-  return requestBlob(`/settlements/${settlementId}/liquidation-pdf`, {
-    method: "POST",
-  });
+  return requestBlob(
+    municipalityPath(`/settlements/${settlementId}/liquidation-pdf`),
+    { method: "POST" },
+  );
 }
 
 // Applies to the whole group (resolution) of the given settlement. Only the

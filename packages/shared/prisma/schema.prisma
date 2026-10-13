@@ -63,12 +63,20 @@ enum DocumentType {
 model Municipality {
   id        Int      @id @default(autoincrement())
   name      String
-  state     String?
-  daneCode  String?  @unique
+  state     String
+  // 5-digit DANE code; the first 5 digits of every cadastral code of the
+  // municipality (validated on tax roll upload).
+  daneCode  String   @unique
+  // Lowercase URL identifier, e.g. "paez" -- part of /municipalities/:slug/...
+  slug      String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  properties Property[]
+  properties         Property[]
+  owners             Owner[]
+  resolutions        Resolution[]
+  resolutionCounters ResolutionCounter[]
+  taxRollImports     TaxRollImport[]
 
   @@map("municipalities")
 }
@@ -109,7 +117,7 @@ model Property {
 model Owner {
   id           Int           @id @default(autoincrement())
   name         String
-  documentId   String        @unique // national ID / tax ID (cédula / NIT)
+  documentId   String // national ID / tax ID (cédula / NIT); unique per municipality
   // NULL = the tax roll didn't state it. No @default: never "CC by default".
   documentType DocumentType?
   phone        String?
@@ -117,8 +125,12 @@ model Owner {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
+  municipalityId Int
+  municipality   Municipality @relation(fields: [municipalityId], references: [id])
+
   properties PropertyOwner[]
 
+  @@unique([municipalityId, documentId])
   @@map("owners")
 }
 
@@ -176,7 +188,7 @@ model Settlement {
 // ----------------------------------------------------------------------------
 model Resolution {
   id        Int              @id @default(autoincrement())
-  number    String           @unique
+  number    String
   year      Int
   sequence  Int
   kind      ResolutionKind
@@ -188,9 +200,14 @@ model Resolution {
   propertyId Int
   property   Property @relation(fields: [propertyId], references: [id])
 
+  municipalityId Int
+  municipality   Municipality @relation(fields: [municipalityId], references: [id])
+
   settlements Settlement[]
 
-  @@unique([year, sequence])
+  // The consecutive restarts per municipality: 2026-0001 exists in each one.
+  @@unique([municipalityId, number])
+  @@unique([municipalityId, year, sequence])
   @@index([propertyId])
   @@map("resolutions")
 }
@@ -199,9 +216,12 @@ model Resolution {
 // ResolutionCounter
 // ----------------------------------------------------------------------------
 model ResolutionCounter {
-  year         Int @id
-  lastSequence Int @default(0)
+  municipalityId Int
+  municipality   Municipality @relation(fields: [municipalityId], references: [id])
+  year           Int
+  lastSequence   Int          @default(0)
 
+  @@id([municipalityId, year])
   @@map("resolution_counters")
 }
 
@@ -288,6 +308,9 @@ model TaxRollImport {
   administratorId Int?
   administrator   Administrator? @relation(fields: [administratorId], references: [id], onDelete: SetNull)
 
-  @@index([importedAt])
+  municipalityId Int
+  municipality   Municipality @relation(fields: [municipalityId], references: [id])
+
+  @@index([municipalityId, importedAt])
   @@map("tax_roll_imports")
 }

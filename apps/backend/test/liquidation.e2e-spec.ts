@@ -12,7 +12,7 @@ const SEEDED_ADMIN_EMAIL =
 const SEEDED_ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? 'changeme123';
 
 // Seeded by packages/shared/prisma/seed.ts.
-const SEEDED_CADASTRAL_CODE = '155760001000000010001';
+const SEEDED_CADASTRAL_CODE = '155140001000000010001';
 const SEEDED_ADDRESS = 'Vereda El Chuscal, Finca La Esperanza';
 
 function hasSoffice(): boolean {
@@ -61,7 +61,7 @@ describe.skipIf(!canGeneratePdf)(
 
     async function findSeededSettlementId(): Promise<number> {
       const response = await request(app.getHttpServer())
-        .get('/settlements/search')
+        .get('/municipalities/paez/settlements/search')
         .query({ cadastralCode: SEEDED_CADASTRAL_CODE })
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
@@ -78,7 +78,9 @@ describe.skipIf(!canGeneratePdf)(
       const settlementId = await findSeededSettlementId();
 
       const response = await request(app.getHttpServer())
-        .post(`/settlements/${settlementId}/liquidation-pdf`)
+        .post(
+          `/municipalities/paez/settlements/${settlementId}/liquidation-pdf`,
+        )
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(201);
 
@@ -94,7 +96,9 @@ describe.skipIf(!canGeneratePdf)(
       const settlementId = await findSeededSettlementId();
 
       await request(app.getHttpServer())
-        .post(`/settlements/${settlementId}/liquidation-pdf`)
+        .post(
+          `/municipalities/paez/settlements/${settlementId}/liquidation-pdf`,
+        )
         .expect(401);
     });
 
@@ -141,7 +145,7 @@ describe.skipIf(!canGeneratePdf)(
         'Interes Sobretasa Bomberil',
         'Total',
       ];
-      const cadastralCode = '000700070007';
+      const cadastralCode = '155140007000700070007';
       const workbook = new ExcelJS.Workbook();
       const sheet = workbook.addWorksheet('TaxRoll');
       sheet.addRow(HEADERS);
@@ -167,7 +171,7 @@ describe.skipIf(!canGeneratePdf)(
       }
 
       await request(app.getHttpServer())
-        .post('/tax-roll/import')
+        .post('/municipalities/paez/tax-roll/import')
         .set('Authorization', `Bearer ${accessToken}`)
         .attach(
           'file',
@@ -177,23 +181,27 @@ describe.skipIf(!canGeneratePdf)(
         .expect(201);
 
       const search = await request(app.getHttpServer())
-        .get('/settlements/search')
+        .get('/municipalities/paez/settlements/search')
         .query({ cadastralCode })
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
-      const oldSettlement = search.body.find(
-        (s: { period: number }) => s.period === oldPeriod,
+      const oldSettlement = search.body.find((s: { periods: number[] }) =>
+        s.periods.includes(oldPeriod),
       );
-      const recentSettlement = search.body.find(
-        (s: { period: number }) => s.period === recentPeriod,
+      const recentSettlement = search.body.find((s: { periods: number[] }) =>
+        s.periods.includes(recentPeriod),
       );
 
       const oldPdf = await request(app.getHttpServer())
-        .post(`/settlements/${oldSettlement.settlementId}/liquidation-pdf`)
+        .post(
+          `/municipalities/paez/settlements/${oldSettlement.settlementId}/liquidation-pdf`,
+        )
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(201);
       const recentPdf = await request(app.getHttpServer())
-        .post(`/settlements/${recentSettlement.settlementId}/liquidation-pdf`)
+        .post(
+          `/municipalities/paez/settlements/${recentSettlement.settlementId}/liquidation-pdf`,
+        )
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(201);
 
