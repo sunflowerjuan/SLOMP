@@ -20,7 +20,7 @@ export function LoginPage() {
   const [errors, setErrors] = useState<LoginFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const { signIn, sessionExpired } = useAuth();
+  const { signIn, sessionEndReason } = useAuth();
 
   function validate(): LoginFormErrors {
     const nextErrors: LoginFormErrors = {};
@@ -73,9 +73,11 @@ export function LoginPage() {
           <h1 className="login-page__title">Ingresar</h1>
 
           <form className="login-page__form" onSubmit={handleSubmit} noValidate>
-            {sessionExpired && !submitError && (
+            {sessionEndReason && !submitError && (
               <Notice variant="info">
-                Tu sesión expiró. Vuelve a iniciar sesión para continuar.
+                {sessionEndReason === "inactivity"
+                  ? "Cerramos tu sesión porque estuvo inactiva. Vuelve a iniciar sesión para continuar."
+                  : "Tu sesión expiró. Vuelve a iniciar sesión para continuar."}
               </Notice>
             )}
             {submitError && <Notice>{submitError}</Notice>}

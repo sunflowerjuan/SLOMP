@@ -12,6 +12,8 @@ import "./SettlementStatusCell.css";
 
 interface SettlementStatusCellProps {
   status: SettlementStatus | "MIXED";
+  // States the backend allows from the current one.
+  allowedStatuses: SettlementStatus[];
   description: string;
   editing: boolean;
   saving: boolean;
@@ -23,6 +25,7 @@ interface SettlementStatusCellProps {
 
 export function SettlementStatusCell({
   status,
+  allowedStatuses,
   description,
   editing,
   saving,
@@ -31,9 +34,13 @@ export function SettlementStatusCell({
   onSave,
   onCancel,
 }: SettlementStatusCellProps) {
-  const [draft, setDraft] = useState<SettlementStatus>(
-    status === "MIXED" ? "VIGENTE" : status,
+  // Backend order, so the selector lists states the same way everywhere.
+  const options = SETTLEMENT_STATUSES.filter((option) =>
+    allowedStatuses.includes(option),
   );
+  const initialDraft = (): SettlementStatus =>
+    status !== "MIXED" && options.includes(status) ? status : options[0];
+  const [draft, setDraft] = useState<SettlementStatus>(initialDraft);
   const editButtonRef = useRef<HTMLButtonElement>(null);
   const selectRef = useRef<HTMLSelectElement>(null);
   const wasEditing = useRef(false);
@@ -45,7 +52,7 @@ export function SettlementStatusCell({
   }, [editing]);
 
   function startEditing() {
-    setDraft(status === "MIXED" ? "VIGENTE" : status);
+    setDraft(initialDraft());
     onEdit();
   }
 
@@ -76,7 +83,7 @@ export function SettlementStatusCell({
               setDraft(event.target.value as SettlementStatus)
             }
           >
-            {SETTLEMENT_STATUSES.map((estado) => (
+            {options.map((estado) => (
               <option key={estado} value={estado}>
                 {SETTLEMENT_STATUS_LABEL[estado]}
               </option>

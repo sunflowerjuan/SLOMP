@@ -128,6 +128,8 @@ const ERROR_MESSAGES: Record<string, CatalogEntry> = {
     "El estado seleccionado no es válido para una liquidación.",
   SETTLEMENT_ALREADY_REPLACED:
     "No se puede cambiar el estado de una liquidación que ya fue reemplazada.",
+  SETTLEMENT_STATUS_TRANSITION_NOT_ALLOWED:
+    "Ese cambio de estado no está permitido para esta liquidación.",
 
   // Public consultation
   PUBLIC_QUERY_CRITERIA_REQUIRED:

@@ -2,9 +2,10 @@ import { createRequire } from 'node:module';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule, ObserveInstrument } from './app.module.js';
+import { allowedOrigins } from './auth/refresh-cookie.js';
 import { validationExceptionFactory } from './common/errors/error-body.js';
+import { setupSecurityHeaders, setupSwagger } from './http-hardening.js';
 
 // Plain require (not an import) so this doesn't need "resolveJsonModule" in
 // tsconfig just to read one field off package.json.
@@ -23,6 +24,8 @@ async function bootstrap() {
     app.set('trust proxy', trustProxyHops);
   }
 
+  setupSecurityHeaders(app);
+
   // whitelist strips any @Body() property with no class-validator decorator
   // on a real class-typed DTO (interfaces and primitive @Body('x') pulls are
   // untouched). LoginDto is the one existing DTO that needed decorators
@@ -40,23 +43,17 @@ async function bootstrap() {
   // so the browser needs CORS to call the API. CORS_ORIGIN accepts a
   // comma-separated list of allowed origins.
   app.enableCors({
-    origin: (process.env.CORS_ORIGIN ?? 'http://localhost:5173').split(','),
+    origin: allowedOrigins(),
+    // Lets the browser send and store the refresh token cookie when the
+    // panel is on another origin.
+    credentials: true,
     // Without this, the browser silently drops Content-Disposition from a
     // cross-origin response -- the frontend would never see the suggested
     // PDF file name and would always fall back to a generic one.
     exposedHeaders: ['Content-Disposition'],
   });
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('SLOMP API')
-    .setDescription(
-      'API del sistema de liquidaciones oficiales y mandamientos de pago de impuesto predial.',
-    )
-    .setVersion(packageJson.version)
-    .addBearerAuth()
-    .build();
-  const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, swaggerDocument);
+  setupSwagger(app, packageJson.version);
 
   await app.listen(process.env.PORT ?? 3000);
 }

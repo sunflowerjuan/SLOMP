@@ -9,6 +9,7 @@ import {
 import { PublicSettlementQueryService } from './public-settlement-query.service.js';
 import { SettlementsController } from './settlements.controller.js';
 import { SettlementsService } from './settlements.service.js';
+import { EnFirmeService } from './en-firme.service.js';
 
 @Module({
   imports: [
@@ -18,6 +19,6 @@ import { SettlementsService } from './settlements.service.js';
     ResolutionsModule,
   ],
   controllers: [SettlementsController, PublicSettlementQueryController],
-  providers: [SettlementsService, PublicSettlementQueryService],
+  providers: [SettlementsService, PublicSettlementQueryService, EnFirmeService],
 })
 export class SettlementsModule {}
