@@ -47,6 +47,7 @@ export class SettlementsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async search(
+    municipalityId: number,
     criteria: SettlementSearchCriteria,
   ): Promise<SettlementSearchResult[]> {
     const cadastralCode = criteria.cadastralCode?.trim();
@@ -65,6 +66,7 @@ export class SettlementsService {
     const currentYear = currentYearInColombia();
     const properties = await this.prisma.property.findMany({
       where: {
+        municipalityId,
         // Only properties with a current settlement: one already replaced
         // (replacedAt set) is history, regardless of its payment status —
         // generating an official PDF from one wouldn't make sense.
@@ -125,6 +127,7 @@ export class SettlementsService {
   // the PDF show. Only a current settlement can be changed — one already
   // replaced isn't "the" settlement of its property+period anymore.
   async changeStatus(
+    municipalityId: number,
     id: number,
     status: unknown,
   ): Promise<SettlementStatusChangeResult> {
@@ -141,8 +144,10 @@ export class SettlementsService {
       );
     }
 
-    const settlement = await this.prisma.settlement.findUnique({
-      where: { id },
+    // A settlement of another municipality is "not found", same as one that
+    // does not exist.
+    const settlement = await this.prisma.settlement.findFirst({
+      where: { id, property: { municipalityId } },
     });
     if (!settlement) {
       throw new NotFoundException(
@@ -164,13 +169,18 @@ export class SettlementsService {
     const members =
       settlement.resolutionId !== null
         ? await this.prisma.settlement.findMany({
-            where: { resolutionId: settlement.resolutionId, replacedAt: null },
+            where: {
+              resolutionId: settlement.resolutionId,
+              replacedAt: null,
+              property: { municipalityId },
+            },
             select: { id: true },
           })
         : groupSettlementsForResolution(
             await this.prisma.settlement.findMany({
               where: {
                 propertyId: settlement.propertyId,
+                property: { municipalityId },
                 replacedAt: null,
                 resolutionId: null,
               },
@@ -182,7 +192,7 @@ export class SettlementsService {
     const settlementIds = members.map((member) => member.id);
 
     await this.prisma.settlement.updateMany({
-      where: { id: { in: settlementIds } },
+      where: { id: { in: settlementIds }, property: { municipalityId } },
       data: { status: status as SettlementStatus },
     });
 

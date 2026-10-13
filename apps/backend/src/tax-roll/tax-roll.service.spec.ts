@@ -3,6 +3,8 @@ import ExcelJS from 'exceljs';
 import { describe, expect, it, vi } from 'vitest';
 import { TaxRollService } from './tax-roll.service.js';
 import { persistTaxRoll } from './persist-tax-roll.js';
+import { ErrorCode } from '../common/errors/error-codes.js';
+import type { MunicipalityContext } from '../municipalities/municipality-context.js';
 
 vi.mock('./persist-tax-roll.js', () => ({ persistTaxRoll: vi.fn() }));
 
@@ -18,6 +20,15 @@ function unusedPrisma() {
     },
   );
 }
+
+// The cadastral code in buildOneRowWorkbook starts with this DANE code.
+const MUNICIPALITY: MunicipalityContext = {
+  id: 3,
+  slug: 'demo',
+  name: 'Demo',
+  state: 'Boyacá',
+  daneCode: '00010',
+};
 
 async function buildOneRowWorkbook(): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
@@ -68,6 +79,7 @@ const PERSISTED_RESULT = {
   conflicts: [],
 };
 const EXPECTED_IMPORT_DATA = {
+  municipalityId: MUNICIPALITY.id,
   fileName: 'roll.xlsx',
   administratorId: 7,
   validRows: 1,
@@ -88,7 +100,7 @@ describe('TaxRollService', () => {
     const service = new TaxRollService(unusedPrisma() as never);
 
     await expect(
-      service.import(buffer, false, 'blank.xlsx', 1),
+      service.import(MUNICIPALITY, buffer, false, 'blank.xlsx', 1),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -102,12 +114,23 @@ describe('TaxRollService', () => {
     vi.mocked(persistTaxRoll).mockResolvedValue(PERSISTED_RESULT);
 
     const service = new TaxRollService(prisma as never);
-    const result = await service.import(buffer, true, 'roll.xlsx', 7);
+    const result = await service.import(
+      MUNICIPALITY,
+      buffer,
+      true,
+      'roll.xlsx',
+      7,
+    );
 
     expect(result.validRows).toHaveLength(1);
     expect(result.persisted).toEqual(PERSISTED_RESULT);
     expect(result.importId).toBe(42);
-    expect(persistTaxRoll).toHaveBeenCalledWith(prisma, result.validRows, true);
+    expect(persistTaxRoll).toHaveBeenCalledWith(
+      prisma,
+      MUNICIPALITY.id,
+      result.validRows,
+      true,
+    );
     expect(taxRollImportCreate).toHaveBeenCalledWith({
       data: EXPECTED_IMPORT_DATA,
     });
@@ -127,13 +150,98 @@ describe('TaxRollService', () => {
     vi.mocked(persistTaxRoll).mockResolvedValue(PERSISTED_RESULT);
 
     const service = new TaxRollService(prisma as never);
-    const result = await service.import(buffer, true, 'roll.xlsx', 7, 99);
+    const result = await service.import(
+      MUNICIPALITY,
+      buffer,
+      true,
+      'roll.xlsx',
+      7,
+      99,
+    );
 
     expect(result.importId).toBe(99);
     expect(taxRollImportUpdateMany).toHaveBeenCalledWith({
-      where: { id: 99, fileName: 'roll.xlsx', administratorId: 7 },
+      where: {
+        id: 99,
+        municipalityId: MUNICIPALITY.id,
+        fileName: 'roll.xlsx',
+        administratorId: 7,
+      },
       data: EXPECTED_IMPORT_DATA,
     });
     expect(taxRollImportCreate).not.toHaveBeenCalled();
+  });
+
+  describe('municipality of the file', () => {
+    it('rejects the whole file, before saving anything, when a cadastral code has another DANE prefix', async () => {
+      const buffer = await buildOneRowWorkbook();
+      vi.mocked(persistTaxRoll).mockClear();
+      const findMany = vi.fn().mockResolvedValue([]);
+      const prisma = { municipality: { findMany } };
+
+      const service = new TaxRollService(prisma as never);
+      const error = await service
+        .import(
+          { ...MUNICIPALITY, daneCode: '15514' },
+          buffer,
+          true,
+          'x.xlsx',
+          7,
+        )
+        .catch((e) => e);
+
+      expect(error).toBeInstanceOf(BadRequestException);
+      expect(error.getResponse()).toMatchObject({
+        code: ErrorCode.TAX_ROLL_WRONG_MUNICIPALITY,
+        details: {
+          expectedPrefix: '15514',
+          mismatchedRows: 1,
+          foundPrefixes: [{ prefix: '00010', rows: 1, municipality: null }],
+        },
+      });
+      expect(persistTaxRoll).not.toHaveBeenCalled();
+    });
+
+    it('names the registered municipality the file seems to belong to', async () => {
+      const buffer = await buildOneRowWorkbook();
+      const prisma = {
+        municipality: {
+          findMany: vi
+            .fn()
+            .mockResolvedValue([
+              { daneCode: '00010', name: 'Páez', state: 'Boyacá' },
+            ]),
+        },
+      };
+
+      const service = new TaxRollService(prisma as never);
+      const error = await service
+        .import(
+          { ...MUNICIPALITY, daneCode: '19517', name: 'Páez', state: 'Cauca' },
+          buffer,
+          true,
+          'x.xlsx',
+          7,
+        )
+        .catch((e) => e);
+
+      expect(error.getResponse().message).toContain('Páez, Boyacá');
+      expect(error.getResponse().details.foundPrefixes[0].municipality).toBe(
+        'Páez, Boyacá',
+      );
+    });
+  });
+
+  it('lists only the imports of the given municipality', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const service = new TaxRollService({
+      taxRollImport: { findMany },
+    } as never);
+
+    await service.listImports(MUNICIPALITY.id);
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { municipalityId: MUNICIPALITY.id } }),
+    );
   });
 });

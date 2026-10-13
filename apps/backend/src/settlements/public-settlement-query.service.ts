@@ -31,6 +31,16 @@ export interface PublicSettlementQueryResult extends SettlementGroup {
 export class PublicSettlementQueryService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // The public routes are not scoped by municipality yet; the PDF still has
+  // to take its consecutive from the municipality the settlement belongs to.
+  async municipalityIdOf(settlementId: number): Promise<number | null> {
+    const settlement = await this.prisma.settlement.findUnique({
+      where: { id: settlementId },
+      select: { property: { select: { municipalityId: true } } },
+    });
+    return settlement?.property.municipalityId ?? null;
+  }
+
   async query(
     criteria: PublicSettlementQueryCriteria,
   ): Promise<PublicSettlementQueryResult[]> {

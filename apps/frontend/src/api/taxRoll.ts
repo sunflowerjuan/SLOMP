@@ -1,4 +1,5 @@
 import { request } from "./httpClient";
+import { municipalityPath } from "./municipality";
 
 // Mirrors the response of POST /tax-roll/import
 // (apps/backend/src/tax-roll/tax-roll.service.ts).
@@ -50,13 +51,13 @@ export function importTaxRoll(
     form.append("previousImportId", String(previousImportId));
   }
 
-  return request<TaxRollImportResult>("/tax-roll/import", {
+  return request<TaxRollImportResult>(municipalityPath("/tax-roll/import"), {
     method: "POST",
     body: form,
   });
 }
 
-// Mirrors the response of GET /tax-roll/imports
+// Mirrors the response of GET /municipalities/:slug/tax-roll/imports
 // (apps/backend/src/tax-roll/tax-roll.service.ts#listImports).
 export interface TaxRollImportHistoryEntry {
   id: number;
@@ -73,5 +74,7 @@ export interface TaxRollImportHistoryEntry {
 }
 
 export function listTaxRollImports() {
-  return request<TaxRollImportHistoryEntry[]>("/tax-roll/imports");
+  return request<TaxRollImportHistoryEntry[]>(
+    municipalityPath("/tax-roll/imports"),
+  );
 }

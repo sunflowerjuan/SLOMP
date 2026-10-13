@@ -42,8 +42,12 @@ function decimal(value: number) {
   return { toNumber: () => value };
 }
 
+const MUNICIPALITY_ID = 1;
+const OTHER_MUNICIPALITY_ID = 2;
+
 const PROPERTY = {
   id: 1,
+  municipalityId: MUNICIPALITY_ID,
   cadastralCode: '155140001000000010019000000000',
   address: 'LA FORTUNA VDA EL OSO',
   owners: [{ owner: { name: 'Nelly Pineda' } }],
@@ -66,18 +70,25 @@ type FakeResolution = {
   sequence: number;
   kind: ResolutionKind;
   propertyId: number;
+  municipalityId: number;
 };
 
 class FakePrisma {
   private nextId = 1;
   settlements: FakeSettlement[] = [];
   resolutions: FakeResolution[] = [];
-  counters = new Map<number, number>();
+  counters = new Map<string, number>();
 
   settlement = {
-    findUnique: async ({ where }: { where: { id: number } }) => {
+    findFirst: async ({
+      where,
+    }: {
+      where: { id: number; property: { municipalityId: number } };
+    }) => {
       const s = this.settlements.find((x) => x.id === where.id);
-      if (!s) return null;
+      if (!s || PROPERTY.municipalityId !== where.property.municipalityId) {
+        return null;
+      }
       return { ...s, property: PROPERTY };
     },
     findMany: async ({
@@ -127,8 +138,14 @@ class FakePrisma {
   };
 
   resolution = {
-    findUniqueOrThrow: async ({ where }: { where: { id: number } }) => {
-      const r = this.resolutions.find((x) => x.id === where.id);
+    findFirstOrThrow: async ({
+      where,
+    }: {
+      where: { id: number; municipalityId: number };
+    }) => {
+      const r = this.resolutions.find(
+        (x) => x.id === where.id && x.municipalityId === where.municipalityId,
+      );
       if (!r) throw new Error('Resolution not found');
       return {
         ...r,
@@ -148,15 +165,17 @@ class FakePrisma {
       create,
       update,
     }: {
-      where: { year: number };
-      create: { year: number; lastSequence: number };
+      where: { municipalityId_year: { municipalityId: number; year: number } };
+      create: { municipalityId: number; year: number; lastSequence: number };
       update: { lastSequence: { increment: number } };
       select: { lastSequence: true };
     }) => {
-      const lastSequence = this.counters.has(where.year)
-        ? this.counters.get(where.year)! + update.lastSequence.increment
+      const { municipalityId, year } = where.municipalityId_year;
+      const key = `${municipalityId}:${year}`;
+      const lastSequence = this.counters.has(key)
+        ? this.counters.get(key)! + update.lastSequence.increment
         : create.lastSequence;
-      this.counters.set(where.year, lastSequence);
+      this.counters.set(key, lastSequence);
       return { lastSequence };
     },
   };
@@ -187,9 +206,34 @@ describe('GenerateLiquidationPdfService', () => {
     const prisma = new FakePrisma();
     const service = new GenerateLiquidationPdfService(prisma as never);
 
-    await expect(service.generateForSettlement(999)).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      service.generateForSettlement(MUNICIPALITY_ID, 999),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('answers "not found" for a settlement of another municipality, without reserving a number', async () => {
+    const prisma = new FakePrisma();
+    prisma.settlements.push(buildSettlement({ id: 1 }));
+    const service = new GenerateLiquidationPdfService(prisma as never);
+
+    await expect(
+      service.generateForSettlement(OTHER_MUNICIPALITY_ID, 1),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.resolutions).toHaveLength(0);
+    expect(prisma.counters.size).toBe(0);
+  });
+
+  it('takes the consecutive of the municipality the settlement belongs to', async () => {
+    const prisma = new FakePrisma();
+    prisma.settlements.push(buildSettlement({ id: 1 }));
+    const service = new GenerateLiquidationPdfService(prisma as never);
+
+    await service.generateForSettlement(MUNICIPALITY_ID, 1);
+
+    expect(prisma.resolutions[0].municipalityId).toBe(MUNICIPALITY_ID);
+    expect([...prisma.counters.keys()]).toEqual([
+      expect.stringMatching(new RegExp(`^${MUNICIPALITY_ID}:`)),
+    ]);
   });
 
   it('throws NotFoundException when the settlement was replaced', async () => {
@@ -197,9 +241,9 @@ describe('GenerateLiquidationPdfService', () => {
     prisma.settlements.push(buildSettlement({ id: 1, replacedAt: new Date() }));
     const service = new GenerateLiquidationPdfService(prisma as never);
 
-    await expect(service.generateForSettlement(1)).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      service.generateForSettlement(MUNICIPALITY_ID, 1),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('reserves a new resolution number and groups same-kind siblings on first generation', async () => {
@@ -212,7 +256,7 @@ describe('GenerateLiquidationPdfService', () => {
     );
     const service = new GenerateLiquidationPdfService(prisma as never);
 
-    const result = await service.generateForSettlement(1);
+    const result = await service.generateForSettlement(MUNICIPALITY_ID, 1);
 
     expect(result.resolutionNumber).toMatch(/^\d{4}-\d{4}$/);
     expect(result.pdf.toString()).toBe('%PDF-fake');
@@ -240,13 +284,14 @@ describe('GenerateLiquidationPdfService', () => {
       number: '2026-0007',
       year: 2026,
       sequence: 7,
+      municipalityId: MUNICIPALITY_ID,
       kind: ResolutionKind.NORMAL,
       propertyId: PROPERTY.id,
     });
     prisma.settlements.push(buildSettlement({ id: 1, resolutionId: 10 }));
     const service = new GenerateLiquidationPdfService(prisma as never);
 
-    const result = await service.generateForSettlement(1);
+    const result = await service.generateForSettlement(MUNICIPALITY_ID, 1);
 
     expect(result.resolutionNumber).toBe('2026-0007');
     expect(prisma.resolutions).toHaveLength(1); // no new Resolution created
@@ -270,9 +315,9 @@ describe('GenerateLiquidationPdfService', () => {
     };
     const service = new GenerateLiquidationPdfService(prisma as never);
 
-    await expect(service.generateForSettlement(1)).rejects.toBeInstanceOf(
-      ConflictException,
-    );
+    await expect(
+      service.generateForSettlement(MUNICIPALITY_ID, 1),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('rejects an incomplete liquidation before rendering or converting a PDF', async () => {
@@ -280,9 +325,9 @@ describe('GenerateLiquidationPdfService', () => {
     prisma.settlements.push(buildSettlement({ id: 1, details: [] }));
     const service = new GenerateLiquidationPdfService(prisma as never);
 
-    await expect(service.generateForSettlement(1)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      service.generateForSettlement(MUNICIPALITY_ID, 1),
+    ).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.resolutions).toHaveLength(0);
     expect(prisma.counters.size).toBe(0);
     expect(renderLiquidationDocx).not.toHaveBeenCalled();
@@ -300,7 +345,7 @@ describe('GenerateLiquidationPdfService', () => {
     );
     const service = new GenerateLiquidationPdfService(prisma as never);
 
-    const failure = service.generateForSettlement(1);
+    const failure = service.generateForSettlement(MUNICIPALITY_ID, 1);
     await expect(failure).rejects.toBeInstanceOf(ServiceUnavailableException);
     // The specific code must survive the 503 so the UI can explain it.
     await expect(failure).rejects.toMatchObject({
@@ -316,8 +361,11 @@ describe('GenerateLiquidationPdfService', () => {
     );
     const service = new GenerateLiquidationPdfService(prisma as never);
 
-    const normal = await service.generateForSettlement(1);
-    const prescriptionRisk = await service.generateForSettlement(2);
+    const normal = await service.generateForSettlement(MUNICIPALITY_ID, 1);
+    const prescriptionRisk = await service.generateForSettlement(
+      MUNICIPALITY_ID,
+      2,
+    );
 
     expect(normal.resolutionNumber).not.toBe(prescriptionRisk.resolutionNumber);
     expect(prisma.resolutions.map((r) => r.kind).sort()).toEqual(

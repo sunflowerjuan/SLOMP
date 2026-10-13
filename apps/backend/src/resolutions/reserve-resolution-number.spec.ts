@@ -6,7 +6,7 @@ import {
 } from './reserve-resolution-number.js';
 
 class FakeCounterClient implements ResolutionCounterClient {
-  private readonly counters = new Map<number, number>();
+  private readonly counters = new Map<string, number>();
 
   resolutionCounter = {
     upsert: async ({
@@ -14,19 +14,23 @@ class FakeCounterClient implements ResolutionCounterClient {
       create,
       update,
     }: {
-      where: { year: number };
-      create: { year: number; lastSequence: number };
+      where: { municipalityId_year: { municipalityId: number; year: number } };
+      create: { municipalityId: number; year: number; lastSequence: number };
       update: { lastSequence: { increment: number } };
       select: { lastSequence: true };
     }) => {
-      const lastSequence = this.counters.has(where.year)
-        ? this.counters.get(where.year)! + update.lastSequence.increment
+      const key = `${where.municipalityId_year.municipalityId}:${where.municipalityId_year.year}`;
+      const lastSequence = this.counters.has(key)
+        ? this.counters.get(key)! + update.lastSequence.increment
         : create.lastSequence;
-      this.counters.set(where.year, lastSequence);
+      this.counters.set(key, lastSequence);
       return { lastSequence };
     },
   };
 }
+
+const MUNICIPALITY_ID = 1;
+const OTHER_MUNICIPALITY_ID = 2;
 
 describe('resolution number reservation', () => {
   it('pads sequences to at least four digits', () => {
@@ -40,12 +44,16 @@ describe('resolution number reservation', () => {
   it('reserves the first number and increments subsequent reservations', async () => {
     const client = new FakeCounterClient();
 
-    await expect(reserveResolutionNumber(client, 2026)).resolves.toEqual({
+    await expect(
+      reserveResolutionNumber(client, MUNICIPALITY_ID, 2026),
+    ).resolves.toEqual({
       year: 2026,
       sequence: 1,
       number: '2026-0001',
     });
-    await expect(reserveResolutionNumber(client, 2026)).resolves.toEqual({
+    await expect(
+      reserveResolutionNumber(client, MUNICIPALITY_ID, 2026),
+    ).resolves.toEqual({
       year: 2026,
       sequence: 2,
       number: '2026-0002',
@@ -55,18 +63,36 @@ describe('resolution number reservation', () => {
   it('starts an independent sequence for each year', async () => {
     const client = new FakeCounterClient();
 
-    await reserveResolutionNumber(client, 2026);
-    await expect(reserveResolutionNumber(client, 2027)).resolves.toMatchObject({
+    await reserveResolutionNumber(client, MUNICIPALITY_ID, 2026);
+    await expect(
+      reserveResolutionNumber(client, MUNICIPALITY_ID, 2027),
+    ).resolves.toMatchObject({
       year: 2027,
       sequence: 1,
       number: '2027-0001',
     });
   });
 
+  it('keeps an independent consecutive per municipality: each one has its own 2026-0001', async () => {
+    const client = new FakeCounterClient();
+
+    await reserveResolutionNumber(client, MUNICIPALITY_ID, 2026);
+    await reserveResolutionNumber(client, MUNICIPALITY_ID, 2026);
+
+    await expect(
+      reserveResolutionNumber(client, OTHER_MUNICIPALITY_ID, 2026),
+    ).resolves.toMatchObject({ sequence: 1, number: '2026-0001' });
+    await expect(
+      reserveResolutionNumber(client, MUNICIPALITY_ID, 2026),
+    ).resolves.toMatchObject({ sequence: 3, number: '2026-0003' });
+  });
+
   it('returns distinct numbers for concurrent reservations', async () => {
     const client = new FakeCounterClient();
     const results = await Promise.all(
-      Array.from({ length: 50 }, () => reserveResolutionNumber(client, 2026)),
+      Array.from({ length: 50 }, () =>
+        reserveResolutionNumber(client, MUNICIPALITY_ID, 2026),
+      ),
     );
 
     expect(new Set(results.map(({ sequence }) => sequence)).size).toBe(50);
@@ -79,7 +105,11 @@ describe('resolution number reservation', () => {
     for (const value of [0, -1, 1.5]) {
       expect(() => formatResolutionNumber(value, 1)).toThrow();
       await expect(
-        reserveResolutionNumber(new FakeCounterClient(), value),
+        reserveResolutionNumber(
+          new FakeCounterClient(),
+          MUNICIPALITY_ID,
+          value,
+        ),
       ).rejects.toThrow();
       expect(() => formatResolutionNumber(2026, value)).toThrow();
     }

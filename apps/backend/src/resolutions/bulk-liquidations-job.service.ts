@@ -37,6 +37,7 @@ export interface BulkJob {
   errorDetails: object | null;
 }
 interface StoredJob {
+  municipalityId: number;
   job: BulkJob;
   zip?: Buffer;
   expiry?: NodeJS.Timeout;
@@ -59,7 +60,9 @@ export function bulkWorkerCount(): number {
 @Injectable()
 export class BulkLiquidationsJobService {
   private readonly jobs = new Map<string, StoredJob>();
-  private activeJobId: string | null = null;
+  // One running job per municipality: each has its own consecutive and its
+  // own pending list, so they do not block each other.
+  private readonly activeJobIds = new Map<number, string>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -70,15 +73,19 @@ export class BulkLiquidationsJobService {
   // (a new resolution is created for them) plus resolutions already generated
   // (re-rendered with the same number and no new consecutive), so a ZIP can be
   // downloaded as many times as needed.
-  private async collectTriggers(): Promise<
-    { id: number; kind: ResolutionKind }[]
-  > {
+  private async collectTriggers(
+    municipalityId: number,
+  ): Promise<{ id: number; kind: ResolutionKind }[]> {
     const pending = await this.prisma.settlement.findMany({
-      where: { replacedAt: null, resolutionId: null },
+      where: {
+        replacedAt: null,
+        resolutionId: null,
+        property: { municipalityId },
+      },
       select: { id: true, propertyId: true, period: true },
     });
     const generated = await this.prisma.resolution.findMany({
-      where: { settlements: { some: { replacedAt: null } } },
+      where: { municipalityId, settlements: { some: { replacedAt: null } } },
       select: {
         kind: true,
         settlements: {
@@ -97,8 +104,10 @@ export class BulkLiquidationsJobService {
     ];
   }
 
-  async pendingCounts(): Promise<{ prescriptionRisk: number; normal: number }> {
-    const triggers = await this.collectTriggers();
+  async pendingCounts(
+    municipalityId: number,
+  ): Promise<{ prescriptionRisk: number; normal: number }> {
+    const triggers = await this.collectTriggers(municipalityId);
     return {
       prescriptionRisk: triggers.filter(
         (t) => t.kind === ResolutionKind.PRESCRIPTION_RISK,
@@ -107,8 +116,11 @@ export class BulkLiquidationsJobService {
     };
   }
 
-  async start(kind: ResolutionKind): Promise<{ jobId: string }> {
-    if (this.activeJobId)
+  async start(
+    municipalityId: number,
+    kind: ResolutionKind,
+  ): Promise<{ jobId: string }> {
+    if (this.activeJobIds.has(municipalityId))
       throw new ConflictException(
         errorBody(
           ErrorCode.BULK_GENERATION_IN_PROGRESS,
@@ -116,10 +128,10 @@ export class BulkLiquidationsJobService {
         ),
       );
     const currentYear = currentYearInColombia();
-    const triggers = (await this.collectTriggers()).filter(
+    const triggers = (await this.collectTriggers(municipalityId)).filter(
       (t) => t.kind === kind,
     );
-    if (this.activeJobId) {
+    if (this.activeJobIds.has(municipalityId)) {
       throw new ConflictException(
         errorBody(
           ErrorCode.BULK_GENERATION_IN_PROGRESS,
@@ -154,19 +166,29 @@ export class BulkLiquidationsJobService {
       errorCode: null,
       errorDetails: null,
     };
-    this.jobs.set(jobId, { job });
-    this.activeJobId = jobId;
+    this.jobs.set(jobId, { municipalityId, job });
+    this.activeJobIds.set(municipalityId, jobId);
     void this.run(this.jobs.get(jobId)!, triggers, currentYear);
     return { jobId };
   }
 
-  getActive(): BulkJob | null {
-    return this.activeJobId
-      ? (this.jobs.get(this.activeJobId)?.job ?? null)
-      : null;
+  getActive(municipalityId: number): BulkJob | null {
+    const activeJobId = this.activeJobIds.get(municipalityId);
+    return activeJobId ? (this.jobs.get(activeJobId)?.job ?? null) : null;
   }
-  get(jobId: string): BulkJob {
+
+  // A job of another municipality is "not found", same as one that does not
+  // exist.
+  private findStored(
+    municipalityId: number,
+    jobId: string,
+  ): StoredJob | undefined {
     const stored = this.jobs.get(jobId);
+    return stored?.municipalityId === municipalityId ? stored : undefined;
+  }
+
+  get(municipalityId: number, jobId: string): BulkJob {
+    const stored = this.findStored(municipalityId, jobId);
     if (!stored)
       throw new NotFoundException(
         errorBody(
@@ -176,8 +198,8 @@ export class BulkLiquidationsJobService {
       );
     return { ...stored.job };
   }
-  download(jobId: string): Buffer {
-    const stored = this.jobs.get(jobId);
+  download(municipalityId: number, jobId: string): Buffer {
+    const stored = this.findStored(municipalityId, jobId);
     if (!stored)
       throw new NotFoundException(
         errorBody(
@@ -226,7 +248,10 @@ export class BulkLiquidationsJobService {
             for (const trigger of batch)
               prepared.push({
                 trigger,
-                item: await this.pdfService.prepareLiquidationDocx(trigger.id),
+                item: await this.pdfService.prepareLiquidationDocx(
+                  stored.municipalityId,
+                  trigger.id,
+                ),
               });
             const docs = prepared.map(({ item }) => ({
               name: randomUUID(),
@@ -280,7 +305,7 @@ export class BulkLiquidationsJobService {
         error instanceof CodedError ? (error.details ?? null) : null;
     } finally {
       stored.job.finishedAt = new Date().toISOString();
-      this.activeJobId = null;
+      this.activeJobIds.delete(stored.municipalityId);
       stored.expiry = setTimeout(
         () => this.deleteJob(stored.job.jobId),
         15 * 60_000,

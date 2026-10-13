@@ -38,6 +38,9 @@ import {
 const PDF = Buffer.from('%PDF-1.4\n%%EOF');
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const MUNICIPALITY_ID = 1;
+const OTHER_MUNICIPALITY_ID = 2;
+
 // Pending settlements: one per property so each one is its own PDF.
 function pending(count: number, period: number) {
   return Array.from({ length: count }, (_, i) => ({
@@ -57,25 +60,28 @@ function buildService(
     resolution: { findMany: vi.fn(async () => generated) },
   };
   const pdfService = {
-    prepareLiquidationDocx: vi.fn(async (id: number) => ({
-      docx: Buffer.from(`docx-${id}`),
-      resolutionNumber: `2026-${String(id).padStart(4, '0')}`,
-      kind,
-    })),
+    prepareLiquidationDocx: vi.fn(
+      async (_municipalityId: number, id: number) => ({
+        docx: Buffer.from(`docx-${id}`),
+        resolutionNumber: `2026-${String(id).padStart(4, '0')}`,
+        kind,
+      }),
+    ),
   };
   const service = new BulkLiquidationsJobService(
     prisma as never,
     pdfService as never,
   );
-  return { service, pdfService };
+  return { service, pdfService, prisma };
 }
 
 async function finished(service: BulkLiquidationsJobService, jobId: string) {
   await vi.waitFor(
-    () => expect(service.get(jobId).status).not.toBe('running'),
+    () =>
+      expect(service.get(MUNICIPALITY_ID, jobId).status).not.toBe('running'),
     { timeout: 5_000, interval: 5 },
   );
-  return service.get(jobId);
+  return service.get(MUNICIPALITY_ID, jobId);
 }
 
 const okBatch = async (docs: { name: string }[]) =>
@@ -113,7 +119,7 @@ describe('bulk liquidation jobs', () => {
     ]);
 
     // Property 1 yields one PDF per type; property 2 only a current one.
-    await expect(service.pendingCounts()).resolves.toEqual({
+    await expect(service.pendingCounts(MUNICIPALITY_ID)).resolves.toEqual({
       prescriptionRisk: 1,
       normal: 2,
     });
@@ -128,21 +134,24 @@ describe('bulk liquidation jobs', () => {
       { kind: ResolutionKind.PRESCRIPTION_RISK, settlements: [{ id: 13 }] },
     ]);
 
-    await expect(service.pendingCounts()).resolves.toEqual({
+    await expect(service.pendingCounts(MUNICIPALITY_ID)).resolves.toEqual({
       prescriptionRisk: 1,
       normal: 2,
     });
 
-    const { jobId } = await service.start(ResolutionKind.NORMAL);
+    const { jobId } = await service.start(
+      MUNICIPALITY_ID,
+      ResolutionKind.NORMAL,
+    );
     const job = await finished(service, jobId);
     expect(job).toMatchObject({ status: 'done', total: 2, completed: 2 });
     expect(
-      pdfService.prepareLiquidationDocx.mock.calls.map(([id]) => id).sort(),
+      pdfService.prepareLiquidationDocx.mock.calls.map(([, id]) => id).sort(),
     ).toEqual([11, 12]);
 
     // Downloading and generating again is allowed: nothing is consumed.
     service.deleteDownloadedJob(jobId);
-    const again = await service.start(ResolutionKind.NORMAL);
+    const again = await service.start(MUNICIPALITY_ID, ResolutionKind.NORMAL);
     expect((await finished(service, again.jobId)).status).toBe('done');
     expect(year).toBeGreaterThan(2000);
   });
@@ -151,32 +160,37 @@ describe('bulk liquidation jobs', () => {
     const year = currentYearInColombia();
     const { service } = buildService(pending(2, year));
 
-    expect(() => service.get('missing')).toThrow(NotFoundException);
+    expect(() => service.get(MUNICIPALITY_ID, 'missing')).toThrow(
+      NotFoundException,
+    );
     await expect(
-      service.start(ResolutionKind.PRESCRIPTION_RISK),
+      service.start(MUNICIPALITY_ID, ResolutionKind.PRESCRIPTION_RISK),
     ).rejects.toBeInstanceOf(NotFoundException);
 
     const { service: big } = buildService(
       pending(MAX_BULK_LIQUIDATIONS + 1, year),
     );
-    await expect(big.start(ResolutionKind.NORMAL)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      big.start(MUNICIPALITY_ID, ResolutionKind.NORMAL),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('runs a job to completion and builds the ZIP with every PDF', async () => {
     const year = currentYearInColombia();
     const { service } = buildService(pending(25, year));
 
-    const { jobId } = await service.start(ResolutionKind.NORMAL);
-    expect(service.getActive()?.jobId).toBe(jobId);
+    const { jobId } = await service.start(
+      MUNICIPALITY_ID,
+      ResolutionKind.NORMAL,
+    );
+    expect(service.getActive(MUNICIPALITY_ID)?.jobId).toBe(jobId);
     const job = await finished(service, jobId);
 
     expect(job).toMatchObject({ status: 'done', total: 25, completed: 25 });
     expect(job.finishedAt).not.toBeNull();
-    expect(service.getActive()).toBeNull();
+    expect(service.getActive(MUNICIPALITY_ID)).toBeNull();
 
-    const zip = new PizZip(service.download(jobId));
+    const zip = new PizZip(service.download(MUNICIPALITY_ID, jobId));
     const folder = `Liquidaciones ${year - PRESCRIPTION_YEARS + 1} en adelante`;
     const names = Object.keys(zip.files).filter(
       (name) => !zip.files[name]!.dir,
@@ -201,7 +215,10 @@ describe('bulk liquidation jobs', () => {
     });
     const { service } = buildService(pending(80, year));
 
-    const { jobId } = await service.start(ResolutionKind.NORMAL);
+    const { jobId } = await service.start(
+      MUNICIPALITY_ID,
+      ResolutionKind.NORMAL,
+    );
     await finished(service, jobId);
 
     expect(peak).toBeLessThanOrEqual(3);
@@ -216,13 +233,16 @@ describe('bulk liquidation jobs', () => {
     });
     const { service } = buildService(pending(60, year));
 
-    const { jobId } = await service.start(ResolutionKind.NORMAL);
+    const { jobId } = await service.start(
+      MUNICIPALITY_ID,
+      ResolutionKind.NORMAL,
+    );
     const seen: number[] = [];
-    while (service.get(jobId).status === 'running') {
-      seen.push(service.get(jobId).completed);
+    while (service.get(MUNICIPALITY_ID, jobId).status === 'running') {
+      seen.push(service.get(MUNICIPALITY_ID, jobId).completed);
       await sleep(3);
     }
-    seen.push(service.get(jobId).completed);
+    seen.push(service.get(MUNICIPALITY_ID, jobId).completed);
 
     expect(seen).toEqual([...seen].sort((a, b) => a - b));
     expect(seen.at(-1)).toBe(60);
@@ -245,7 +265,10 @@ describe('bulk liquidation jobs', () => {
     });
     const { service } = buildService(pending(20, year));
 
-    const { jobId } = await service.start(ResolutionKind.NORMAL);
+    const { jobId } = await service.start(
+      MUNICIPALITY_ID,
+      ResolutionKind.NORMAL,
+    );
     const job = await finished(service, jobId);
 
     expect(job.status).toBe('done');
@@ -267,7 +290,10 @@ describe('bulk liquidation jobs', () => {
     );
     const { service, pdfService } = buildService(pending(100, year));
 
-    const { jobId } = await service.start(ResolutionKind.NORMAL);
+    const { jobId } = await service.start(
+      MUNICIPALITY_ID,
+      ResolutionKind.NORMAL,
+    );
     const job = await finished(service, jobId);
 
     expect(job.status).toBe('failed');
@@ -276,8 +302,10 @@ describe('bulk liquidation jobs', () => {
     expect(pdfService.prepareLiquidationDocx.mock.calls.length).toBeLessThan(
       100,
     );
-    expect(service.getActive()).toBeNull();
-    expect(() => service.download(jobId)).toThrow(ConflictException);
+    expect(service.getActive(MUNICIPALITY_ID)).toBeNull();
+    expect(() => service.download(MUNICIPALITY_ID, jobId)).toThrow(
+      ConflictException,
+    );
   });
 
   it('enforces one running job at a time', async () => {
@@ -288,30 +316,42 @@ describe('bulk liquidation jobs', () => {
     });
     const { service } = buildService(pending(30, year));
 
-    const { jobId } = await service.start(ResolutionKind.NORMAL);
-    await expect(service.start(ResolutionKind.NORMAL)).rejects.toBeInstanceOf(
+    const { jobId } = await service.start(
+      MUNICIPALITY_ID,
+      ResolutionKind.NORMAL,
+    );
+    await expect(
+      service.start(MUNICIPALITY_ID, ResolutionKind.NORMAL),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(() => service.download(MUNICIPALITY_ID, jobId)).toThrow(
       ConflictException,
     );
-    expect(() => service.download(jobId)).toThrow(ConflictException);
 
     await finished(service, jobId);
-    await expect(service.start(ResolutionKind.NORMAL)).resolves.toHaveProperty(
-      'jobId',
-    );
+    await expect(
+      service.start(MUNICIPALITY_ID, ResolutionKind.NORMAL),
+    ).resolves.toHaveProperty('jobId');
   });
 
   it('removes the job once it has been downloaded', async () => {
     const year = currentYearInColombia();
     const { service } = buildService(pending(5, year));
 
-    const { jobId } = await service.start(ResolutionKind.NORMAL);
+    const { jobId } = await service.start(
+      MUNICIPALITY_ID,
+      ResolutionKind.NORMAL,
+    );
     await finished(service, jobId);
-    expect(service.download(jobId).length).toBeGreaterThan(0);
+    expect(service.download(MUNICIPALITY_ID, jobId).length).toBeGreaterThan(0);
 
     service.deleteDownloadedJob(jobId);
 
-    expect(() => service.get(jobId)).toThrow(NotFoundException);
-    expect(() => service.download(jobId)).toThrow(NotFoundException);
+    expect(() => service.get(MUNICIPALITY_ID, jobId)).toThrow(
+      NotFoundException,
+    );
+    expect(() => service.download(MUNICIPALITY_ID, jobId)).toThrow(
+      NotFoundException,
+    );
   });
 
   it('gives every batch its own directory and deletes it afterwards', async () => {
@@ -326,7 +366,10 @@ describe('bulk liquidation jobs', () => {
     );
     const { service } = buildService(pending(30, year));
 
-    const { jobId } = await service.start(ResolutionKind.NORMAL);
+    const { jobId } = await service.start(
+      MUNICIPALITY_ID,
+      ResolutionKind.NORMAL,
+    );
     await finished(service, jobId);
 
     expect(new Set(directories).size).toBe(3);
@@ -343,5 +386,81 @@ describe('StartLiquidationsZipDto', () => {
     expect(await validate(build('PRESCRIPTION_RISK'))).toHaveLength(0);
     expect(await validate(build('ALL'))).not.toHaveLength(0);
     expect(await validate(build(undefined))).not.toHaveLength(0);
+  });
+
+  describe('municipality isolation', () => {
+    it('looks up the pending and generated resolutions of that municipality only', async () => {
+      const { service, prisma } = buildService([]);
+
+      await service.pendingCounts(MUNICIPALITY_ID);
+
+      expect(prisma.settlement.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            property: { municipalityId: MUNICIPALITY_ID },
+          }),
+        }),
+      );
+      expect(prisma.resolution.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ municipalityId: MUNICIPALITY_ID }),
+        }),
+      );
+    });
+
+    it('hands the municipality to every document it prepares', async () => {
+      const { service, pdfService } = buildService(
+        pending(3, currentYearInColombia()),
+      );
+
+      const { jobId } = await service.start(
+        OTHER_MUNICIPALITY_ID,
+        ResolutionKind.NORMAL,
+      );
+      await vi.waitFor(() =>
+        expect(service.get(OTHER_MUNICIPALITY_ID, jobId).status).toBe('done'),
+      );
+
+      expect(
+        pdfService.prepareLiquidationDocx.mock.calls.every(
+          ([municipalityId]) => municipalityId === OTHER_MUNICIPALITY_ID,
+        ),
+      ).toBe(true);
+    });
+
+    it('answers "not found" for a job of another municipality, even with the right id', async () => {
+      const { service } = buildService(pending(2, currentYearInColombia()));
+      const { jobId } = await service.start(
+        MUNICIPALITY_ID,
+        ResolutionKind.NORMAL,
+      );
+      await vi.waitFor(() =>
+        expect(service.get(MUNICIPALITY_ID, jobId).status).toBe('done'),
+      );
+
+      expect(() => service.get(OTHER_MUNICIPALITY_ID, jobId)).toThrow(
+        NotFoundException,
+      );
+      expect(() => service.download(OTHER_MUNICIPALITY_ID, jobId)).toThrow(
+        NotFoundException,
+      );
+      expect(service.getActive(OTHER_MUNICIPALITY_ID)).toBeNull();
+      // The owner still gets it.
+      expect(service.download(MUNICIPALITY_ID, jobId).length).toBeGreaterThan(
+        0,
+      );
+    });
+
+    it('lets two municipalities run a job at the same time', async () => {
+      const { service } = buildService(pending(2, currentYearInColombia()));
+
+      const first = await service.start(MUNICIPALITY_ID, ResolutionKind.NORMAL);
+      const second = await service.start(
+        OTHER_MUNICIPALITY_ID,
+        ResolutionKind.NORMAL,
+      );
+
+      expect(first.jobId).not.toBe(second.jobId);
+    });
   });
 });

@@ -1,8 +1,8 @@
 export interface ResolutionCounterClient {
   resolutionCounter: {
     upsert(args: {
-      where: { year: number };
-      create: { year: number; lastSequence: number };
+      where: { municipalityId_year: { municipalityId: number; year: number } };
+      create: { municipalityId: number; year: number; lastSequence: number };
       update: { lastSequence: { increment: number } };
       select: { lastSequence: true };
     }): Promise<{ lastSequence: number }>;
@@ -20,8 +20,11 @@ export function formatResolutionNumber(year: number, sequence: number): string {
   return `${year}-${String(sequence).padStart(4, '0')}`;
 }
 
+// The consecutive is per municipality and year: every municipality has its
+// own 2026-0001.
 export async function reserveResolutionNumber(
   client: ResolutionCounterClient,
+  municipalityId: number,
   year: number,
 ): Promise<{ year: number; sequence: number; number: string }> {
   if (!Number.isInteger(year) || year <= 0) {
@@ -29,8 +32,8 @@ export async function reserveResolutionNumber(
   }
 
   const { lastSequence } = await client.resolutionCounter.upsert({
-    where: { year },
-    create: { year, lastSequence: 1 },
+    where: { municipalityId_year: { municipalityId, year } },
+    create: { municipalityId, year, lastSequence: 1 },
     update: { lastSequence: { increment: 1 } },
     select: { lastSequence: true },
   });

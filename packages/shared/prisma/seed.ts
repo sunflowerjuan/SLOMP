@@ -54,7 +54,7 @@ async function main() {
     data: {
       email: SEED_ADMIN_EMAIL,
       passwordHash: await bcrypt.hash(SEED_ADMIN_PASSWORD, BCRYPT_SALT_ROUNDS),
-      name: "Administrador Páez",
+      name: "Administrador SLOMP",
     },
   });
   console.log(
@@ -65,7 +65,8 @@ async function main() {
     data: {
       name: "Páez",
       state: "Boyacá",
-      daneCode: "15576",
+      daneCode: "15514", // cadastral codes start with it
+      slug: "paez",
     },
   });
 
@@ -73,6 +74,7 @@ async function main() {
     await Promise.all([
       prisma.owner.create({
         data: {
+          municipalityId: municipality.id,
           name: "Carlos Alberto Rincón Pérez",
           documentId: "9456123",
           documentType: DocumentType.CC,
@@ -82,6 +84,7 @@ async function main() {
       }),
       prisma.owner.create({
         data: {
+          municipalityId: municipality.id,
           name: "María Fernanda López Castro",
           documentId: "40587912",
           documentType: DocumentType.CC,
@@ -91,6 +94,7 @@ async function main() {
       }),
       prisma.owner.create({
         data: {
+          municipalityId: municipality.id,
           name: "José Antonio Gómez Sánchez",
           documentId: "7134589",
           documentType: DocumentType.CC,
@@ -100,6 +104,7 @@ async function main() {
       }),
       prisma.owner.create({
         data: {
+          municipalityId: municipality.id,
           name: "Luz Marina Torres Ramírez",
           documentId: "52698741",
           documentType: DocumentType.CC,
@@ -109,6 +114,7 @@ async function main() {
       }),
       prisma.owner.create({
         data: {
+          municipalityId: municipality.id,
           name: "Édgar Iván Martínez Ruiz",
           documentId: "80234567",
           // Sin clasificación en la cartera: documentType queda NULL (SL-75).
@@ -119,6 +125,7 @@ async function main() {
       }),
       prisma.owner.create({
         data: {
+          municipalityId: municipality.id,
           name: "Agropecuaria Los Alpes S.A.S.",
           documentId: "900123456-1",
           documentType: DocumentType.NIT,
@@ -140,7 +147,7 @@ async function main() {
 
   const propertiesSeed: PropertySeed[] = [
     {
-      cadastralCode: "155760001000000010001",
+      cadastralCode: "155140001000000010001",
       address: "Vereda El Chuscal, Finca La Esperanza",
       area: 45000.0,
       baseAmount2025: 680000,
@@ -149,7 +156,7 @@ async function main() {
       hasPaymentOrder: true,
     },
     {
-      cadastralCode: "155760001000000020001",
+      cadastralCode: "155140001000000020001",
       address: "Vereda Guanto, Finca San Isidro",
       area: 28000.5,
       baseAmount2025: 520000,
@@ -161,7 +168,7 @@ async function main() {
       hasPaymentOrder: false,
     },
     {
-      cadastralCode: "155760002000010000001",
+      cadastralCode: "155140002000010000001",
       address: "Calle 5 # 3-20, Centro",
       area: 180.0,
       baseAmount2025: 210000,
@@ -170,7 +177,7 @@ async function main() {
       hasPaymentOrder: false,
     },
     {
-      cadastralCode: "155760002000020000001",
+      cadastralCode: "155140002000020000001",
       address: "Carrera 4 # 2-15, Centro",
       area: 220.75,
       baseAmount2025: 265000,
@@ -179,7 +186,7 @@ async function main() {
       hasPaymentOrder: false,
     },
     {
-      cadastralCode: "155760001000000030001",
+      cadastralCode: "155140001000000030001",
       address: "Vereda Chuscal Alto, Finca Buenavista",
       area: 62000.0,
       baseAmount2025: 1150000,
@@ -191,7 +198,7 @@ async function main() {
       hasPaymentOrder: true,
     },
     {
-      cadastralCode: "155760001000000040001",
+      cadastralCode: "155140001000000040001",
       address: "Vereda El Roble, Finca La Primavera",
       area: 15500.25,
       baseAmount2025: 395000,
@@ -200,7 +207,7 @@ async function main() {
       hasPaymentOrder: false,
     },
     {
-      cadastralCode: "155760001000000050001",
+      cadastralCode: "155140001000000050001",
       address: "Vereda Guanto Bajo, Finca El Progreso",
       area: 19800.0,
       baseAmount2025: 310000,

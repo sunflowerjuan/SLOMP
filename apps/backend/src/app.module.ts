@@ -7,6 +7,7 @@ import { AppService } from './app.service.js';
 import { AuthModule } from './auth/auth.module.js';
 import { ApiExceptionFilter } from './common/errors/api-exception.filter.js';
 import { JwtAuthGuard } from './auth/jwt-auth.guard.js';
+import { MunicipalitiesModule } from './municipalities/municipalities.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { SettlementsModule } from './settlements/settlements.module.js';
 import { TaxRollModule } from './tax-roll/tax-roll.module.js';
@@ -24,6 +25,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     }),
     PrismaModule,
     AuthModule,
+    MunicipalitiesModule,
     TaxRollModule,
     SettlementsModule,
   ],
