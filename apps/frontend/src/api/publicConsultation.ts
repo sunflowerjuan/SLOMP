@@ -4,10 +4,29 @@ import type { BlobResponse } from "./httpClient";
 
 // Taxpayer public consultation -- an UNAUTHENTICATED channel: every call
 // uses `authenticated: false`, so the Administrator's JWT is never attached
-// and a 401 never ends their session. Rate-limited per IP on the backend
-// (429 past the limit).
+// and a 401 never ends their session. Rate-limited per municipality and IP on
+// the backend (429 past the limit).
+//
+// Every call is scoped to ONE municipality by its slug: that is what each
+// municipality's iframe talks to, and the backend only ever answers with that
+// municipality's data.
 
-export const PUBLIC_CONSULTATION_PATH = "/consulta-publica";
+export function publicConsultationPath(slug: string): string {
+  return `/consulta-publica/${encodeURIComponent(slug)}`;
+}
+
+export interface PublicMunicipality {
+  slug: string;
+  name: string;
+}
+
+// 404 for an unknown slug: the page shows "Consulta no disponible".
+export function getPublicMunicipality(slug: string, signal?: AbortSignal) {
+  return request<PublicMunicipality>(publicConsultationPath(slug), {
+    authenticated: false,
+    signal,
+  });
+}
 
 // 2 or 3 of these fields are sent. Fields the taxpayer leaves empty are NOT
 // sent (not even as an empty string). The frontend only trims; the EXACT
@@ -37,10 +56,11 @@ export interface PublicSettlement {
 // No exact match -> 200 with an empty array, never a 404 and never a
 // suggestion. The page treats an empty array as "not found".
 export function consultSettlements(
+  slug: string,
   criteria: PublicConsultationCriteria,
   signal?: AbortSignal,
 ) {
-  return request<PublicSettlement[]>(PUBLIC_CONSULTATION_PATH, {
+  return request<PublicSettlement[]>(publicConsultationPath(slug), {
     method: "POST",
     body: criteria,
     authenticated: false,
@@ -52,11 +72,12 @@ export function consultSettlements(
 // settlementId actually belongs to one of those matches before generating
 // anything.
 export function generateLiquidationPdf(
+  slug: string,
   settlementId: number,
   criteria: PublicConsultationCriteria,
 ): Promise<BlobResponse> {
   return requestBlob(
-    `${PUBLIC_CONSULTATION_PATH}/${settlementId}/liquidacion-pdf`,
+    `${publicConsultationPath(slug)}/${settlementId}/liquidacion-pdf`,
     {
       method: "POST",
       body: criteria,

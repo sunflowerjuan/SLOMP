@@ -88,7 +88,15 @@ function formatAmount(amount: number): string {
     : currencyWithCentsFormatter.format(amount);
 }
 
-export function PublicConsultationPage() {
+interface PublicConsultationPageProps {
+  slug: string;
+  municipalityName: string;
+}
+
+export function PublicConsultationPage({
+  slug,
+  municipalityName,
+}: PublicConsultationPageProps) {
   const [values, setValues] = useState<FormValues>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [search, setSearch] = useState<SearchState>({ kind: "idle" });
@@ -134,7 +142,11 @@ export function PublicConsultationPage() {
     setSearch({ kind: "loading" });
 
     try {
-      const results = await consultSettlements(criteria, controller.signal);
+      const results = await consultSettlements(
+        slug,
+        criteria,
+        controller.signal,
+      );
       // Without an exact match the backend responds 200 with `[]`: never a
       // 404 that would distinguish "doesn't exist" from "wrong data", and
       // never a hint at which field failed.
@@ -174,6 +186,7 @@ export function PublicConsultationPage() {
     }));
     try {
       const { blob, fileName } = await generateLiquidationPdf(
+        slug,
         settlementId,
         submittedCriteria,
       );
@@ -198,9 +211,11 @@ export function PublicConsultationPage() {
       <header className="public-consultation__topbar">
         <div className="public-consultation__topbar-inner">
           <div className="public-consultation__brand">
-            <span className="public-consultation__brand-tag">SLOMP</span>
+            <span className="public-consultation__brand-tag">
+              {municipalityName}
+            </span>
             <span className="public-consultation__brand-name">
-              Tributaria Predial
+              Impuesto predial
             </span>
           </div>
         </div>
