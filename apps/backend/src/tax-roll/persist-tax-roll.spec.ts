@@ -38,6 +38,7 @@ type FakeSettlement = {
   totalAmount: number;
   status: SettlementStatus;
   replacedAt: Date | null;
+  missingSince?: Date | null;
 };
 
 type FakeSettlementDetail = {
@@ -571,6 +572,119 @@ describe('persistTaxRoll', () => {
       replacedAt: null,
     });
     expectAtMostOneCurrentSettlementPerPropertyPeriod(prisma);
+  });
+
+  describe('periods missing between imports (SL-136)', () => {
+    const currentOf = (prisma: FakePrisma, period: number) =>
+      prisma.settlements.find(
+        (s) => s.period === period && s.replacedAt === null,
+      )!;
+
+    it('marks the period a later import no longer brings, and leaves the rest unmarked', async () => {
+      const prisma = new FakePrisma();
+      await persistTaxRoll(
+        prisma as never,
+        MUNICIPALITY_ID,
+        [2014, 2015, 2016].map((period) => buildRow({ period })),
+        false,
+      );
+
+      await persistTaxRoll(
+        prisma as never,
+        MUNICIPALITY_ID,
+        [2014, 2016].map((period) => buildRow({ period })),
+        true,
+      );
+
+      expect(currentOf(prisma, 2015).missingSince).toBeInstanceOf(Date);
+      expect(currentOf(prisma, 2014).missingSince ?? null).toBeNull();
+      expect(currentOf(prisma, 2016).missingSince ?? null).toBeNull();
+      // Still the current settlement of its period: nothing is replaced.
+      expect(currentOf(prisma, 2015).status).toBe(SettlementStatus.VIGENTE);
+    });
+
+    it('marks nothing while the replacement is not confirmed', async () => {
+      const prisma = new FakePrisma();
+      await persistTaxRoll(
+        prisma as never,
+        MUNICIPALITY_ID,
+        [2014, 2015].map((period) => buildRow({ period })),
+        false,
+      );
+
+      await persistTaxRoll(
+        prisma as never,
+        MUNICIPALITY_ID,
+        [buildRow({ period: 2014 })],
+        false,
+      );
+
+      expect(currentOf(prisma, 2015).missingSince ?? null).toBeNull();
+    });
+
+    it('keeps the date of the first import that missed the period', async () => {
+      const prisma = new FakePrisma();
+      await persistTaxRoll(
+        prisma as never,
+        MUNICIPALITY_ID,
+        [2014, 2015].map((period) => buildRow({ period })),
+        false,
+      );
+      await persistTaxRoll(
+        prisma as never,
+        MUNICIPALITY_ID,
+        [buildRow({ period: 2014 })],
+        true,
+      );
+      const firstMissed = new Date('2026-01-01T00:00:00Z');
+      currentOf(prisma, 2015).missingSince = firstMissed;
+
+      await persistTaxRoll(
+        prisma as never,
+        MUNICIPALITY_ID,
+        [buildRow({ period: 2014 })],
+        true,
+      );
+
+      expect(currentOf(prisma, 2015).missingSince).toBe(firstMissed);
+    });
+
+    it('the mark goes away when a later import brings the period back', async () => {
+      const prisma = new FakePrisma();
+      const both = [2014, 2015].map((period) => buildRow({ period }));
+      await persistTaxRoll(prisma as never, MUNICIPALITY_ID, both, false);
+      await persistTaxRoll(
+        prisma as never,
+        MUNICIPALITY_ID,
+        [buildRow({ period: 2014 })],
+        true,
+      );
+      expect(currentOf(prisma, 2015).missingSince).toBeInstanceOf(Date);
+
+      await persistTaxRoll(prisma as never, MUNICIPALITY_ID, both, true);
+
+      expect(currentOf(prisma, 2015).missingSince ?? null).toBeNull();
+      expectAtMostOneCurrentSettlementPerPropertyPeriod(prisma);
+    });
+
+    it('does not mark a property the new import does not bring at all', async () => {
+      const prisma = new FakePrisma();
+      await persistTaxRoll(
+        prisma as never,
+        MUNICIPALITY_ID,
+        [buildRow({ period: 2015 })],
+        false,
+      );
+
+      await persistTaxRoll(
+        prisma as never,
+        MUNICIPALITY_ID,
+        [buildRow({ cadastralCode: '000100010002', period: 2015 })],
+        false,
+      );
+
+      expect(prisma.settlements[0]!.missingSince ?? null).toBeNull();
+    });
   });
 
   it('a duplicate row for the same property+period within one file only creates one settlement', async () => {

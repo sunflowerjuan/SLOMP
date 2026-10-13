@@ -33,6 +33,27 @@
   animation-delay: calc(var(--i, 0) * 35ms);
 }
 
+/* Rows that need attention (SL-136): a colored edge, with the reason spelled
+   out by the tags under the code. */
+.settlement-list__row--body[data-mark="missing"] {
+  box-shadow: inset 3px 0 0 var(--semantic-danger);
+}
+
+.settlement-list__row--body[data-mark="risk"] {
+  box-shadow: inset 3px 0 0 var(--semantic-warning);
+}
+
+.settlement-list__row--body[data-mark] {
+  padding-bottom: var(--space-8);
+}
+
+/* Room for that edge; the header keeps the same indent so columns line up. */
+@media (min-width: 1280px) {
+  .settlement-list__row > :first-child {
+    padding-left: var(--space-12);
+  }
+}
+
 .settlement-list__row--body[aria-current="true"] {
   background-color: var(--semantic-bg-selected);
 }

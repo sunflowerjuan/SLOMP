@@ -6,6 +6,8 @@ export interface SearchableSettlement {
   period: number;
   status: SettlementStatus;
   totalAmount: number;
+  // Set when a later tax roll import stopped bringing this period.
+  missingSince: Date | null;
   resolution: { id: number; number: string; kind: ResolutionKind } | null;
 }
 
@@ -20,6 +22,20 @@ export interface SettlementGroup {
   // changed one by one.
   status: SettlementStatus | 'MIXED';
   totalAmount: number;
+  // Periods of the group that the latest tax roll no longer brings (SL-136).
+  missingPeriods: number[];
+}
+
+// A period absent from the latest tax roll only needs attention while it is
+// still VIGENTE: once its state changes, the Administrator already acted.
+export function isMissingPeriod(settlement: {
+  status: SettlementStatus;
+  missingSince: Date | null;
+}): boolean {
+  return (
+    settlement.missingSince !== null &&
+    settlement.status === SettlementStatus.VIGENTE
+  );
 }
 
 // Groups ONE property's current settlements the way a PDF is generated: the
@@ -55,6 +71,7 @@ export function groupSettlementsByResolution(
         totalAmount:
           Math.round(sorted.reduce((sum, s) => sum + s.totalAmount, 0) * 100) /
           100,
+        missingPeriods: sorted.filter(isMissingPeriod).map((s) => s.period),
       };
     })
     .sort((a, b) => a.periods[0] - b.periods[0]);

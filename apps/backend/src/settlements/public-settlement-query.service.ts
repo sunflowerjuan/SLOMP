@@ -116,6 +116,9 @@ export class PublicSettlementQueryService {
           period: settlement.period,
           status: settlement.status,
           totalAmount: settlement.totalAmount.toNumber(),
+          // The missing-period mark is for the Administrator only: it never
+          // reaches the public consultation.
+          missingSince: null,
           resolution: settlement.resolution,
         })),
         currentYear,
