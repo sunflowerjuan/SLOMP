@@ -66,6 +66,7 @@ const PERSISTED_RESULT = {
   owners: 1,
   settlements: 1,
   conflicts: [],
+  locked: [],
 };
 const EXPECTED_IMPORT_DATA = {
   fileName: 'roll.xlsx',

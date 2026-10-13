@@ -14,6 +14,7 @@ import {
   groupSettlementsByResolution,
   type SettlementGroup,
 } from './group-search-results.js';
+import { allowedStatuses } from './settlement-status-rules.js';
 
 export interface SettlementSearchCriteria {
   cadastralCode?: string;
@@ -35,6 +36,27 @@ export interface SettlementSearchResult extends SettlementGroup {
   cadastralCode: string;
   address: string;
   ownerName: string;
+  // States the status selector may offer for this group right now.
+  allowedStatuses: SettlementStatus[];
+}
+
+// Earliest payment order (mandamiento) of each resolution, from its
+// settlements' payment orders.
+function firstPaymentOrderByResolution(
+  settlements: {
+    resolutionId: number | null;
+    paymentOrders: { issuedAt: Date }[];
+  }[],
+): Map<number, Date> {
+  const first = new Map<number, Date>();
+  for (const { resolutionId, paymentOrders } of settlements) {
+    if (resolutionId === null) continue;
+    for (const { issuedAt } of paymentOrders) {
+      const current = first.get(resolutionId);
+      if (!current || issuedAt < current) first.set(resolutionId, issuedAt);
+    }
+  }
+  return first;
 }
 
 // How many properties a single search returns (each with all its groups, so
@@ -63,6 +85,7 @@ export class SettlementsService {
     }
 
     const currentYear = currentYearInColombia();
+    const now = new Date();
     const properties = await this.prisma.property.findMany({
       where: {
         // Only properties with a current settlement: one already replaced
@@ -89,7 +112,10 @@ export class SettlementsService {
         owners: { include: { owner: true } },
         settlements: {
           where: { replacedAt: null },
-          include: { resolution: true },
+          include: {
+            resolution: true,
+            paymentOrders: { select: { issuedAt: true } },
+          },
         },
       },
       orderBy: { cadastralCode: 'asc' },
@@ -110,20 +136,39 @@ export class SettlementsService {
         })),
         currentYear,
       );
-      return groups.map((group) => ({
-        ...group,
-        cadastralCode: property.cadastralCode,
-        address: property.address,
-        ownerName,
-      }));
+      const paymentOrders = firstPaymentOrderByResolution(property.settlements);
+      return groups.map((group) => {
+        // The PATCH uses the clicked (first) settlement's state, so the
+        // selector does too -- also for legacy MIXED groups.
+        const trigger = property.settlements.find(
+          (settlement) => settlement.id === group.settlementId,
+        )!;
+        return {
+          ...group,
+          cadastralCode: property.cadastralCode,
+          address: property.address,
+          ownerName,
+          allowedStatuses: allowedStatuses({
+            current: trigger.status,
+            resolutionIssuedAt: trigger.resolution?.issuedAt ?? null,
+            firstPaymentOrderAt:
+              trigger.resolutionId === null
+                ? null
+                : (paymentOrders.get(trigger.resolutionId) ?? null),
+            now,
+          }),
+        };
+      });
     });
   }
 
-  // The Administrator can force any of the 4 states manually. The status
-  // applies to the whole group the settlement belongs to (its Resolution, or
-  // the periods that will form one), because that is the unit the panel and
-  // the PDF show. Only a current settlement can be changed — one already
-  // replaced isn't "the" settlement of its property+period anymore.
+  // The status applies to the whole group the settlement belongs to (its
+  // Resolution, or the periods that will form one), because that is the unit
+  // the panel and the PDF show. Which states can be set depends on the
+  // current one, the resolution's age and its payment order
+  // (settlement-status-rules.ts). Only a current settlement can be changed —
+  // one already replaced isn't "the" settlement of its property+period
+  // anymore.
   async changeStatus(
     id: number,
     status: unknown,
@@ -143,6 +188,7 @@ export class SettlementsService {
 
     const settlement = await this.prisma.settlement.findUnique({
       where: { id },
+      include: { resolution: { select: { issuedAt: true } } },
     });
     if (!settlement) {
       throw new NotFoundException(
@@ -180,6 +226,27 @@ export class SettlementsService {
             currentYearInColombia(),
           );
     const settlementIds = members.map((member) => member.id);
+
+    const firstPaymentOrder = await this.prisma.paymentOrder.findFirst({
+      where: { settlementId: { in: settlementIds } },
+      orderBy: { issuedAt: 'asc' },
+      select: { issuedAt: true },
+    });
+    const allowed = allowedStatuses({
+      current: settlement.status,
+      resolutionIssuedAt: settlement.resolution?.issuedAt ?? null,
+      firstPaymentOrderAt: firstPaymentOrder?.issuedAt ?? null,
+      now: new Date(),
+    });
+    if (!allowed.includes(status as SettlementStatus)) {
+      throw new ConflictException(
+        errorBody(
+          ErrorCode.SETTLEMENT_STATUS_TRANSITION_NOT_ALLOWED,
+          `Cannot change a ${settlement.status} liquidation to ${status}.`,
+          { from: settlement.status, to: status, allowed },
+        ),
+      );
+    }
 
     await this.prisma.settlement.updateMany({
       where: { id: { in: settlementIds } },

@@ -104,6 +104,7 @@ export class TaxRollController {
           owners: 1,
           settlements: 1,
           conflicts: [{ cadastralCode: '041-02-0011-010', period: 2024 }],
+          locked: [],
         },
         importId: 17,
       },

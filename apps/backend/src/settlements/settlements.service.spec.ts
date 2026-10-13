@@ -27,6 +27,8 @@ const settlement = (
   replacedAt: null,
   totalAmount: decimal(1000),
   resolution,
+  resolutionId: (resolution as { id?: number } | null)?.id ?? null,
+  paymentOrders: [],
 });
 
 const ONE_PROPERTY = {
@@ -43,6 +45,7 @@ const ONE_PROPERTY = {
       id: 7,
       number: 'LOIP 15514 2026-0007',
       kind: 'NORMAL',
+      issuedAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
     }),
   ],
 };
@@ -90,12 +93,26 @@ describe('SettlementsService', () => {
         periods: [2018, 2019],
         status: SettlementStatus.VIGENTE,
         totalAmount: 2000,
+        allowedStatuses: [
+          SettlementStatus.VIGENTE,
+          SettlementStatus.PAGADA,
+          SettlementStatus.ACUERDO_DE_PAGO,
+          SettlementStatus.PRESCRITA,
+        ],
       }),
+      // Resolution issued 90 days ago: VIGENTE until the sweep runs, but it
+      // can only move to EN_FIRME, PAGADA or ACUERDO_DE_PAGO.
       expect.objectContaining({
         settlementId: 3,
         resolutionNumber: 'LOIP 15514 2026-0007',
         periods: [2025],
         totalAmount: 1000,
+        allowedStatuses: [
+          SettlementStatus.VIGENTE,
+          SettlementStatus.EN_FIRME,
+          SettlementStatus.PAGADA,
+          SettlementStatus.ACUERDO_DE_PAGO,
+        ],
       }),
     ]);
   });
@@ -124,6 +141,7 @@ describe('SettlementsService', () => {
     function buildPrismaForStatusChange(
       current: unknown,
       siblings: { id: number; period?: number }[] = [],
+      firstPaymentOrder: { issuedAt: Date } | null = null,
     ) {
       return {
         settlement: {
@@ -131,10 +149,24 @@ describe('SettlementsService', () => {
           findMany: vi.fn().mockResolvedValue(siblings),
           updateMany: vi.fn().mockResolvedValue({ count: siblings.length }),
         },
+        paymentOrder: {
+          findFirst: vi.fn().mockResolvedValue(firstPaymentOrder),
+        },
       };
     }
 
-    it('rejects a status that is not one of the 4 ERS states', async () => {
+    const daysAgo = (days: number) =>
+      new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const inResolution = (status: SettlementStatus, issuedDaysAgo: number) => ({
+      id: 1,
+      replacedAt: null,
+      resolutionId: 7,
+      propertyId: 3,
+      status,
+      resolution: { issuedAt: daysAgo(issuedDaysAgo) },
+    });
+
+    it('rejects a status that is not a settlement state', async () => {
       const prisma = buildPrismaForStatusChange({ id: 1, replacedAt: null });
       const service = new SettlementsService(prisma as never);
 
@@ -167,11 +199,15 @@ describe('SettlementsService', () => {
       expect(prisma.settlement.updateMany).not.toHaveBeenCalled();
     });
 
-    it.each(Object.values(SettlementStatus))(
-      'lets the Administrator force %s on every settlement of a generated resolution',
+    it.each([
+      SettlementStatus.PAGADA,
+      SettlementStatus.ACUERDO_DE_PAGO,
+      SettlementStatus.PRESCRITA,
+    ])(
+      'applies an allowed change (%s) to every settlement of a generated resolution',
       async (status) => {
         const prisma = buildPrismaForStatusChange(
-          { id: 1, replacedAt: null, resolutionId: 7, propertyId: 3 },
+          inResolution(SettlementStatus.VIGENTE, 10),
           [{ id: 1 }, { id: 2 }],
         );
         const service = new SettlementsService(prisma as never);
@@ -195,10 +231,82 @@ describe('SettlementsService', () => {
       },
     );
 
+    it('rejects taking an EN_FIRME liquidation back to VIGENTE', async () => {
+      const prisma = buildPrismaForStatusChange(
+        inResolution(SettlementStatus.EN_FIRME, 90),
+        [{ id: 1 }],
+      );
+      const service = new SettlementsService(prisma as never);
+
+      const error = await service
+        .changeStatus(1, SettlementStatus.VIGENTE)
+        .catch((caught: unknown) => caught);
+
+      expect(error).toBeInstanceOf(ConflictException);
+      expect((error as ConflictException).getResponse()).toMatchObject({
+        code: 'SETTLEMENT_STATUS_TRANSITION_NOT_ALLOWED',
+        details: { from: 'EN_FIRME', to: 'VIGENTE' },
+      });
+      expect(prisma.settlement.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('only allows PRESCRITA from EN_FIRME once the payment order is 5 years old', async () => {
+      const blocked = buildPrismaForStatusChange(
+        inResolution(SettlementStatus.EN_FIRME, 90),
+        [{ id: 1 }],
+      );
+      await expect(
+        new SettlementsService(blocked as never).changeStatus(
+          1,
+          SettlementStatus.PRESCRITA,
+        ),
+      ).rejects.toBeInstanceOf(ConflictException);
+
+      const allowed = buildPrismaForStatusChange(
+        inResolution(SettlementStatus.EN_FIRME, 3000),
+        [{ id: 1 }],
+        { issuedAt: daysAgo(6 * 366) },
+      );
+      await new SettlementsService(allowed as never).changeStatus(
+        1,
+        SettlementStatus.PRESCRITA,
+      );
+      expect(allowed.paymentOrder.findFirst).toHaveBeenCalledWith({
+        where: { settlementId: { in: [1] } },
+        orderBy: { issuedAt: 'asc' },
+        select: { issuedAt: true },
+      });
+      expect(allowed.settlement.updateMany).toHaveBeenCalled();
+    });
+
+    it('returns a paid liquidation to EN_FIRME once 60 days have passed', async () => {
+      const prisma = buildPrismaForStatusChange(
+        inResolution(SettlementStatus.PAGADA, 90),
+        [{ id: 1 }],
+      );
+      const service = new SettlementsService(prisma as never);
+
+      await expect(
+        service.changeStatus(1, SettlementStatus.VIGENTE),
+      ).rejects.toBeInstanceOf(ConflictException);
+      await service.changeStatus(1, SettlementStatus.EN_FIRME);
+      expect(prisma.settlement.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: [1] } },
+        data: { status: SettlementStatus.EN_FIRME },
+      });
+    });
+
     it('before a resolution exists, changes only the same-kind periods of that property', async () => {
       // Periods 2000/2001 are always at prescription risk; 2999 never is.
       const prisma = buildPrismaForStatusChange(
-        { id: 1, replacedAt: null, resolutionId: null, propertyId: 3 },
+        {
+          id: 1,
+          replacedAt: null,
+          resolutionId: null,
+          propertyId: 3,
+          status: SettlementStatus.VIGENTE,
+          resolution: null,
+        },
         [
           { id: 1, period: 2000 },
           { id: 2, period: 2001 },
@@ -219,10 +327,11 @@ describe('SettlementsService', () => {
 });
 
 describe('SettlementStatus', () => {
-  it('has exactly the four real settlement lifecycle states', () => {
+  it('has exactly the five real settlement lifecycle states', () => {
     expect(Object.values(SettlementStatus).sort()).toEqual(
       [
         SettlementStatus.VIGENTE,
+        SettlementStatus.EN_FIRME,
         SettlementStatus.PAGADA,
         SettlementStatus.ACUERDO_DE_PAGO,
         SettlementStatus.PRESCRITA,

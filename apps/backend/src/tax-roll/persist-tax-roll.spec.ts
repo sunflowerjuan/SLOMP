@@ -227,6 +227,7 @@ describe('persistTaxRoll', () => {
       owners: 1,
       settlements: 1,
       conflicts: [],
+      locked: [],
     });
     expect(prisma.properties).toHaveLength(1);
     expect(prisma.owners).toHaveLength(1);
@@ -437,6 +438,38 @@ describe('persistTaxRoll', () => {
     ).toHaveLength(1);
   });
 
+  it('never replaces an EN_FIRME settlement: the row is skipped and reported as locked', async () => {
+    const prisma = new FakePrisma();
+    await persistTaxRoll(prisma as never, [buildRow({ total: 100 })], false);
+    prisma.settlements[0]!.status = SettlementStatus.EN_FIRME;
+
+    const locked = buildRow({ total: 200 }); // same property+period, now final
+    const fresh = buildRow({
+      cadastralCode: '000100010002',
+      period: 2025,
+      total: 300,
+    });
+
+    const result = await persistTaxRoll(
+      prisma as never,
+      [locked, fresh],
+      false,
+    );
+
+    // Not a conflict to confirm, so the rest of the file loads right away.
+    expect(result.conflicts).toEqual([]);
+    expect(result.locked).toEqual([
+      { cadastralCode: '000100010001', period: 2024 },
+    ]);
+    expect(result.settlements).toBe(1);
+    expect(prisma.settlements[0]).toMatchObject({
+      totalAmount: 100,
+      status: SettlementStatus.EN_FIRME,
+      replacedAt: null,
+    });
+    expectAtMostOneCurrentSettlementPerPropertyPeriod(prisma);
+  });
+
   it('a duplicate row for the same property+period within one file only creates one settlement', async () => {
     const prisma = new FakePrisma();
 
@@ -571,6 +604,7 @@ describe('persistTaxRoll', () => {
       owners: 0,
       settlements: 0,
       conflicts: [],
+      locked: [],
     });
     expect(prisma.properties).toHaveLength(0);
   });

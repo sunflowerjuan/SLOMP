@@ -22,6 +22,10 @@ export interface PersistTaxRollResult {
   // confirmReplace — the Administrator has to see these and confirm before
   // they're replaced.
   conflicts: TaxRollConflict[];
+  // Property+period pairs whose current settlement is EN_FIRME: a final
+  // liquidation is never replaced from a tax roll, so these rows are skipped
+  // (never a conflict to confirm) and reported here.
+  locked: TaxRollConflict[];
 }
 
 // Order mirrors the source columns; the amounts (interest included) are
@@ -52,7 +56,13 @@ export async function persistTaxRoll(
   confirmReplace: boolean,
 ): Promise<PersistTaxRollResult> {
   if (rows.length === 0) {
-    return { properties: 0, owners: 0, settlements: 0, conflicts: [] };
+    return {
+      properties: 0,
+      owners: 0,
+      settlements: 0,
+      conflicts: [],
+      locked: [],
+    };
   }
 
   const municipality = await prisma.municipality.findFirst();
@@ -170,19 +180,23 @@ export async function persistTaxRoll(
       propertyId: { in: [...propertyIdByCode.values()] },
       replacedAt: null,
     },
-    select: { id: true, propertyId: true, period: true },
+    select: { id: true, propertyId: true, period: true, status: true },
   });
-  const currentIdByPropertyPeriod = new Map(
-    currentSettlements.map((s) => [`${s.propertyId}:${s.period}`, s.id]),
+  const currentByPropertyPeriod = new Map(
+    currentSettlements.map((s) => [`${s.propertyId}:${s.period}`, s]),
   );
 
-  const classifiedRows = [...rowByPropertyPeriod.values()].map((row) => {
+  const allClassifiedRows = [...rowByPropertyPeriod.values()].map((row) => {
     const propertyId = propertyIdByCode.get(row.cadastralCode)!;
-    const currentId = currentIdByPropertyPeriod.get(
-      `${propertyId}:${row.period}`,
-    );
-    return { row, propertyId, currentId };
+    const current = currentByPropertyPeriod.get(`${propertyId}:${row.period}`);
+    return { row, propertyId, currentId: current?.id, current };
   });
+  const lockedRows = allClassifiedRows.filter(
+    (entry) => entry.current?.status === SettlementStatus.EN_FIRME,
+  );
+  const classifiedRows = allClassifiedRows.filter(
+    (entry) => entry.current?.status !== SettlementStatus.EN_FIRME,
+  );
   const conflictingRows = classifiedRows.filter(
     (entry) => entry.currentId !== undefined,
   );
@@ -251,5 +265,9 @@ export async function persistTaxRoll(
     owners: rowByTaxId.size,
     settlements: rowsToCreate.length,
     conflicts,
+    locked: lockedRows.map((entry) => ({
+      cadastralCode: entry.row.cadastralCode,
+      period: entry.row.period,
+    })),
   };
 }
