@@ -125,6 +125,16 @@
   overflow-wrap: anywhere;
 }
 
+.settlement-sheet__details .settlement-marks {
+  margin-top: var(--space-4);
+}
+
+.settlement-sheet__note {
+  margin: var(--space-8) 0 0;
+  font-size: var(--text-sm);
+  font-weight: 400;
+}
+
 @media (max-width: 900px) {
   /* Phone: a bottom sheet that is as tall as its content. */
   .settlement-sheet {

@@ -1,0 +1,30 @@
+.settlement-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Squared and with a colored edge, so it never reads as a status badge. */
+.settlement-marks__tag {
+  padding: 2px var(--space-8);
+  border-left: 3px solid;
+  border-radius: 2px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--semantic-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.settlement-marks__tag--missing {
+  border-color: var(--semantic-danger);
+  background-color: var(--semantic-danger-bg);
+}
+
+.settlement-marks__tag--risk {
+  border-color: var(--semantic-warning);
+  background-color: var(--semantic-warning-bg);
+}

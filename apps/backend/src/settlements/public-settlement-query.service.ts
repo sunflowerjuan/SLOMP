@@ -14,9 +14,11 @@ export interface PublicSettlementQueryCriteria {
   address?: string;
 }
 
-// One row per PDF (a Resolution, or the one it will become), the same
-// grouping the Administrator sees. `settlementId` is the earliest period of
-// the group and works as the trigger for its PDF.
+// One row per issued Resolution, the same grouping the Administrator sees.
+// What has no resolution yet isn't listed: the public consultation only
+// downloads issued resolutions and never reserves a number (Confluence SL-118,
+// section 2). `settlementId` is the earliest period of the group and works as
+// the trigger for its PDF.
 export interface PublicSettlementQueryResult extends SettlementGroup {
   cadastralCode: string;
   address: string;
@@ -125,15 +127,20 @@ export class PublicSettlementQueryService {
           period: settlement.period,
           status: settlement.status,
           totalAmount: settlement.totalAmount.toNumber(),
+          // The missing-period mark is for the Administrator only: it never
+          // reaches the public consultation.
+          missingSince: null,
           resolution: settlement.resolution,
         })),
         currentYear,
-      ).map((group) => ({
-        ...group,
-        cadastralCode: property.cadastralCode,
-        address: property.address,
-        ownerName,
-      }));
+      )
+        .filter((group) => group.resolutionNumber !== null)
+        .map((group) => ({
+          ...group,
+          cadastralCode: property.cadastralCode,
+          address: property.address,
+          ownerName,
+        }));
     });
   }
 

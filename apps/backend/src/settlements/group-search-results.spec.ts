@@ -14,6 +14,7 @@ const row = (
   period,
   status: SettlementStatus.VIGENTE,
   totalAmount: 100,
+  missingSince: null,
   resolution: null,
   ...extra,
 });
@@ -85,6 +86,38 @@ describe('groupSettlementsByResolution', () => {
 
     expect(same[0].status).toBe(SettlementStatus.PAGADA);
     expect(mixed[0].status).toBe('MIXED');
+  });
+
+  describe('missing periods (SL-136)', () => {
+    const MISSED = new Date('2026-10-13T00:00:00Z');
+
+    it('lists the periods of each group that the latest tax roll no longer brings', () => {
+      const groups = groupSettlementsByResolution(
+        [
+          row(1, 2014),
+          row(2, 2015, { missingSince: MISSED }),
+          row(3, 2016),
+          row(4, 2025),
+        ],
+        YEAR,
+      );
+
+      expect(groups.map((group) => group.missingPeriods)).toEqual([[2015], []]);
+    });
+
+    it.each([
+      SettlementStatus.EN_FIRME,
+      SettlementStatus.PAGADA,
+      SettlementStatus.ACUERDO_DE_PAGO,
+      SettlementStatus.PRESCRITA,
+    ])('drops the mark once the period is %s', (status) => {
+      const [group] = groupSettlementsByResolution(
+        [row(1, 2015, { missingSince: MISSED, status })],
+        YEAR,
+      );
+
+      expect(group.missingPeriods).toEqual([]);
+    });
   });
 
   it('adds the amounts without floating point drift', () => {

@@ -23,7 +23,7 @@ const SETTLEMENT_OWNER: Record<number, number> = { 10: 1, 20: 2 };
 const CRITERIA = { cadastralCode: '001', address: 'Main Street' };
 
 async function createApp() {
-  const generateForSettlement = vi.fn(async () => ({
+  const generateIssued = vi.fn(async () => ({
     pdf: Buffer.from('%PDF-fake'),
     resolutionNumber: '2026-0001',
   }));
@@ -54,7 +54,7 @@ async function createApp() {
       },
       {
         provide: GenerateLiquidationPdfService,
-        useValue: { generateForSettlement },
+        useValue: { generateIssued },
       },
       {
         provide: APP_GUARD,
@@ -67,7 +67,7 @@ async function createApp() {
   const app = module.createNestApplication<NestExpressApplication>();
   app.set('trust proxy', 1);
   await app.init();
-  return { app, generateForSettlement, queryBySlug };
+  return { app, generateIssued, queryBySlug };
 }
 
 describe('PublicSettlementQueryController', () => {
@@ -136,7 +136,7 @@ describe('PublicSettlementQueryController', () => {
       `/consulta-publica/${slug}/${id}/liquidacion-pdf`;
 
     it('generates the PDF of a settlement of that municipality, with that municipality id', async () => {
-      const { app, generateForSettlement } = await createApp();
+      const { app, generateIssued } = await createApp();
       try {
         const response = await request(app.getHttpServer())
           .post(pdfUrl('paez', 10))
@@ -144,14 +144,14 @@ describe('PublicSettlementQueryController', () => {
           .expect(201)
           .expect('Content-Type', /application\/pdf/);
         expect(response.headers['content-disposition']).toContain('2026-0001');
-        expect(generateForSettlement).toHaveBeenCalledWith(1, 10);
+        expect(generateIssued).toHaveBeenCalledWith(1, 10);
       } finally {
         await app.close();
       }
     });
 
     it("never generates another municipality's settlement: it looks like 'not found'", async () => {
-      const { app, generateForSettlement } = await createApp();
+      const { app, generateIssued } = await createApp();
       try {
         // 20 belongs to paez-cauca, asked through paez (and vice versa).
         await request(app.getHttpServer())
@@ -162,14 +162,14 @@ describe('PublicSettlementQueryController', () => {
           .post(pdfUrl('paez-cauca', 10))
           .send(CRITERIA)
           .expect(404);
-        expect(generateForSettlement).not.toHaveBeenCalled();
+        expect(generateIssued).not.toHaveBeenCalled();
       } finally {
         await app.close();
       }
     });
 
     it('answers an unknown slug with the same 404 as a settlement that is not there', async () => {
-      const { app, generateForSettlement } = await createApp();
+      const { app, generateIssued } = await createApp();
       try {
         const unknownSlug = await request(app.getHttpServer())
           .post(pdfUrl('no-existe', 10))
@@ -181,7 +181,7 @@ describe('PublicSettlementQueryController', () => {
           .expect(404);
         expect(unknownSlug.body.code).toBe(unknownId.body.code);
         expect(unknownSlug.body.code).toBe('SETTLEMENT_NOT_FOUND');
-        expect(generateForSettlement).not.toHaveBeenCalled();
+        expect(generateIssued).not.toHaveBeenCalled();
       } finally {
         await app.close();
       }

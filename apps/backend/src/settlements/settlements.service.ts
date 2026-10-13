@@ -29,6 +29,8 @@ export interface SettlementStatusChangeResult {
   status: SettlementStatus;
   // What the selector may offer next, from the new state.
   allowedStatuses: SettlementStatus[];
+  // Periods of the group still marked as missing after the change.
+  missingPeriods: number[];
 }
 
 // One row per PDF the Administrator can generate: the periods of a property
@@ -47,15 +49,15 @@ export interface SettlementSearchResult extends SettlementGroup {
 function firstPaymentOrderByResolution(
   settlements: {
     resolutionId: number | null;
-    paymentOrders: { issuedAt: Date }[];
+    paymentOrder: { issuedAt: Date } | null;
   }[],
 ): Map<number, Date> {
   const first = new Map<number, Date>();
-  for (const { resolutionId, paymentOrders } of settlements) {
-    if (resolutionId === null) continue;
-    for (const { issuedAt } of paymentOrders) {
-      const current = first.get(resolutionId);
-      if (!current || issuedAt < current) first.set(resolutionId, issuedAt);
+  for (const { resolutionId, paymentOrder } of settlements) {
+    if (resolutionId === null || paymentOrder === null) continue;
+    const current = first.get(resolutionId);
+    if (!current || paymentOrder.issuedAt < current) {
+      first.set(resolutionId, paymentOrder.issuedAt);
     }
   }
   return first;
@@ -118,7 +120,7 @@ export class SettlementsService {
           where: { replacedAt: null },
           include: {
             resolution: true,
-            paymentOrders: { select: { issuedAt: true } },
+            paymentOrder: { select: { issuedAt: true } },
           },
         },
       },
@@ -136,11 +138,14 @@ export class SettlementsService {
           period: settlement.period,
           status: settlement.status,
           totalAmount: settlement.totalAmount.toNumber(),
+          missingSince: settlement.missingSince,
           resolution: settlement.resolution,
         })),
         currentYear,
       );
-      const paymentOrders = firstPaymentOrderByResolution(property.settlements);
+      const firstPaymentOrders = firstPaymentOrderByResolution(
+        property.settlements,
+      );
       return groups.map((group) => {
         // The PATCH uses the clicked (first) settlement's state, so the
         // selector does too -- also for legacy MIXED groups.
@@ -158,7 +163,7 @@ export class SettlementsService {
             firstPaymentOrderAt:
               trigger.resolutionId === null
                 ? null
-                : (paymentOrders.get(trigger.resolutionId) ?? null),
+                : (firstPaymentOrders.get(trigger.resolutionId) ?? null),
             now,
           }),
         };
@@ -268,6 +273,21 @@ export class SettlementsService {
       data: { status: status as SettlementStatus },
     });
 
+    // The whole group now shares one state, so the mark only survives a
+    // change back to VIGENTE.
+    const stillMissing =
+      status === SettlementStatus.VIGENTE
+        ? await this.prisma.settlement.findMany({
+            where: {
+              id: { in: settlementIds },
+              property: { municipalityId },
+              missingSince: { not: null },
+            },
+            select: { period: true },
+            orderBy: { period: 'asc' },
+          })
+        : [];
+
     return {
       settlementId: id,
       settlementIds,
@@ -276,6 +296,7 @@ export class SettlementsService {
         ...context,
         current: status as SettlementStatus,
       }),
+      missingPeriods: stillMissing.map((member) => member.period),
     };
   }
 }

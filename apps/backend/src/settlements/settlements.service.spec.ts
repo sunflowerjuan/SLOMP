@@ -25,10 +25,11 @@ const settlement = (
   period,
   status: SettlementStatus.VIGENTE,
   replacedAt: null,
+  missingSince: null as Date | null,
   totalAmount: decimal(1000),
   resolution,
   resolutionId: (resolution as { id?: number } | null)?.id ?? null,
-  paymentOrders: [],
+  paymentOrder: null,
 });
 
 const ONE_PROPERTY = {
@@ -121,6 +122,35 @@ describe('SettlementsService', () => {
           SettlementStatus.PAGADA,
           SettlementStatus.ACUERDO_DE_PAGO,
         ],
+      }),
+    ]);
+  });
+
+  it('returns the row indicators: kind of resolution and periods missing from the latest tax roll (SL-136)', async () => {
+    const prisma = buildPrisma([
+      {
+        ...ONE_PROPERTY,
+        settlements: [
+          settlement(1, 2018),
+          { ...settlement(2, 2019), missingSince: new Date() },
+          settlement(3, 2025),
+        ],
+      },
+    ]);
+    const service = new SettlementsService(prisma as never);
+
+    const result = await service.search(MUNICIPALITY_ID, { owner: 'Juan' });
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        kind: 'PRESCRIPTION_RISK',
+        periods: [2018, 2019],
+        missingPeriods: [2019],
+      }),
+      expect.objectContaining({
+        kind: 'NORMAL',
+        periods: [2025],
+        missingPeriods: [],
       }),
     ]);
   });
@@ -259,6 +289,7 @@ describe('SettlementsService', () => {
           settlementIds: [1, 2],
           status,
           allowedStatuses: expect.arrayContaining([status]),
+          missingPeriods: [],
         });
       },
     );

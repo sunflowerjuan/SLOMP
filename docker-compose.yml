@@ -30,7 +30,6 @@ services:
       context: .
       dockerfile: apps/pdf-function/Dockerfile
     environment:
-      MAX_CONCURRENT_CONVERSIONS: 4
       PDF_SERVICE_KEY: ${PDF_SERVICE_KEY:-local-compose-only-change-me}
       # Empty: the service runs without the queue consumer and /render.
       # See .env.example to point it at the azurite container.
@@ -73,6 +72,8 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
       PORT: 3000
       PDF_SERVICE_URL: http://pdf:3001
+      PDF_SERVICE_KEY: ${PDF_SERVICE_KEY:-local-compose-only-change-me}
+      AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-}
     volumes:
       # The official template is client material and isn't in git.
       - ./apps/backend/templates:/app/templates:ro

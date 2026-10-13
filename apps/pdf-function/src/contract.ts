@@ -1,89 +1,27 @@
-import { JobError, type JobErrorCode } from './errors.ts';
+import type {
+  BatchInput,
+  DocumentType,
+  RenderRequest,
+  TemplateRef,
+  WorkMessage,
+} from 'shared/pdf-contract';
+import { JobError } from './errors.ts';
 
-// Message and request shapes agreed with the backend (Confluence page
-// "Servicio de PDF: contrato entre backend y worker (SL-118)", sections 7 and 9).
-// Validated by hand: class-validator relies on decorators, which Node's type
+// Validators for the messages and requests agreed with the backend; the shapes
+// themselves live in packages/shared/pdf-contract.d.ts. Validated by hand: class-validator relies on decorators, which Node's type
 // stripping can't run.
 
-export type DocumentType = 'LIQUIDACION' | 'MANDAMIENTO';
-
-export interface TemplateRef {
-  /** "<container>/<path>", e.g. "templates/paez/liquidacion/1.docx". */
-  blob: string;
-  sha256: string;
-}
-
-export interface RenderBatchMessage {
-  schemaVersion: 1;
-  type: 'render-batch';
-  jobId: string;
-  municipalityId: number;
-  documentType: DocumentType;
-  batchIndex: number;
-  inputBlob: string;
-  template: TemplateRef;
-  outputPrefix: string;
-}
-
-export interface AssembleZipMessage {
-  schemaVersion: 1;
-  type: 'assemble-zip';
-  jobId: string;
-  sourcePrefix: string;
-  zipBlob: string;
-  expectedFiles: number;
-}
-
-export type WorkMessage = RenderBatchMessage | AssembleZipMessage;
-
-export interface BatchInput {
-  documents: { fileName: string; data: Record<string, unknown> }[];
-}
-
-export interface RenderRequest {
-  schemaVersion: 1;
-  documentType: DocumentType;
-  template: TemplateRef;
-  data: Record<string, unknown>;
-}
-
-export type BatchResult =
-  | {
-      schemaVersion: 1;
-      type: 'batch-result';
-      jobId: string;
-      batchIndex: number;
-      status: 'DONE';
-      documentCount: number;
-      attempt: number;
-    }
-  | {
-      schemaVersion: 1;
-      type: 'batch-result';
-      jobId: string;
-      batchIndex: number;
-      status: 'FAILED';
-      attempt: number;
-      errorCode: JobErrorCode;
-      errorDetails?: Record<string, unknown>;
-    };
-
-export type ZipResult =
-  | {
-      schemaVersion: 1;
-      type: 'zip-result';
-      jobId: string;
-      status: 'DONE';
-      sizeBytes: number;
-    }
-  | {
-      schemaVersion: 1;
-      type: 'zip-result';
-      jobId: string;
-      status: 'FAILED';
-      errorCode: JobErrorCode;
-      errorDetails?: Record<string, unknown>;
-    };
+export type {
+  AssembleZipMessage,
+  BatchInput,
+  BatchResult,
+  DocumentType,
+  RenderBatchMessage,
+  RenderRequest,
+  TemplateRef,
+  WorkMessage,
+  ZipResult,
+} from 'shared/pdf-contract';
 
 type Json = Record<string, unknown>;
 

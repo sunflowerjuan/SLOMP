@@ -32,23 +32,10 @@ for (const [i, result] of (
     console.log(`render slot ${i} warm-up failed: ${result[0].code}`);
 }
 
-async function legacyConvert(docx: Buffer): Promise<Buffer> {
-  const slot = await createSofficeSlot(config.convertTimeoutMs);
-  try {
-    const [pdf] = await slot.convert([docx]);
-    if (pdf instanceof JobError) throw pdf;
-    return pdf!;
-  } finally {
-    await slot.dispose();
-  }
-}
-
 const server = createHttpServer({
   serviceKey: config.serviceKey,
   renderPool: createSlotPool(renderSlots),
   getTemplate,
-  legacyConvert,
-  maxConcurrentConversions: config.maxConcurrentConversions,
 }).listen(config.port, () =>
   console.log(`pdf service listening on ${config.port}`),
 );
