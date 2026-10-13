@@ -27,6 +27,8 @@ export interface SettlementStatusChangeResult {
   // Every settlement of the group (resolution) that changed with it.
   settlementIds: number[];
   status: SettlementStatus;
+  // What the selector may offer next, from the new state.
+  allowedStatuses: SettlementStatus[];
 }
 
 // One row per PDF the Administrator can generate: the periods of a property
@@ -232,11 +234,14 @@ export class SettlementsService {
       orderBy: { issuedAt: 'asc' },
       select: { issuedAt: true },
     });
-    const allowed = allowedStatuses({
-      current: settlement.status,
+    const context = {
       resolutionIssuedAt: settlement.resolution?.issuedAt ?? null,
       firstPaymentOrderAt: firstPaymentOrder?.issuedAt ?? null,
       now: new Date(),
+    };
+    const allowed = allowedStatuses({
+      ...context,
+      current: settlement.status,
     });
     if (!allowed.includes(status as SettlementStatus)) {
       throw new ConflictException(
@@ -257,6 +262,10 @@ export class SettlementsService {
       settlementId: id,
       settlementIds,
       status: status as SettlementStatus,
+      allowedStatuses: allowedStatuses({
+        ...context,
+        current: status as SettlementStatus,
+      }),
     };
   }
 }

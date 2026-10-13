@@ -227,6 +227,7 @@ describe('SettlementsService', () => {
           settlementId: 1,
           settlementIds: [1, 2],
           status,
+          allowedStatuses: expect.arrayContaining([status]),
         });
       },
     );
@@ -289,7 +290,12 @@ describe('SettlementsService', () => {
       await expect(
         service.changeStatus(1, SettlementStatus.VIGENTE),
       ).rejects.toBeInstanceOf(ConflictException);
-      await service.changeStatus(1, SettlementStatus.EN_FIRME);
+      const result = await service.changeStatus(1, SettlementStatus.EN_FIRME);
+      expect(result.allowedStatuses).toEqual([
+        SettlementStatus.EN_FIRME,
+        SettlementStatus.PAGADA,
+        SettlementStatus.ACUERDO_DE_PAGO,
+      ]);
       expect(prisma.settlement.updateMany).toHaveBeenCalledWith({
         where: { id: { in: [1] } },
         data: { status: SettlementStatus.EN_FIRME },
