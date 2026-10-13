@@ -1,0 +1,52 @@
+// Uploads a .docx template through the running API, e.g. to install a
+// municipality's first template without the panel:
+//
+//   pnpm --filter backend templates:upload paez LIQUIDACION templates/liquidacion-paez.docx
+//
+// Environment: API_URL (default http://localhost:3000), ADMIN_EMAIL and
+// ADMIN_PASSWORD (default to the development seed account).
+import { openAsBlob } from 'node:fs';
+import { basename } from 'node:path';
+
+const [slug, documentType, file] = process.argv.slice(2);
+if (!slug || !documentType || !file) {
+  console.error(
+    'Usage: upload-template.mjs <municipality-slug> <LIQUIDACION|MANDAMIENTO> <file.docx>',
+  );
+  process.exit(2);
+}
+
+const api = (process.env.API_URL ?? 'http://localhost:3000').replace(/\/+$/, '');
+
+async function call(path, init) {
+  const response = await fetch(`${api}${path}`, init);
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    console.error(`${path} answered ${response.status}:`);
+    console.error(JSON.stringify(body, null, 2));
+    process.exit(1);
+  }
+  return body;
+}
+
+const { accessToken } = await call('/login', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    email: process.env.ADMIN_EMAIL ?? 'admin@paez-boyaca.gov.co',
+    password: process.env.ADMIN_PASSWORD ?? 'changeme123',
+  }),
+});
+
+const form = new FormData();
+form.set('documentType', documentType);
+form.set('file', await openAsBlob(file), basename(file));
+
+const template = await call(`/municipalities/${encodeURIComponent(slug)}/templates`, {
+  method: 'POST',
+  headers: { Authorization: `Bearer ${accessToken}` },
+  body: form,
+});
+console.log(
+  `${template.isActive ? 'Active' : 'Stored'}: ${template.documentType} version ${template.version} (${template.fileName})`,
+);

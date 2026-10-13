@@ -119,6 +119,44 @@ const ERROR_MESSAGES: Record<string, CatalogEntry> = {
   MUNICIPALITY_IMMUTABLE_FIELD:
     "El identificador y el código DANE no se pueden cambiar cuando el municipio ya tiene datos.",
 
+  // Document templates
+  TEMPLATE_FILE_MISSING: "Adjunta la plantilla en formato .docx.",
+  TEMPLATE_FILE_EXTENSION:
+    "La plantilla debe ser un archivo de Word con extensión .docx.",
+  TEMPLATE_FILE_TOO_LARGE: (details) =>
+    `La plantilla supera el tamaño máximo de ${numberOr(details.maxSizeMb, "5")} MB.`,
+  TEMPLATE_NOT_DOCX:
+    "El archivo no es un documento de Word válido. Ábrelo en Word, guárdalo como .docx e intenta de nuevo.",
+  TEMPLATE_HAS_MACROS:
+    "La plantilla tiene macros, que no se permiten. Guárdala como .docx sin macros e intenta de nuevo.",
+  TEMPLATE_MARKERS_MALFORMED: (details) => {
+    const markers = Array.isArray(details.problems)
+      ? (details.problems as { marker?: string }[])
+          .map((problem) => problem.marker)
+          .filter((marker): marker is string => typeof marker === "string")
+          .map((marker) => `{${marker}}`)
+      : [];
+    return `La plantilla no se activó porque tiene marcadores mal escritos${markers.length > 0 ? ` (${joinWithY([...new Set(markers)])})` : ""}. Revisa que cada llave abierta se cierre y que cada sección {#campo} termine con {/campo}.`;
+  },
+  TEMPLATE_FIELDS_INVALID: (details) => {
+    const braces = (items: string[]) => items.map((item) => `{${item}}`);
+    const missing = braces(stringList(details.missing));
+    const unknown = braces(stringList(details.unknown));
+    const parts = [
+      missing.length > 0
+        ? `le ${missing.length > 1 ? "faltan" : "falta"} ${joinWithY(missing)}`
+        : "",
+      unknown.length > 0
+        ? `${unknown.length > 1 ? "tiene marcadores" : "tiene un marcador"} que el sistema no reconoce: ${joinWithY(unknown)}`
+        : "",
+    ].filter(Boolean);
+    return `La plantilla no se activó: ${parts.join(" y ") || "sus marcadores no coinciden con los campos del sistema"}. Corrígela e intenta de nuevo; la plantilla activa sigue siendo la anterior.`;
+  },
+  TEMPLATE_TYPE_UNSUPPORTED:
+    "Todavía no se pueden cargar plantillas de este tipo de documento.",
+  TEMPLATE_NOT_FOUND:
+    "No encontramos la plantilla. Actualiza la lista e intenta de nuevo.",
+
   // Settlements (Administrator panel)
   SETTLEMENT_SEARCH_CRITERIA_REQUIRED:
     "Ingresa al menos un criterio (cédula catastral, propietario o dirección).",
@@ -151,7 +189,7 @@ const ERROR_MESSAGES: Record<string, CatalogEntry> = {
   LIQUIDATION_CONCURRENT_GENERATION:
     "Otra solicitud acaba de generar una liquidación para estos periodos. Actualiza la búsqueda e intenta de nuevo.",
   PDF_TEMPLATE_UNAVAILABLE:
-    "No se encontró la plantilla de la liquidación. Verifica que la plantilla .docx esté instalada en el sistema.",
+    "Este municipio no tiene una plantilla de liquidación activa. Sube una plantilla .docx e intenta de nuevo.",
   PDF_TEMPLATE_INVALID:
     "La plantilla de la liquidación está dañada o no es válida. Reemplázala por una plantilla .docx válida e intenta de nuevo.",
   PDF_CONVERSION_TIMEOUT:

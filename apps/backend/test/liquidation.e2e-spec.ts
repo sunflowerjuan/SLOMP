@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import ExcelJS from 'exceljs';
@@ -18,12 +19,14 @@ const SEEDED_CADASTRAL_CODE = '155140001000000010001';
 
 // The PDF comes from the PDF service (apps/pdf-function) through Storage, and
 // the real .docx is client material, not versioned in git (see
-// templates/.gitkeep). Skip, don't fail, when any prerequisite is missing:
-// run `docker compose up -d azurite pdf` and set the variables locally.
+// templates/.gitkeep). The test uploads it through the templates endpoint, so
+// the generation reads the active template from the database and Blob, as in
+// production. Skip, don't fail, when any prerequisite is missing: run
+// `docker compose up -d azurite pdf` and set the variables locally.
+const TEMPLATE_FILE = resolve(process.cwd(), 'templates/liquidacion-paez.docx');
 const config = pdfConfig();
 const missing = [
-  !existsSync(config.templatePath) &&
-    `template missing at ${config.templatePath}`,
+  !existsSync(TEMPLATE_FILE) && `template missing at ${TEMPLATE_FILE}`,
   !config.storageConnectionString && 'AZURE_STORAGE_CONNECTION_STRING not set',
   !(config.serviceUrl && config.serviceKey) &&
     'PDF_SERVICE_URL / PDF_SERVICE_KEY not set',
@@ -52,6 +55,14 @@ describe.skipIf(!canGeneratePdf)(
         .post('/login')
         .send({ email: SEEDED_ADMIN_EMAIL, password: SEEDED_ADMIN_PASSWORD });
       accessToken = login.body.accessToken;
+
+      // Uploading the same file again returns the active version unchanged.
+      await request(app.getHttpServer())
+        .post('/municipalities/paez/templates')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .field('documentType', 'LIQUIDACION')
+        .attach('file', TEMPLATE_FILE)
+        .expect(201);
     });
 
     afterEach(async () => {

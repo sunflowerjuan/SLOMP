@@ -75,7 +75,9 @@ services:
       PDF_SERVICE_KEY: ${PDF_SERVICE_KEY:-local-compose-only-change-me}
       AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-}
     volumes:
-      # The official template is client material and isn't in git.
+      # The official template is client material and isn't in git. The backend
+      # no longer reads it: upload it through the API (apps/backend/README.md,
+      # "Document templates").
       - ./apps/backend/templates:/app/templates:ro
     depends_on:
       migrate:

@@ -1,6 +1,3 @@
-import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import {
   Injectable,
@@ -33,22 +30,10 @@ export function pdfConfig() {
     zipTtlMinutes: positiveInt('ZIP_TTL_MINUTES', 60),
     watchdogMinutes: positiveInt('JOB_WATCHDOG_MINUTES', 15),
     maxBulkDocuments: positiveInt('MAX_BULK_DOCUMENTS', 10_000),
-    templatePath: resolve(
-      process.cwd(),
-      process.env.LIQUIDATION_TEMPLATE_PATH ||
-        'templates/liquidacion-paez.docx',
-    ),
   };
 }
 
 export type PdfConfig = ReturnType<typeof pdfConfig>;
-
-const DOCX_TYPE =
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-
-// ponytail: the only template is Páez's official .docx, uploaded from disk on
-// first use. SL-91 replaces this with a template per municipality and version.
-const TEMPLATE_MUNICIPALITY_SLUG = 'paez';
 
 // A little longer than the service's own conversion timeout, so its 504 wins.
 const RENDER_TIMEOUT_MS = 35_000;
@@ -77,7 +62,6 @@ export class PdfServiceClient {
     .storageConnectionString
     ? connectPdfStorage(this.config.storageConnectionString, this.config)
     : null;
-  private template: Promise<TemplateRef> | undefined;
 
   constructor(private readonly prisma: PrismaService) {
     if (!this.connected) {
@@ -101,49 +85,21 @@ export class PdfServiceClient {
     return this.connected;
   }
 
+  // The municipality's active liquidation template: its Blob path and hash
+  // travel in every queue message and every POST /render. Templates are
+  // uploaded and validated by TemplatesService.
   async liquidationTemplate(municipalityId: number): Promise<TemplateRef> {
-    const municipality = await this.prisma.municipality.findUnique({
-      where: { id: municipalityId },
-      select: { slug: true },
+    const active = await this.prisma.template.findFirst({
+      where: { municipalityId, documentType: 'LIQUIDACION', isActive: true },
+      select: { blobPath: true, sha256: true },
     });
-    if (municipality?.slug !== TEMPLATE_MUNICIPALITY_SLUG) {
+    if (!active) {
       throw unavailable(
         ErrorCode.PDF_TEMPLATE_UNAVAILABLE,
-        'This municipality has no liquidation template yet.',
+        'This municipality has no active liquidation template.',
       );
     }
-    const storage = this.storage();
-    // Retried on the next request when it fails (Storage down, file missing).
-    this.template ??= this.uploadTemplate(storage).catch((error: unknown) => {
-      this.template = undefined;
-      throw error;
-    });
-    return this.template;
-  }
-
-  private async uploadTemplate(storage: PdfStorage): Promise<TemplateRef> {
-    let docx: Buffer;
-    try {
-      docx = await readFile(this.config.templatePath);
-    } catch (error) {
-      throw unavailable(
-        ErrorCode.PDF_TEMPLATE_UNAVAILABLE,
-        `The liquidation template is missing at ${this.config.templatePath}.`,
-        error,
-      );
-    }
-    const blob = `${this.config.templatesContainer}/${TEMPLATE_MUNICIPALITY_SLUG}/liquidacion/1.docx`;
-    try {
-      await storage.ensureCreated();
-      await storage.upload(blob, docx, DOCX_TYPE);
-    } catch (error) {
-      throw unavailable(
-        ErrorCode.PDF_STORAGE_UNAVAILABLE,
-        'Could not upload the liquidation template to Storage.',
-        error,
-      );
-    }
-    return { blob, sha256: createHash('sha256').update(docx).digest('hex') };
+    return { blob: active.blobPath, sha256: active.sha256 };
   }
 
   async render(request: RenderRequest): Promise<Buffer> {
