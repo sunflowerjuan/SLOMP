@@ -118,3 +118,48 @@ export function buildLiquidationTemplateData(
     rows,
   };
 }
+
+// Raw Decimal amounts from Prisma into the plain numbers
+// buildLiquidationTemplateData works with.
+export function toTemplateSettlements(
+  settlements: {
+    period: number;
+    details: { concept: string; amount: { toNumber(): number } }[];
+  }[],
+): SettlementWithDetailsLike[] {
+  return settlements.map((s) => ({
+    period: s.period,
+    details: s.details.map((d) => ({
+      concept: d.concept,
+      amount: d.amount.toNumber(),
+    })),
+  }));
+}
+
+// Stable keys (not prose) of the data a liquidation PDF can't be generated
+// without, so the frontend can name each missing field. Empty when complete.
+export function missingLiquidationData(
+  property: PropertyLike,
+  settlements: SettlementWithDetailsLike[],
+): string[] {
+  const missing: string[] = [];
+  if (!property.cadastralCode?.trim()) missing.push('CADASTRAL_CODE');
+  if (!property.address?.trim()) missing.push('PROPERTY_ADDRESS');
+  if (settlements.length === 0) missing.push('SETTLEMENT_PERIODS');
+  if (settlements.some((settlement) => settlement.details.length === 0)) {
+    missing.push('SETTLEMENT_DETAILS');
+  }
+  if (
+    settlements.some(
+      (settlement) =>
+        !Number.isInteger(settlement.period) ||
+        settlement.details.some(
+          (detail) =>
+            !detail.concept?.trim() || !Number.isFinite(detail.amount),
+        ),
+    )
+  ) {
+    missing.push('SETTLEMENT_VALUES');
+  }
+  return missing;
+}

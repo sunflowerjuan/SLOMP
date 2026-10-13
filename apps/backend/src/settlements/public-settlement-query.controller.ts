@@ -23,8 +23,8 @@ import { ErrorCode } from '../common/errors/error-codes.js';
 export const PUBLIC_QUERY_LIMIT = 30;
 export const PUBLIC_QUERY_TTL_MS = 60_000;
 
-// Generating a PDF is far more expensive than a plain lookup (it spawns a
-// LibreOffice process per call), so it gets its own, much stricter limit
+// Generating a PDF is far more expensive than a plain lookup (a LibreOffice
+// conversion in the PDF service per call), so it gets its own, much stricter limit
 // via @Throttle on just that route -- the plain lookup above keeps its
 // 30/min from the controller-level ThrottlerModule config.
 const LIQUIDATION_PDF_LIMIT = 5;
@@ -85,7 +85,7 @@ export class PublicSettlementQueryController {
     }
 
     const { pdf, resolutionNumber } =
-      await this.generateLiquidationPdfService.generateForSettlement(
+      await this.generateLiquidationPdfService.generateIssued(
         municipalityId,
         id,
       );

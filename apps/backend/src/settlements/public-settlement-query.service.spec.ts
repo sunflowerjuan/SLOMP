@@ -18,7 +18,7 @@ const ONE_SETTLEMENT = {
   period: 2024,
   status: SettlementStatus.VIGENTE,
   replacedAt: null,
-  resolution: null,
+  resolution: { id: 9, number: '2026-0001', kind: 'NORMAL' },
   totalAmount: decimal(54590),
   property: {
     cadastralCode: '000100010001',
@@ -68,7 +68,7 @@ describe('PublicSettlementQueryService', () => {
         cadastralCode: '000100010001',
         address: 'Finca La Esperanza',
         ownerName: 'Juan Pérez',
-        resolutionNumber: null,
+        resolutionNumber: '2026-0001',
         periods: [2024],
         status: SettlementStatus.VIGENTE,
         totalAmount: 54590,
@@ -157,6 +157,25 @@ describe('PublicSettlementQueryService', () => {
       resolutionNumber: '002-2026',
       periods: [2026],
     });
+  });
+
+  it('lists only issued resolutions: periods without one are not public', async () => {
+    const rows = [
+      ONE_SETTLEMENT,
+      { ...ONE_SETTLEMENT, id: 2, period: 2025, resolution: null },
+    ];
+    const service = new PublicSettlementQueryService(
+      buildPrisma(rows) as never,
+    );
+
+    const result = await service.query({
+      cadastralCode: '000100010001',
+      address: 'Finca La Esperanza',
+    });
+
+    expect(result).toEqual([
+      expect.objectContaining({ settlementId: 1, periods: [2024] }),
+    ]);
   });
 
   it('returns nothing when the given fields do not all match the same predio (RNF-04: no partial or suggested results)', async () => {

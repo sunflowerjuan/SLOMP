@@ -1,8 +1,13 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
 import { CodedError } from '../common/errors/coded-error.js';
 import { errorBody } from '../common/errors/error-body.js';
 import { ErrorCode } from '../common/errors/error-codes.js';
 import type { MunicipalityContext } from '../municipalities/municipality-context.js';
+import { ACTIVE_JOB_STATUSES } from '../pdf-jobs/pdf-job-rules.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { assertCadastralCodesBelongToMunicipality } from './assert-municipality.js';
 import { parseTaxRollUpload } from './parse-tax-roll-upload.js';
@@ -31,6 +36,7 @@ export class TaxRollService {
       municipality,
       parsed.validRows.map((row) => row.cadastralCode),
     );
+    await this.assertNoBulkJob(municipality.id);
     const persisted = await this.persist(
       municipality.id,
       parsed,
@@ -114,6 +120,25 @@ export class TaxRollService {
 
     const created = await this.prisma.taxRollImport.create({ data });
     return created.id;
+  }
+
+  // A bulk job carries its liquidations already assembled in Storage; a load
+  // that replaced them meanwhile would leave the job out of date (Confluence
+  // SL-118, section 10).
+  // ponytail: checked before persisting, not under a lock; a job created in
+  // the same instant is caught by the job's own settlement guard instead.
+  private async assertNoBulkJob(municipalityId: number): Promise<void> {
+    const active = await this.prisma.pdfJob.count({
+      where: { municipalityId, status: { in: ACTIVE_JOB_STATUSES } },
+    });
+    if (active > 0) {
+      throw new ConflictException(
+        errorBody(
+          ErrorCode.BULK_GENERATION_IN_PROGRESS,
+          'A bulk generation job is running for this municipality. Load the tax roll when it finishes.',
+        ),
+      );
+    }
   }
 
   private async persist(

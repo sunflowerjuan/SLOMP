@@ -234,6 +234,12 @@ importers:
 
   apps/backend:
     dependencies:
+      '@azure/storage-blob':
+        specifier: ^12.34.0
+        version: 12.34.0(supports-color@7.2.0)
+      '@azure/storage-queue':
+        specifier: ^12.32.0
+        version: 12.32.0(supports-color@7.2.0)
       '@nestjs/common':
         specifier: ^12.0.1
         version: 12.0.1(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@7.2.0)
@@ -273,9 +279,6 @@ importers:
       class-validator:
         specifier: ^0.15.1
         version: 0.15.1
-      docxtemplater:
-        specifier: ^3.67.5
-        version: 3.71.0
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
@@ -294,9 +297,6 @@ importers:
       pg:
         specifier: ^8.16.3
         version: 8.23.0
-      pizzip:
-        specifier: ^3.2.0
-        version: 3.3.0
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
@@ -346,6 +346,9 @@ importers:
       prisma:
         specifier: ^7.10.0
         version: 7.10.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(magicast@0.5.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(typescript@6.0.3)
+      shared:
+        specifier: workspace:*
+        version: link:../../packages/shared
       source-map-support:
         specifier: ^0.5.21
         version: 0.5.21
@@ -438,6 +441,9 @@ importers:
       oxlint:
         specifier: ^1.58.0
         version: 1.82.0
+      shared:
+        specifier: workspace:*
+        version: link:../../packages/shared
       typescript:
         specifier: ^6.0.2
         version: 6.0.3

@@ -20,7 +20,6 @@ export interface Config {
   maxAttempts: number;
   pollIntervalMs: number;
   convertTimeoutMs: number;
-  maxConcurrentConversions: number;
 }
 
 export function loadConfig(): Config {
@@ -49,6 +48,5 @@ export function loadConfig(): Config {
     maxAttempts: positiveInt('MAX_ATTEMPTS', 3),
     pollIntervalMs: positiveInt('POLL_INTERVAL_MS', 2000),
     convertTimeoutMs: positiveInt('CONVERT_TIMEOUT_MS', 25_000),
-    maxConcurrentConversions: positiveInt('MAX_CONCURRENT_CONVERSIONS', 2),
   };
 }

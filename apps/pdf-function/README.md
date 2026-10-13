@@ -15,7 +15,6 @@ Written in TypeScript that Node 24 runs directly (type stripping): there is no b
 |---|---|
 | `GET /health` | Liveness check. |
 | `POST /render` | Header `X-Internal-Key`. Body `{ schemaVersion: 1, documentType, template: { blob, sha256 }, data }`. Responds `application/pdf`. |
-| `POST /convert` | **Deprecated**, removed in SL-120 once the backend uses `/render`. Body: raw `.docx` bytes. |
 
 `/render` errors (`{ code, message }`): `INVALID_REQUEST` (400), `UNAUTHORIZED` (401), `TOO_LARGE` (413), `TEMPLATE_RENDER_FAILED` (422, the data doesn't fit the template), `TEMPLATE_INVALID` (500), `CONVERSION_FAILED` (500), `TEMPLATE_UNAVAILABLE` (503, missing template, hash mismatch or Storage not configured), `BUSY` (503 + `Retry-After`), `CONVERSION_TIMEOUT` (504).
 
@@ -42,7 +41,6 @@ On startup it creates the queues and the `pdf-jobs` and `templates` containers i
 | `PDF_WORK_QUEUE` / `PDF_RESULTS_QUEUE` / `PDF_POISON_QUEUE` | `pdf-work` / `pdf-results` / `pdf-work-poison` |
 | `PDF_JOBS_CONTAINER` / `TEMPLATES_CONTAINER` | `pdf-jobs` / `templates` |
 | `CONVERT_TIMEOUT_MS` / `LIBREOFFICE_BIN` | `25000` / known install paths |
-| `MAX_CONCURRENT_CONVERSIONS` | `2` (legacy `/convert` only) |
 
 ## Try it locally
 
@@ -51,7 +49,6 @@ pnpm --filter pdf-function test        # unit tests, no LibreOffice or Azure nee
 # Root .env: AZURE_STORAGE_CONNECTION_STRING with Azurite's documented
 # development string, endpoints http://azurite:10000 / :10001
 docker compose up -d --build azurite pdf
-apps/pdf-function/test/smoke.sh        # legacy /convert
 # Same string with 127.0.0.1 endpoints; uses apps/backend/templates/liquidacion-paez.docx
 AZURE_STORAGE_CONNECTION_STRING="..." pnpm --filter pdf-function demo 100
 ```

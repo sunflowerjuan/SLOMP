@@ -4,39 +4,38 @@ import { Test, TestingModule } from '@nestjs/testing';
 import ExcelJS from 'exceljs';
 import request from 'supertest';
 import { AppModule } from './../src/app.module.js';
-import { resolveSofficeBinary } from './../src/liquidation-template/resolve-soffice-binary.js';
-import { TEMPLATE_PATH } from './../src/liquidation-template/render-liquidation-docx.js';
+import { pdfConfig } from './../src/pdf-jobs/pdf-service.client.js';
 
 const SEEDED_ADMIN_EMAIL =
   process.env.SEED_ADMIN_EMAIL ?? 'admin@paez-boyaca.gov.co';
 const SEEDED_ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? 'changeme123';
 
-// Seeded by packages/shared/prisma/seed.ts.
+// Seeded by packages/shared/prisma/seed.ts. The panel search matches by
+// prefix, so it also finds the real 30-digit code when the real tax roll is
+// loaded instead of the seed; the public route then uses what the panel
+// returned, because it only accepts exact values.
 const SEEDED_CADASTRAL_CODE = '155140001000000010001';
-const SEEDED_ADDRESS = 'Vereda El Chuscal, Finca La Esperanza';
 
-function hasSoffice(): boolean {
-  try {
-    resolveSofficeBinary();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// The real .docx is client material, not versioned in git -- see
-// templates/.gitkeep. Without it there's no fallback: renderLiquidationDocx
-// always reads from the real TEMPLATE_PATH in the actual generation flow
-// (only unit tests substitute a fixture, by passing it a different path
-// directly). Skip, don't fail, when either prerequisite is missing locally.
-const canGeneratePdf = hasSoffice() && existsSync(TEMPLATE_PATH);
+// The PDF comes from the PDF service (apps/pdf-function) through Storage, and
+// the real .docx is client material, not versioned in git (see
+// templates/.gitkeep). Skip, don't fail, when any prerequisite is missing:
+// run `docker compose up -d azurite pdf` and set the variables locally.
+const config = pdfConfig();
+const missing = [
+  !existsSync(config.templatePath) &&
+    `template missing at ${config.templatePath}`,
+  !config.storageConnectionString && 'AZURE_STORAGE_CONNECTION_STRING not set',
+  !(config.serviceUrl && config.serviceKey) &&
+    'PDF_SERVICE_URL / PDF_SERVICE_KEY not set',
+].filter(Boolean);
+const canGeneratePdf = missing.length === 0;
 
 function isPdf(buffer: Buffer): boolean {
   return buffer.subarray(0, 5).toString('ascii') === '%PDF-';
 }
 
 describe.skipIf(!canGeneratePdf)(
-  'Liquidation PDF generation (e2e, real template + soffice)',
+  'Liquidation PDF generation (e2e, real template + PDF service)',
   () => {
     let app: INestApplication;
     let accessToken: string;
@@ -59,7 +58,11 @@ describe.skipIf(!canGeneratePdf)(
       await app.close();
     });
 
-    async function findSeededSettlementId(): Promise<number> {
+    async function findSeededSettlement(): Promise<{
+      settlementId: number;
+      cadastralCode: string;
+      address: string;
+    }> {
       const response = await request(app.getHttpServer())
         .get('/municipalities/paez/settlements/search')
         .query({ cadastralCode: SEEDED_CADASTRAL_CODE })
@@ -71,7 +74,11 @@ describe.skipIf(!canGeneratePdf)(
           `No seeded settlement found for ${SEEDED_CADASTRAL_CODE} -- did you run db:seed?`,
         );
       }
-      return settlement.settlementId;
+      return settlement;
+    }
+
+    async function findSeededSettlementId(): Promise<number> {
+      return (await findSeededSettlement()).settlementId;
     }
 
     it('admin route: generates a real, non-empty PDF for a seeded settlement', async () => {
@@ -102,12 +109,20 @@ describe.skipIf(!canGeneratePdf)(
         .expect(401);
     });
 
-    it('public route: generates the same PDF without a JWT, given 2 of 3 matching fields', async () => {
-      const settlementId = await findSeededSettlementId();
+    it('public route: downloads the issued PDF without a JWT, given 2 of 3 matching fields', async () => {
+      const { settlementId, cadastralCode, address } =
+        await findSeededSettlement();
+      // Only issued resolutions are public: the panel issues it first.
+      await request(app.getHttpServer())
+        .post(
+          `/municipalities/paez/settlements/${settlementId}/liquidation-pdf`,
+        )
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(201);
 
       const response = await request(app.getHttpServer())
         .post(`/consulta-publica/${settlementId}/liquidacion-pdf`)
-        .send({ cadastralCode: SEEDED_CADASTRAL_CODE, address: SEEDED_ADDRESS })
+        .send({ cadastralCode, address })
         .expect(201);
 
       expect(isPdf(response.body as Buffer)).toBe(true);
@@ -216,9 +231,5 @@ describe.skipIf(!canGeneratePdf)(
 
 // Documents why the suite above might silently show 0 tests run locally.
 if (!canGeneratePdf) {
-  console.warn(
-    `Skipping liquidation PDF e2e tests: ${hasSoffice() ? '' : 'soffice not found; '}${
-      existsSync(TEMPLATE_PATH) ? '' : `template missing at ${TEMPLATE_PATH}`
-    }`.trim(),
-  );
+  console.warn(`Skipping liquidation PDF e2e tests: ${missing.join('; ')}`);
 }
