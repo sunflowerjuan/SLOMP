@@ -18,6 +18,8 @@ export interface SettlementSearchResult {
   // "MIXED" only for legacy data whose periods have different states.
   status: SettlementStatus | "MIXED";
   totalAmount: number;
+  // States the selector may offer right now (decided by the backend).
+  allowedStatuses: SettlementStatus[];
 }
 
 export interface SettlementSearchCriteria {
@@ -52,14 +54,19 @@ export function generateLiquidationPdf(
   });
 }
 
-// The Administrator can force any of the 4 states manually; it applies to
-// the whole group (resolution) of the given settlement.
+// Applies to the whole group (resolution) of the given settlement. Only the
+// states in `allowedStatuses` are accepted; the response says which ones are
+// allowed next.
 export function changeSettlementStatus(
   settlementId: number,
   status: SettlementStatus,
 ) {
-  return request<{ settlementId: number; status: SettlementStatus }>(
-    `/settlements/${settlementId}/status`,
-    { method: "PATCH", body: { status } },
-  );
+  return request<{
+    settlementId: number;
+    status: SettlementStatus;
+    allowedStatuses: SettlementStatus[];
+  }>(`/settlements/${settlementId}/status`, {
+    method: "PATCH",
+    body: { status },
+  });
 }

@@ -150,6 +150,7 @@ export function SettlementList({
               <div role="cell" className="settlement-list__status">
                 <SettlementStatusCell
                   status={entry.status}
+                  allowedStatuses={entry.allowedStatuses}
                   description={`${entry.cadastralCode}, periodos ${periods}`}
                   editing={editingId === entry.settlementId}
                   saving={statusChangeId === entry.settlementId}

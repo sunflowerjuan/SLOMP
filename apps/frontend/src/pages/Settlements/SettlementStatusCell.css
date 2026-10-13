@@ -2,7 +2,11 @@
   display: flex;
   align-items: center;
   gap: var(--space-8);
-  flex-wrap: wrap;
+}
+
+/* The badge shrinks (and wraps) so the edit button stays beside it. */
+.status-cell .ui-status-badge {
+  min-width: 0;
 }
 
 .status-cell__select {
