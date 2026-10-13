@@ -167,8 +167,26 @@ async function assembleZip(
   };
 }
 
+// Just enough of a message to address a FAILED result to its job.
+type ReportTarget =
+  | { type: 'render-batch'; jobId: string; batchIndex: number }
+  | { type: 'assemble-zip'; jobId: string };
+
+// A message that failed validation can still name its job; reporting it
+// lets the backend revert right away instead of waiting for its watchdog.
+function reportTarget(raw: unknown): ReportTarget | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined;
+  const { type, jobId, batchIndex } = raw as Record<string, unknown>;
+  if (typeof jobId !== 'string' || jobId === '') return undefined;
+  if (type === 'assemble-zip') return { type, jobId };
+  if (type === 'render-batch' && Number.isInteger(batchIndex)) {
+    return { type, jobId, batchIndex: batchIndex as number };
+  }
+  return undefined;
+}
+
 function failure(
-  message: WorkMessage,
+  message: ReportTarget,
   error: JobError,
   attempt: number,
 ): BatchResult | ZipResult {
@@ -203,13 +221,19 @@ export async function handleMessage(
   const log = deps.log ?? console.log;
   const attempt = queued.dequeueCount;
 
+  let raw: unknown;
   let message: WorkMessage;
   try {
-    message = parseWorkMessage(JSON.parse(queued.text));
+    raw = JSON.parse(queued.text);
+    message = parseWorkMessage(raw);
   } catch (error) {
-    // Without a valid message there is no job to report to: keep a copy for
-    // diagnosis and drop it from the work queue.
+    // Kept in poison for diagnosis; reported when the job can be told.
     log(`invalid message ${queued.messageId}: ${(error as Error).message}`);
+    const target = reportTarget(raw);
+    if (target) {
+      const jobError = asJobError(error);
+      await results.send(JSON.stringify(failure(target, jobError, attempt)));
+    }
     await poison.send(queued.text);
     await work.delete(queued);
     return;

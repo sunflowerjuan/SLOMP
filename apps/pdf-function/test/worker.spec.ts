@@ -177,6 +177,26 @@ describe('render-batch', () => {
     expect(storage.poison.sent).toEqual(['not json']);
     expect(storage.work.deleted).toHaveLength(1);
   });
+
+  it('still reports an invalid message that names its job', async () => {
+    const { storage, deps, renderBatch } = setup();
+    const unsafe = {
+      ...renderBatch(4, ['a.pdf']),
+      outputPrefix: 'pdf-jobs/../templates/',
+    };
+    await deliver(deps, unsafe);
+    expect(storage.results.sentJson()).toEqual([
+      expect.objectContaining({
+        type: 'batch-result',
+        jobId: JOB,
+        batchIndex: 4,
+        status: 'FAILED',
+        errorCode: 'INVALID_MESSAGE',
+      }),
+    ]);
+    expect(storage.poison.sent).toHaveLength(1);
+    expect(storage.work.deleted).toHaveLength(1);
+  });
 });
 
 describe('assemble-zip', () => {
