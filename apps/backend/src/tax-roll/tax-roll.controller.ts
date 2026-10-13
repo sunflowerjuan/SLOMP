@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -25,12 +24,11 @@ import type { MunicipalityContext } from '../municipalities/municipality-context
 import { MunicipalityGuard } from '../municipalities/municipality.guard.js';
 import { TaxRollService } from './tax-roll.service.js';
 import {
+  assertUploadedXlsx,
   MAX_TAX_ROLL_FILE_SIZE_MB,
   TAX_ROLL_UPLOAD_LIMITS,
   TaxRollFileTooLargeFilter,
 } from './tax-roll-upload.js';
-import { errorBody } from '../common/errors/error-body.js';
-import { ErrorCode } from '../common/errors/error-codes.js';
 
 @ApiTags('tax-roll')
 @ApiBearerAuth()
@@ -128,22 +126,7 @@ export class TaxRollController {
     // Id of the TaxRollImport being confirmed -- see TaxRollService.import.
     @Body('previousImportId') previousImportId?: string,
   ) {
-    if (!file) {
-      throw new BadRequestException(
-        errorBody(
-          ErrorCode.TAX_ROLL_FILE_MISSING,
-          'You must attach an Excel file (.xlsx) in the "file" field.',
-        ),
-      );
-    }
-    if (!file.originalname.toLowerCase().endsWith('.xlsx')) {
-      throw new BadRequestException(
-        errorBody(
-          ErrorCode.TAX_ROLL_FILE_EXTENSION,
-          'The file must have a .xlsx extension.',
-        ),
-      );
-    }
+    assertUploadedXlsx(file);
     const parsedPreviousImportId = Number(previousImportId);
     return this.taxRollService.import(
       municipality,

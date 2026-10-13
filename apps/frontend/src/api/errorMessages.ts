@@ -129,6 +129,10 @@ const ERROR_MESSAGES: Record<string, CatalogEntry> = {
   SETTLEMENT_ALREADY_REPLACED:
     "No se puede cambiar el estado de una liquidación que ya fue reemplazada.",
 
+  // Payment orders
+  PAYMENT_ORDER_CONCURRENT_GENERATION:
+    "Otra solicitud ya generó el mandamiento de una de estas liquidaciones. Actualiza la lista e intenta de nuevo.",
+
   // Public consultation
   PUBLIC_QUERY_CRITERIA_REQUIRED:
     "Ingresa al menos 2 de los 3 datos del predio para realizar la consulta.",
