@@ -99,8 +99,25 @@ const ERROR_MESSAGES: Record<string, CatalogEntry> = {
     "El Excel tiene los encabezados correctos pero no contiene filas de datos.",
   TAX_ROLL_UNREADABLE:
     "No se pudo leer el archivo de Excel. Ábrelo en Excel, guárdalo de nuevo e intenta otra vez.",
-  MUNICIPALITY_NOT_CONFIGURED:
-    "El sistema aún no tiene un municipio configurado, por eso no se puede cargar la cartera. Contacta al equipo de soporte.",
+  TAX_ROLL_WRONG_MUNICIPALITY: (details) => {
+    const found = Array.isArray(details.foundPrefixes)
+      ? (details.foundPrefixes as { municipality?: string | null }[])
+      : [];
+    const guess = found.find((entry) => entry.municipality)?.municipality;
+    return guess
+      ? `Este archivo parece ser de ${guess}, no del municipio en el que estás trabajando. No se guardó nada.`
+      : `Algunas cédulas catastrales del archivo no empiezan por el código DANE ${String(details.expectedPrefix ?? "")} del municipio en el que estás trabajando. No se guardó nada.`;
+  },
+
+  // Municipalities
+  MUNICIPALITY_NOT_FOUND: "No encontramos el municipio.",
+  MUNICIPALITY_INVALID_DANE: "El código DANE debe tener exactamente 5 dígitos.",
+  MUNICIPALITY_INVALID_SLUG:
+    "El identificador solo puede tener letras minúsculas, números y guiones entre ellos.",
+  MUNICIPALITY_DANE_TAKEN: "Ya existe un municipio con ese código DANE.",
+  MUNICIPALITY_SLUG_TAKEN: "Ya existe un municipio con ese identificador.",
+  MUNICIPALITY_IMMUTABLE_FIELD:
+    "El identificador y el código DANE no se pueden cambiar cuando el municipio ya tiene datos.",
 
   // Settlements (Administrator panel)
   SETTLEMENT_SEARCH_CRITERIA_REQUIRED:

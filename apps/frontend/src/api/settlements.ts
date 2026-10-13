@@ -1,6 +1,7 @@
 import type { SettlementStatus } from "../domain/settlementStatus";
 import { request, requestBlob } from "./httpClient";
 import type { BlobResponse } from "./httpClient";
+import { municipalityPath } from "./municipality";
 
 export type { SettlementStatus };
 
@@ -40,16 +41,17 @@ export function searchSettlements(criteria: SettlementSearchCriteria) {
   const query = params.toString();
 
   return request<SettlementSearchResult[]>(
-    `/settlements/search${query ? `?${query}` : ""}`,
+    municipalityPath(`/settlements/search${query ? `?${query}` : ""}`),
   );
 }
 
 export function generateLiquidationPdf(
   settlementId: number,
 ): Promise<BlobResponse> {
-  return requestBlob(`/settlements/${settlementId}/liquidation-pdf`, {
-    method: "POST",
-  });
+  return requestBlob(
+    municipalityPath(`/settlements/${settlementId}/liquidation-pdf`),
+    { method: "POST" },
+  );
 }
 
 // The Administrator can force any of the 4 states manually; it applies to
@@ -59,7 +61,7 @@ export function changeSettlementStatus(
   status: SettlementStatus,
 ) {
   return request<{ settlementId: number; status: SettlementStatus }>(
-    `/settlements/${settlementId}/status`,
+    municipalityPath(`/settlements/${settlementId}/status`),
     { method: "PATCH", body: { status } },
   );
 }

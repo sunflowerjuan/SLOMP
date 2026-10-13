@@ -48,12 +48,14 @@ describe('Auth (e2e)', () => {
   });
 
   it('blocks a panel endpoint when no token is sent', async () => {
-    await request(app.getHttpServer()).post('/tax-roll/import').expect(401);
+    await request(app.getHttpServer())
+      .post('/municipalities/paez/tax-roll/import')
+      .expect(401);
   });
 
   it('blocks a panel endpoint when the token is invalid', async () => {
     await request(app.getHttpServer())
-      .post('/tax-roll/import')
+      .post('/municipalities/paez/tax-roll/import')
       .set('Authorization', 'Bearer not-a-real-token')
       .expect(401);
   });
@@ -66,7 +68,7 @@ describe('Auth (e2e)', () => {
     // No file attached: clears the guard, then fails its own validation as
     // usual (400, not 401) — proves the request reached the controller.
     await request(app.getHttpServer())
-      .post('/tax-roll/import')
+      .post('/municipalities/paez/tax-roll/import')
       .set('Authorization', `Bearer ${login.body.accessToken}`)
       .expect(400);
   });

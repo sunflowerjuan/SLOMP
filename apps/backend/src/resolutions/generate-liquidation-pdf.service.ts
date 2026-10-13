@@ -97,9 +97,13 @@ export class GenerateLiquidationPdfService {
   constructor(private readonly prisma: PrismaService) {}
 
   async generateForSettlement(
+    municipalityId: number,
     settlementId: number,
   ): Promise<GeneratedLiquidationPdf> {
-    const prepared = await this.prepareLiquidationDocx(settlementId);
+    const prepared = await this.prepareLiquidationDocx(
+      municipalityId,
+      settlementId,
+    );
     let pdf: Buffer;
     try {
       pdf = await convertDocxToPdf(prepared.docx);
@@ -116,10 +120,13 @@ export class GenerateLiquidationPdfService {
   }
 
   async prepareLiquidationDocx(
+    municipalityId: number,
     settlementId: number,
   ): Promise<PreparedLiquidationDocx> {
-    const settlement = await this.prisma.settlement.findUnique({
-      where: { id: settlementId },
+    // A settlement of another municipality is "not found", same as one that
+    // does not exist.
+    const settlement = await this.prisma.settlement.findFirst({
+      where: { id: settlementId, property: { municipalityId } },
       include: {
         property: { include: { owners: { include: { owner: true } } } },
       },
@@ -143,8 +150,8 @@ export class GenerateLiquidationPdfService {
       // Already generated before: re-render the SAME resolution, no new
       // consecutive reserved. A period with an active resolution never
       // becomes a candidate for another one.
-      const resolution = await this.prisma.resolution.findUniqueOrThrow({
-        where: { id: settlement.resolutionId },
+      const resolution = await this.prisma.resolution.findFirstOrThrow({
+        where: { id: settlement.resolutionId, municipalityId },
         include: { settlements: { include: { details: true } } },
       });
       resolutionNumber = resolution.number;
@@ -159,6 +166,7 @@ export class GenerateLiquidationPdfService {
       const candidates = await this.prisma.settlement.findMany({
         where: {
           propertyId: settlement.propertyId,
+          property: { municipalityId },
           replacedAt: null,
           resolutionId: null,
         },
@@ -175,7 +183,7 @@ export class GenerateLiquidationPdfService {
       // resolution number. This prevents incomplete data from consuming a
       // number or leaving an associated resolution behind after a failed PDF.
       const preflightSettlements = await this.prisma.settlement.findMany({
-        where: { id: { in: groupIds } },
+        where: { id: { in: groupIds }, property: { municipalityId } },
         include: { details: true },
       });
       assertCompleteLiquidationData(
@@ -185,7 +193,11 @@ export class GenerateLiquidationPdfService {
 
       const { resolution, settlements: grouped } =
         await this.prisma.$transaction(async (tx) => {
-          const reserved = await reserveResolutionNumber(tx, currentYear);
+          const reserved = await reserveResolutionNumber(
+            tx,
+            municipalityId,
+            currentYear,
+          );
           const resolution = await tx.resolution.create({
             data: {
               number: reserved.number,
@@ -193,13 +205,18 @@ export class GenerateLiquidationPdfService {
               sequence: reserved.sequence,
               kind,
               propertyId: settlement.propertyId,
+              municipalityId,
             },
           });
 
           // Optimistic guard against a concurrent generation for the same
           // property+kind claiming one of these settlements first.
           const updated = await tx.settlement.updateMany({
-            where: { id: { in: groupIds }, resolutionId: null },
+            where: {
+              id: { in: groupIds },
+              property: { municipalityId },
+              resolutionId: null,
+            },
             data: { resolutionId: resolution.id },
           });
           if (updated.count !== groupIds.length) {
@@ -212,7 +229,7 @@ export class GenerateLiquidationPdfService {
           }
 
           const settlements = await tx.settlement.findMany({
-            where: { id: { in: groupIds } },
+            where: { id: { in: groupIds }, property: { municipalityId } },
             include: { details: true },
           });
           return { resolution, settlements };

@@ -9,12 +9,17 @@ import {
   Res,
   StreamableFile,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import { CurrentMunicipality } from '../municipalities/current-municipality.decorator.js';
+import type { MunicipalityContext } from '../municipalities/municipality-context.js';
+import { MunicipalityGuard } from '../municipalities/municipality.guard.js';
 import { GenerateLiquidationPdfService } from '../resolutions/generate-liquidation-pdf.service.js';
 import { SettlementsService } from './settlements.service.js';
 
-@Controller('settlements')
+@UseGuards(MunicipalityGuard)
+@Controller('municipalities/:slug/settlements')
 export class SettlementsController {
   constructor(
     private readonly settlementsService: SettlementsService,
@@ -23,28 +28,38 @@ export class SettlementsController {
 
   @Get('search')
   search(
+    @CurrentMunicipality() municipality: MunicipalityContext,
     @Query('cadastralCode') cadastralCode?: string,
     @Query('owner') owner?: string,
     @Query('address') address?: string,
   ) {
-    return this.settlementsService.search({ cadastralCode, owner, address });
+    return this.settlementsService.search(municipality.id, {
+      cadastralCode,
+      owner,
+      address,
+    });
   }
 
   @Patch(':id/status')
   changeStatus(
+    @CurrentMunicipality() municipality: MunicipalityContext,
     @Param('id', ParseIntPipe) id: number,
     @Body('status') status: unknown,
   ) {
-    return this.settlementsService.changeStatus(id, status);
+    return this.settlementsService.changeStatus(municipality.id, id, status);
   }
 
   @Post(':id/liquidation-pdf')
   async generateLiquidationPdf(
+    @CurrentMunicipality() municipality: MunicipalityContext,
     @Param('id', ParseIntPipe) id: number,
     @Res({ passthrough: true }) res: Response,
   ) {
     const { pdf, resolutionNumber } =
-      await this.generateLiquidationPdfService.generateForSettlement(id);
+      await this.generateLiquidationPdfService.generateForSettlement(
+        municipality.id,
+        id,
+      );
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${resolutionNumber}.pdf"`,

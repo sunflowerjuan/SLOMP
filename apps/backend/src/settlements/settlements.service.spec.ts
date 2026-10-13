@@ -47,16 +47,22 @@ const ONE_PROPERTY = {
   ],
 };
 
+const MUNICIPALITY_ID = 5;
+
 describe('SettlementsService', () => {
   it('rejects a search with no criteria at all', async () => {
     const prisma = buildPrisma([]);
     const service = new SettlementsService(prisma as never);
 
-    await expect(service.search({})).rejects.toBeInstanceOf(
+    await expect(service.search(MUNICIPALITY_ID, {})).rejects.toBeInstanceOf(
       BadRequestException,
     );
     await expect(
-      service.search({ cadastralCode: '  ', owner: '', address: undefined }),
+      service.search(MUNICIPALITY_ID, {
+        cadastralCode: '  ',
+        owner: '',
+        address: undefined,
+      }),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.property.findMany).not.toHaveBeenCalled();
   });
@@ -65,7 +71,9 @@ describe('SettlementsService', () => {
     const prisma = buildPrisma([ONE_PROPERTY]);
     const service = new SettlementsService(prisma as never);
 
-    const result = await service.search({ cadastralCode: '000100010001' });
+    const result = await service.search(MUNICIPALITY_ID, {
+      cadastralCode: '000100010001',
+    });
 
     expect(prisma.property.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -104,11 +112,12 @@ describe('SettlementsService', () => {
     const prisma = buildPrisma([]);
     const service = new SettlementsService(prisma as never);
 
-    await service.search({ owner: 'Juan' });
+    await service.search(MUNICIPALITY_ID, { owner: 'Juan' });
 
     expect(prisma.property.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
+          municipalityId: MUNICIPALITY_ID,
           settlements: { some: { replacedAt: null } },
           owners: {
             some: {
@@ -127,7 +136,7 @@ describe('SettlementsService', () => {
     ) {
       return {
         settlement: {
-          findUnique: vi.fn().mockResolvedValue(current),
+          findFirst: vi.fn().mockResolvedValue(current),
           findMany: vi.fn().mockResolvedValue(siblings),
           updateMany: vi.fn().mockResolvedValue({ count: siblings.length }),
         },
@@ -138,10 +147,10 @@ describe('SettlementsService', () => {
       const prisma = buildPrismaForStatusChange({ id: 1, replacedAt: null });
       const service = new SettlementsService(prisma as never);
 
-      await expect(service.changeStatus(1, 'ACTIVE')).rejects.toBeInstanceOf(
-        BadRequestException,
-      );
-      expect(prisma.settlement.findUnique).not.toHaveBeenCalled();
+      await expect(
+        service.changeStatus(MUNICIPALITY_ID, 1, 'ACTIVE'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prisma.settlement.findFirst).not.toHaveBeenCalled();
     });
 
     it('rejects when the settlement does not exist', async () => {
@@ -149,8 +158,22 @@ describe('SettlementsService', () => {
       const service = new SettlementsService(prisma as never);
 
       await expect(
-        service.changeStatus(1, SettlementStatus.PAGADA),
+        service.changeStatus(MUNICIPALITY_ID, 1, SettlementStatus.PAGADA),
       ).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.settlement.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('answers "not found" for a settlement of another municipality, without changing anything', async () => {
+      // The scoped lookup finds nothing, exactly as for an id that does not exist.
+      const prisma = buildPrismaForStatusChange(null);
+      const service = new SettlementsService(prisma as never);
+
+      await expect(
+        service.changeStatus(MUNICIPALITY_ID, 99, SettlementStatus.PAGADA),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.settlement.findFirst).toHaveBeenCalledWith({
+        where: { id: 99, property: { municipalityId: MUNICIPALITY_ID } },
+      });
       expect(prisma.settlement.updateMany).not.toHaveBeenCalled();
     });
 
@@ -162,7 +185,7 @@ describe('SettlementsService', () => {
       const service = new SettlementsService(prisma as never);
 
       await expect(
-        service.changeStatus(1, SettlementStatus.PAGADA),
+        service.changeStatus(MUNICIPALITY_ID, 1, SettlementStatus.PAGADA),
       ).rejects.toBeInstanceOf(ConflictException);
       expect(prisma.settlement.updateMany).not.toHaveBeenCalled();
     });
@@ -176,15 +199,22 @@ describe('SettlementsService', () => {
         );
         const service = new SettlementsService(prisma as never);
 
-        const result = await service.changeStatus(1, status);
+        const result = await service.changeStatus(MUNICIPALITY_ID, 1, status);
 
         expect(prisma.settlement.findMany).toHaveBeenCalledWith(
           expect.objectContaining({
-            where: { resolutionId: 7, replacedAt: null },
+            where: {
+              resolutionId: 7,
+              replacedAt: null,
+              property: { municipalityId: MUNICIPALITY_ID },
+            },
           }),
         );
         expect(prisma.settlement.updateMany).toHaveBeenCalledWith({
-          where: { id: { in: [1, 2] } },
+          where: {
+            id: { in: [1, 2] },
+            property: { municipalityId: MUNICIPALITY_ID },
+          },
           data: { status },
         });
         expect(result).toEqual({
@@ -207,11 +237,18 @@ describe('SettlementsService', () => {
       );
       const service = new SettlementsService(prisma as never);
 
-      const result = await service.changeStatus(1, SettlementStatus.PAGADA);
+      const result = await service.changeStatus(
+        MUNICIPALITY_ID,
+        1,
+        SettlementStatus.PAGADA,
+      );
 
       expect(result.settlementIds).toEqual([1, 2]);
       expect(prisma.settlement.updateMany).toHaveBeenCalledWith({
-        where: { id: { in: [1, 2] } },
+        where: {
+          id: { in: [1, 2] },
+          property: { municipalityId: MUNICIPALITY_ID },
+        },
         data: { status: SettlementStatus.PAGADA },
       });
     });

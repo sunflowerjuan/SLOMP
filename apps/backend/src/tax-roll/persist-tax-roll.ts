@@ -48,19 +48,12 @@ export const NO_OWNER_NAME_PLACEHOLDER = 'Propietario sin nombre registrado';
 
 export async function persistTaxRoll(
   prisma: PrismaService,
+  municipalityId: number,
   rows: TaxRollRowDto[],
   confirmReplace: boolean,
 ): Promise<PersistTaxRollResult> {
   if (rows.length === 0) {
     return { properties: 0, owners: 0, settlements: 0, conflicts: [] };
-  }
-
-  const municipality = await prisma.municipality.findFirst();
-  if (!municipality) {
-    throw new CodedError(
-      ErrorCode.MUNICIPALITY_NOT_CONFIGURED,
-      'No municipality is configured yet. Seed the database before importing a tax roll.',
-    );
   }
 
   // The file repeats the same property/owner across periods; keep the last
@@ -87,6 +80,25 @@ export async function persistTaxRoll(
     rowByPropertyPeriod.set(`${row.cadastralCode}:${row.period}`, row);
   }
 
+  // cadastralCode is unique across the whole system, so an upsert by code
+  // would silently edit a property of another municipality. The DANE prefix
+  // check normally prevents this; this keeps the isolation even for legacy
+  // data whose code does not match its municipality.
+  const foreignProperties = await prisma.property.findMany({
+    where: {
+      cadastralCode: { in: [...rowByCadastralCode.keys()] },
+      municipalityId: { not: municipalityId },
+    },
+    select: { cadastralCode: true },
+  });
+  if (foreignProperties.length > 0) {
+    throw new CodedError(
+      ErrorCode.TAX_ROLL_WRONG_MUNICIPALITY,
+      'Some cadastral codes in this file already belong to another municipality.',
+      { mismatchedRows: foreignProperties.length },
+    );
+  }
+
   await Promise.all(
     [...rowByCadastralCode.values()].map((row) =>
       prisma.property.upsert({
@@ -100,7 +112,7 @@ export async function persistTaxRoll(
           longitude: row.longitude,
           landUse: row.landUse,
           appraisalValue: row.appraisalValue,
-          municipalityId: municipality.id,
+          municipalityId,
         },
         update: {
           address: row.propertyName,
@@ -123,8 +135,11 @@ export async function persistTaxRoll(
   await Promise.all(
     [...rowByTaxId.values()].map((row) =>
       prisma.owner.upsert({
-        where: { documentId: row.taxId },
+        where: {
+          municipalityId_documentId: { municipalityId, documentId: row.taxId },
+        },
         create: {
+          municipalityId,
           documentId: row.taxId,
           documentType: row.documentType,
           name: row.ownerName ?? NO_OWNER_NAME_PLACEHOLDER,
@@ -140,7 +155,10 @@ export async function persistTaxRoll(
   );
 
   const properties = await prisma.property.findMany({
-    where: { cadastralCode: { in: [...rowByCadastralCode.keys()] } },
+    where: {
+      municipalityId,
+      cadastralCode: { in: [...rowByCadastralCode.keys()] },
+    },
     select: { id: true, cadastralCode: true },
   });
   const propertyIdByCode = new Map(
@@ -148,7 +166,7 @@ export async function persistTaxRoll(
   );
 
   const owners = await prisma.owner.findMany({
-    where: { documentId: { in: [...rowByTaxId.keys()] } },
+    where: { municipalityId, documentId: { in: [...rowByTaxId.keys()] } },
     select: { id: true, documentId: true },
   });
   const ownerIdByTaxId = new Map(owners.map((o) => [o.documentId, o.id]));
@@ -168,6 +186,7 @@ export async function persistTaxRoll(
   const currentSettlements = await prisma.settlement.findMany({
     where: {
       propertyId: { in: [...propertyIdByCode.values()] },
+      property: { municipalityId },
       replacedAt: null,
     },
     select: { id: true, propertyId: true, period: true },
@@ -214,7 +233,7 @@ export async function persistTaxRoll(
 
   if (toSupersede.length > 0) {
     await prisma.settlement.updateMany({
-      where: { id: { in: toSupersede } },
+      where: { id: { in: toSupersede }, property: { municipalityId } },
       data: { replacedAt: new Date() },
     });
   }

@@ -1,22 +1,21 @@
-import {
-  BadRequestException,
-  Injectable,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { CodedError } from '../common/errors/coded-error.js';
 import { errorBody } from '../common/errors/error-body.js';
 import { ErrorCode } from '../common/errors/error-codes.js';
+import type { MunicipalityContext } from '../municipalities/municipality-context.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { parseTaxRollExcel } from './parse-tax-roll-excel.js';
 import { persistTaxRoll } from './persist-tax-roll.js';
 import type { ParseTaxRollExcelResult } from './tax-roll-row.dto.js';
 import type { PersistTaxRollResult } from './persist-tax-roll.js';
+import { checkCadastralDanePrefix } from './validate-dane-prefix.js';
 
 @Injectable()
 export class TaxRollService {
   constructor(private readonly prisma: PrismaService) {}
 
   async import(
+    municipality: MunicipalityContext,
     buffer: Buffer,
     confirmReplace: boolean,
     fileName: string,
@@ -27,8 +26,14 @@ export class TaxRollService {
     previousImportId?: number,
   ) {
     const parsed = await this.parse(buffer);
-    const persisted = await this.persist(parsed, confirmReplace);
+    await this.assertBelongsToMunicipality(municipality, parsed);
+    const persisted = await this.persist(
+      municipality.id,
+      parsed,
+      confirmReplace,
+    );
     const importId = await this.recordImport(
+      municipality.id,
       fileName,
       administratorId,
       parsed,
@@ -40,8 +45,9 @@ export class TaxRollService {
 
   // A history at /tax-roll/imports, newest first. No pagination for now:
   // the limit is enough for what the panel needs to show.
-  async listImports() {
+  async listImports(municipalityId: number) {
     const imports = await this.prisma.taxRollImport.findMany({
+      where: { municipalityId },
       orderBy: { importedAt: 'desc' },
       take: 50,
       include: { administrator: { select: { email: true } } },
@@ -63,6 +69,7 @@ export class TaxRollService {
   }
 
   private async recordImport(
+    municipalityId: number,
     fileName: string,
     administratorId: number,
     parsed: ParseTaxRollExcelResult,
@@ -70,6 +77,7 @@ export class TaxRollService {
     previousImportId?: number,
   ): Promise<number> {
     const data = {
+      municipalityId,
       fileName,
       administratorId,
       validRows: parsed.validRows.length,
@@ -87,7 +95,12 @@ export class TaxRollService {
       // admin, nothing gets updated and it falls through to the create
       // below.
       const updated = await this.prisma.taxRollImport.updateMany({
-        where: { id: previousImportId, fileName, administratorId },
+        where: {
+          id: previousImportId,
+          municipalityId,
+          fileName,
+          administratorId,
+        },
         data,
       });
       if (updated.count > 0) {
@@ -118,25 +131,65 @@ export class TaxRollService {
     }
   }
 
+  // The whole file is rejected, before anything is saved, if any cadastral
+  // code does not start with the active municipality's DANE code.
+  private async assertBelongsToMunicipality(
+    municipality: MunicipalityContext,
+    parsed: ParseTaxRollExcelResult,
+  ) {
+    const check = checkCadastralDanePrefix(
+      parsed.validRows.map((row) => row.cadastralCode),
+      municipality.daneCode,
+    );
+    if (check.matches) return;
+
+    const registered = await this.prisma.municipality.findMany({
+      where: { daneCode: { in: check.foundPrefixes.map((p) => p.prefix) } },
+      select: { daneCode: true, name: true, state: true },
+    });
+    const nameByDane = new Map(
+      registered.map((m) => [m.daneCode, `${m.name}, ${m.state}`]),
+    );
+    const foundPrefixes = check.foundPrefixes.map((entry) => ({
+      ...entry,
+      municipality: nameByDane.get(entry.prefix) ?? null,
+    }));
+    const guess = foundPrefixes.find((entry) => entry.municipality);
+
+    throw new BadRequestException(
+      errorBody(
+        ErrorCode.TAX_ROLL_WRONG_MUNICIPALITY,
+        guess
+          ? `This file seems to belong to ${guess.municipality}, not to ${municipality.name}, ${municipality.state}.`
+          : `${check.mismatchedRows} cadastral code(s) do not start with the DANE code ${municipality.daneCode} of ${municipality.name}, ${municipality.state}.`,
+        {
+          expectedPrefix: municipality.daneCode,
+          mismatchedRows: check.mismatchedRows,
+          foundPrefixes,
+        },
+      ),
+    );
+  }
+
   private async persist(
+    municipalityId: number,
     parsed: ParseTaxRollExcelResult,
     confirmReplace: boolean,
   ) {
     try {
       return await persistTaxRoll(
         this.prisma,
+        municipalityId,
         parsed.validRows,
         confirmReplace,
       );
     } catch (error) {
-      // A missing municipality is a deployment problem, not something the
-      // Administrator can fix by changing the file.
       if (
         error instanceof CodedError &&
-        error.code === ErrorCode.MUNICIPALITY_NOT_CONFIGURED
+        error.code === ErrorCode.TAX_ROLL_WRONG_MUNICIPALITY
       ) {
-        throw new ServiceUnavailableException(
-          errorBody(error.code, error.message),
+        throw new BadRequestException(
+          errorBody(error.code, error.message, error.details),
         );
       }
       throw error;
