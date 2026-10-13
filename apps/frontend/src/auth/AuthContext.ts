@@ -1,9 +1,14 @@
 import { createContext } from "react";
 
+// Why the panel sent the Administrator back to the login screen.
+export type SessionEndReason = "expired" | "inactivity";
+
 export interface AuthContextValue {
   isAuthenticated: boolean;
-  // true when the session closed because the backend rejected the token.
-  sessionExpired: boolean;
+  // true while the page checks whether a previous session can be restored.
+  isRestoring: boolean;
+  // Set when the session closed without the Administrator asking for it.
+  sessionEndReason: SessionEndReason | null;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => void;
 }

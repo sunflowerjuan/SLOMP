@@ -1,5 +1,4 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { errorBody } from '../common/errors/error-body.js';
@@ -8,6 +7,8 @@ import {
   LoginAttemptTracker,
   loginAttemptKeys,
 } from './login-attempt-tracker.js';
+import { SessionService } from './session.service.js';
+import type { IssuedSession } from './session.service.js';
 
 // Compared against when no admin matches the email, so a login attempt for
 // an unknown address takes the same time as a wrong-password one. Generated
@@ -16,16 +17,11 @@ import {
 // real password for any account either way.
 const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 10);
 
-export interface JwtPayload {
-  sub: number;
-  email: string;
-}
-
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly jwtService: JwtService,
+    private readonly sessions: SessionService,
     private readonly loginAttempts: LoginAttemptTracker,
   ) {}
 
@@ -33,7 +29,7 @@ export class AuthService {
     email: string,
     password: string,
     ip: string,
-  ): Promise<{ accessToken: string }> {
+  ): Promise<IssuedSession> {
     const attemptKeys = loginAttemptKeys(email, ip);
     const locked = this.loginAttempts.isLocked(attemptKeys);
 
@@ -57,7 +53,26 @@ export class AuthService {
     }
 
     this.loginAttempts.registerSuccess(attemptKeys);
-    const payload: JwtPayload = { sub: admin.id, email: admin.email };
-    return { accessToken: await this.jwtService.signAsync(payload) };
+    return this.sessions.start(admin);
+  }
+
+  // Renews the session behind a refresh token, rotating it.
+  async refresh(refreshToken: string | null): Promise<IssuedSession> {
+    const session = refreshToken
+      ? await this.sessions.rotate(refreshToken)
+      : null;
+    if (!session) {
+      throw new UnauthorizedException(
+        errorBody(
+          ErrorCode.AUTH_SESSION_INVALID,
+          'This session is no longer valid.',
+        ),
+      );
+    }
+    return session;
+  }
+
+  async logout(refreshToken: string | null): Promise<void> {
+    if (refreshToken) await this.sessions.revoke(refreshToken);
   }
 }
