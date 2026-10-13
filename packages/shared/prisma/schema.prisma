@@ -77,6 +77,7 @@ model Municipality {
   resolutions        Resolution[]
   resolutionCounters ResolutionCounter[]
   taxRollImports     TaxRollImport[]
+  pdfJobs            PdfJob[]
 
   @@map("municipalities")
 }
@@ -203,11 +204,16 @@ model Resolution {
   municipalityId Int
   municipality   Municipality @relation(fields: [municipalityId], references: [id])
 
+  // Bulk job that issued it; reverting a failed job deletes exactly these.
+  pdfJobId String?
+  pdfJob   PdfJob? @relation(fields: [pdfJobId], references: [id], onDelete: SetNull)
+
   settlements Settlement[]
 
   // The consecutive restarts per municipality: 2026-0001 exists in each one.
   @@unique([municipalityId, number])
   @@unique([municipalityId, year, sequence])
+  @@index([pdfJobId])
   @@index([propertyId])
   @@map("resolutions")
 }
@@ -279,6 +285,7 @@ model Administrator {
 
   taxRollImports TaxRollImport[]
   refreshTokens  RefreshToken[]
+  pdfJobs        PdfJob[]
 
   @@map("administrators")
 }
@@ -342,4 +349,84 @@ model TaxRollImport {
 
   @@index([municipalityId, importedAt])
   @@map("tax_roll_imports")
+}
+
+// ----------------------------------------------------------------------------
+// Bulk PDF generation (SL-120, contract in Confluence "Servicio de PDF:
+// contrato entre backend y worker (SL-118)"). The backend coordinates; the
+// PDF service renders through the pdf-work / pdf-results queues.
+// ----------------------------------------------------------------------------
+enum PdfJobStatus {
+  PREPARING
+  RUNNING
+  ASSEMBLING
+  DONE
+  FAILED
+  EXPIRED
+}
+
+enum PdfDocumentType {
+  LIQUIDACION
+  MANDAMIENTO
+}
+
+enum PdfBatchStatus {
+  PENDING
+  DONE
+  FAILED
+}
+
+// Kept as history once finished. At most one PREPARING/RUNNING/ASSEMBLING job
+// per municipality: partial unique index created by hand in the migration.
+model PdfJob {
+  id                 String          @id @default(uuid())
+  documentType       PdfDocumentType
+  // Only for liquidations: which ZIP (prescription risk or normal collection).
+  kind               ResolutionKind?
+  status             PdfJobStatus    @default(PREPARING)
+  totalDocuments     Int
+  completedDocuments Int             @default(0)
+  totalBatches       Int             @default(0)
+  templateBlob       String
+  templateSha256     String
+  year               Int
+  // Consecutive range reserved for new resolutions; null when the job only
+  // re-renders resolutions issued before.
+  firstSequence      Int?
+  lastSequence       Int?
+  errorCode          String?
+  errorDetails       Json?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  startedAt          DateTime?
+  finishedAt         DateTime?
+  expiresAt          DateTime?
+
+  municipalityId Int
+  municipality   Municipality @relation(fields: [municipalityId], references: [id])
+
+  createdById Int?
+  createdBy   Administrator? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  batches     PdfJobBatch[]
+  resolutions Resolution[]
+
+  @@index([municipalityId, createdAt])
+  @@index([status])
+  @@map("pdf_jobs")
+}
+
+// Progress of each batch while the job runs; deleted when it finishes.
+model PdfJobBatch {
+  jobId         String
+  job           PdfJob         @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  batchIndex    Int
+  status        PdfBatchStatus @default(PENDING)
+  documentCount Int
+  attempts      Int            @default(0)
+  errorCode     String?
+  updatedAt     DateTime       @updatedAt
+
+  @@id([jobId, batchIndex])
+  @@map("pdf_job_batches")
 }

@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import ExcelJS from 'exceljs';
 import { describe, expect, it, vi } from 'vitest';
 import { TaxRollService } from './tax-roll.service.js';
@@ -111,7 +111,10 @@ describe('TaxRollService', () => {
     const taxRollImportCreate = vi.fn().mockResolvedValue({ id: 42 });
     // persistTaxRoll is mocked, so prisma only needs to support the history
     // write that TaxRollService itself makes.
-    const prisma = { taxRollImport: { create: taxRollImportCreate } };
+    const prisma = {
+      taxRollImport: { create: taxRollImportCreate },
+      pdfJob: { count: vi.fn().mockResolvedValue(0) },
+    };
     vi.mocked(persistTaxRoll).mockResolvedValue(PERSISTED_RESULT);
 
     const service = new TaxRollService(prisma as never);
@@ -147,6 +150,7 @@ describe('TaxRollService', () => {
         create: taxRollImportCreate,
         updateMany: taxRollImportUpdateMany,
       },
+      pdfJob: { count: vi.fn().mockResolvedValue(0) },
     };
     vi.mocked(persistTaxRoll).mockResolvedValue(PERSISTED_RESULT);
 
@@ -171,6 +175,29 @@ describe('TaxRollService', () => {
       data: EXPECTED_IMPORT_DATA,
     });
     expect(taxRollImportCreate).not.toHaveBeenCalled();
+  });
+
+  it('answers 409, saving nothing, while the municipality has a bulk PDF job running', async () => {
+    const buffer = await buildOneRowWorkbook();
+    vi.mocked(persistTaxRoll).mockClear();
+    const count = vi.fn().mockResolvedValue(1);
+    const service = new TaxRollService({ pdfJob: { count } } as never);
+
+    const error = await service
+      .import(MUNICIPALITY, buffer, true, 'roll.xlsx', 7)
+      .catch((e) => e);
+
+    expect(error).toBeInstanceOf(ConflictException);
+    expect(error.getResponse()).toMatchObject({
+      code: ErrorCode.BULK_GENERATION_IN_PROGRESS,
+    });
+    expect(count).toHaveBeenCalledWith({
+      where: {
+        municipalityId: MUNICIPALITY.id,
+        status: { in: ['PREPARING', 'RUNNING', 'ASSEMBLING'] },
+      },
+    });
+    expect(persistTaxRoll).not.toHaveBeenCalled();
   });
 
   describe('municipality of the file', () => {
