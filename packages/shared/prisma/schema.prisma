@@ -11,13 +11,16 @@ datasource db {
 }
 
 // ----------------------------------------------------------------------------
-// Possible states of a Settlement -- the only 4 real states; "Inactiva"
-// does NOT exist here: a replaced settlement doesn't change status,
-// `replacedAt` below marks that instead. The Administrator can force any
-// of these 4 manually.
+// Possible states of a Settlement. "Inactiva" does NOT exist here: a
+// replaced settlement doesn't change status, `replacedAt` below marks that
+// instead. EN_FIRME is set automatically 60 days after the resolution is
+// issued (en-firme.service.ts); which manual changes are allowed lives in
+// settlement-status-rules.ts. PRESCRITA is shown as "Pérdida temporal de
+// competencia" in the frontend.
 // ----------------------------------------------------------------------------
 enum SettlementStatus {
   VIGENTE
+  EN_FIRME
   PAGADA
   ACUERDO_DE_PAGO
   PRESCRITA
@@ -305,8 +308,37 @@ model Administrator {
 
   taxRollImports TaxRollImport[]
   paymentOrders  PaymentOrder[]
+  refreshTokens  RefreshToken[]
 
   @@map("administrators")
+}
+
+// ----------------------------------------------------------------------------
+// RefreshToken
+// One row per refresh token issued to an Administrator (security policy,
+// section 2). Only the SHA-256 hash is stored, never the token. Every
+// rotation revokes the row and adds a new one with the same `familyId`, so a
+// family is one login session; a family with no live row is a closed session.
+// ----------------------------------------------------------------------------
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  tokenHash String   @unique
+  familyId  String
+  createdAt DateTime @default(now())
+
+  // Idle limit: moves forward with every rotation.
+  expiresAt DateTime
+  // Absolute limit of the session, fixed at login and copied on rotation.
+  sessionExpiresAt DateTime
+  // Set when the token is rotated, on logout, or when reuse is detected.
+  revokedAt DateTime?
+
+  administratorId Int
+  administrator   Administrator @relation(fields: [administratorId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
+  @@index([administratorId])
+  @@map("refresh_tokens")
 }
 
 // ----------------------------------------------------------------------------

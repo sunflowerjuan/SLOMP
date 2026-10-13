@@ -92,11 +92,36 @@ Run `db:migrate` and then `db:seed` (in that order) whenever the database is set
 | `DATABASE_URL` | `apps/backend/.env`, `packages/shared/.env` | PostgreSQL connection string |
 | `JWT_SECRET` | `apps/backend/.env` | Secreto de firma de los tokens |
 | `PORT` | `apps/backend/.env` | Puerto del backend |
+| `ACCESS_TOKEN_TTL_MINUTES`, `SESSION_IDLE_TIMEOUT_MINUTES`, `SESSION_MAX_HOURS` | `apps/backend/.env` | Tiempos de la sesión del Administrador: vida del token de acceso, inactividad máxima y duración total (opcionales; default 15 min, 30 min y 8 h) |
+| `REFRESH_COOKIE_SAMESITE`, `REFRESH_COOKIE_SECURE`, `REFRESH_COOKIE_PATH` | `apps/backend/.env` | Cookie del refresh token (opcionales; default `strict`, `true` y `/auth`). `none` solo si el frontend y la API están en sitios distintos; `false` solo si la API todavía se sirve por HTTP |
 | `CORS_ORIGIN` | `apps/backend/.env` | Origen(es) del frontend permitidos por CORS, separados por coma (default `http://localhost:5173`) |
 | `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | `packages/shared/.env` | Credenciales del Administrador que crea `db:seed` (opcional, con default de desarrollo) |
 | `VITE_API_URL` | `apps/frontend/.env` | URL base del backend que consume el frontend |
 
 Cada carpeta trae su propio `.env.example` como plantilla — nunca se sube el `.env` real.
+
+## Sesión del Administrador
+
+El login entrega un token de acceso de 15 minutos, que el frontend guarda solo en memoria, y un refresh token en una cookie `HttpOnly; Secure; SameSite=Strict; Path=/auth`. El frontend renueva el token solo (`POST /auth/refresh`, que rota la cookie), cierra la sesión tras 30 minutos sin uso y `POST /auth/logout` la revoca en el servidor. Una sesión dura como máximo 8 horas. Sigue la sección 2 de la Política de seguridad (Confluence).
+
+### Antes de desplegar
+
+La cookie por defecto solo funciona si el navegador llega al frontend y a la API **por HTTPS y bajo el mismo sitio** (mismo dominio registrable, por ejemplo `app.<dominio>` y `app.<dominio>/api`). Si no se cumple, el navegador descarta la cookie: el login funciona, pero la sesión no se renueva y el Administrador vuelve al login a los 15 minutos o al recargar la página.
+
+| Situación del despliegue | Qué configurar en el backend |
+|---|---|
+| Frontend y API bajo un mismo dominio, con HTTPS (objetivo) | Nada: valen los valores por defecto |
+| La API se publica bajo un prefijo (por ejemplo `/api`) | `REFRESH_COOKIE_PATH=/api/auth` (la ruta que ve el navegador) |
+| Frontend y API en sitios distintos (por ejemplo `*.web.core.windows.net` y `*.azurewebsites.net`, o Vercel y otro proveedor) | `REFRESH_COOKIE_SAMESITE=none`. Requiere HTTPS en la API. Es menos seguro: la única protección contra CSRF es la comprobación de `Origin` |
+| La API todavía se sirve por HTTP (Gateway sin TLS, hallazgo SEC-01) | `REFRESH_COOKIE_SECURE=false`, solo como medida temporal y nunca con datos reales |
+
+En todos los casos:
+
+- `CORS_ORIGIN` debe listar el origen exacto del frontend (esquema, dominio y puerto, sin comodines). También se usa para rechazar un refresh o logout que venga de otro origen.
+- Un proxy o Gateway delante de la API debe dejar pasar las cabeceras `Cookie`, `Set-Cookie` y `Origin` en `/auth/*`.
+- Hay que aplicar la migración `add_refresh_tokens` (`pnpm --filter shared run db:migrate:deploy`).
+- Al desplegar esta versión, las sesiones abiertas con el token anterior de 8 horas dejan de ser válidas y cada Administrador debe iniciar sesión de nuevo.
+- Los tiempos (`ACCESS_TOKEN_TTL_MINUTES`, `SESSION_IDLE_TIMEOUT_MINUTES`, `SESSION_MAX_HOURS`) están pendientes de aprobación del equipo; los valores por defecto son los propuestos en la política.
 
 ## Flujo de trabajo
 

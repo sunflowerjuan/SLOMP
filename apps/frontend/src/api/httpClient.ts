@@ -1,5 +1,6 @@
 import { ApiError, NETWORK_ERROR_STATUS, extractServerError } from "./ApiError";
-import { clearToken, getToken } from "./tokenStorage";
+import { clearToken, getToken, setSession } from "./tokenStorage";
+import type { Session, SessionResponse } from "./tokenStorage";
 
 function stripTrailingSlashes(url: string): string {
   let end = url.length;
@@ -27,8 +28,9 @@ type UnauthorizedHandler = () => void;
 
 let unauthorizedHandler: UnauthorizedHandler | null = null;
 
-// AuthProvider registers here to find out when the backend rejects the
-// token (expired or invalid) and close the session from a single place.
+// AuthProvider registers here to find out when the session can't be renewed
+// any more (expired, revoked or closed elsewhere) and close it from a single
+// place.
 export function setUnauthorizedHandler(handler: UnauthorizedHandler | null) {
   unauthorizedHandler = handler;
 }
@@ -41,7 +43,107 @@ interface RequestOptions {
   // false for public endpoints (login): the token isn't attached and a 401
   // doesn't close the session.
   authenticated?: boolean;
+  // true only for the session endpoints, which set or read the refresh
+  // cookie.
+  withCredentials?: boolean;
   signal?: AbortSignal;
+}
+
+interface PreparedRequest {
+  method: string;
+  headers: Record<string, string>;
+  payload?: BodyInit;
+  withCredentials?: boolean;
+  signal?: AbortSignal;
+}
+
+async function send(
+  path: string,
+  { method, headers, payload, withCredentials, signal }: PreparedRequest,
+  token: string | null,
+): Promise<Response> {
+  try {
+    return await fetch(`${API_URL}${path}`, {
+      method,
+      headers: token
+        ? { ...headers, Authorization: `Bearer ${token}` }
+        : headers,
+      body: payload,
+      credentials: withCredentials ? "include" : "same-origin",
+      signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
+    throw new ApiError(NETWORK_ERROR_STATUS, "Network error");
+  }
+}
+
+const REFRESH_LOCK = "slomp.session-refresh";
+
+async function renewSession(): Promise<Session | null> {
+  const response = await send(
+    "/auth/refresh",
+    {
+      method: "POST",
+      headers: { Accept: "application/json" },
+      withCredentials: true,
+    },
+    null,
+  );
+  const data = await parseBody(response);
+  if (response.ok) {
+    return setSession(data as SessionResponse);
+  }
+  if (response.status === 401) {
+    return null;
+  }
+  throw toApiError(response, data);
+}
+
+let refreshInFlight: Promise<Session | null> | null = null;
+
+// Exchanges the refresh cookie for a new access token. Resolves to null when
+// there is no session to renew, and rejects when the backend couldn't be
+// reached (the session may still be alive). Every caller in this tab shares
+// one request, and tabs take turns: the backend treats a refresh token sent
+// twice as stolen and closes the session.
+export function refreshSession(): Promise<Session | null> {
+  refreshInFlight ??= (
+    navigator.locks
+      ? navigator.locks.request(REFRESH_LOCK, renewSession)
+      : renewSession()
+  ).finally(() => {
+    refreshInFlight = null;
+  });
+  return refreshInFlight;
+}
+
+// Sends the request with the access token. On a 401 it renews the session
+// once and retries, so an expired token never reaches the screen that made
+// the call; only when that fails is the session closed.
+async function sendWithSession(
+  path: string,
+  prepared: PreparedRequest,
+  authenticated: boolean,
+): Promise<Response> {
+  if (!authenticated) {
+    return send(path, prepared, null);
+  }
+  const response = await send(path, prepared, getToken());
+  if (response.status !== 401) {
+    return response;
+  }
+  if (await refreshSession()) {
+    const retried = await send(path, prepared, getToken());
+    if (retried.status !== 401) {
+      return retried;
+    }
+  }
+  clearToken();
+  unauthorizedHandler?.();
+  return response;
 }
 
 async function parseBody(response: Response): Promise<unknown> {
@@ -58,16 +160,15 @@ async function parseBody(response: Response): Promise<unknown> {
 
 export async function request<T>(
   path: string,
-  { method = "GET", body, authenticated = true, signal }: RequestOptions = {},
+  {
+    method = "GET",
+    body,
+    authenticated = true,
+    withCredentials,
+    signal,
+  }: RequestOptions = {},
 ): Promise<T> {
   const headers: Record<string, string> = { Accept: "application/json" };
-
-  if (authenticated) {
-    const token = getToken();
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-  }
 
   let payload: BodyInit | undefined;
   if (body instanceof FormData) {
@@ -77,28 +178,15 @@ export async function request<T>(
     payload = JSON.stringify(body);
   }
 
-  let response: Response;
-  try {
-    response = await fetch(`${API_URL}${path}`, {
-      method,
-      headers,
-      body: payload,
-      signal,
-    });
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") {
-      throw error;
-    }
-    throw new ApiError(NETWORK_ERROR_STATUS, "Network error");
-  }
+  const response = await sendWithSession(
+    path,
+    { method, headers, payload, withCredentials, signal },
+    authenticated,
+  );
 
   const data = await parseBody(response);
 
   if (!response.ok) {
-    if (response.status === 401 && authenticated) {
-      clearToken();
-      unauthorizedHandler?.();
-    }
     throw toApiError(response, data);
   }
 
@@ -137,43 +225,22 @@ export async function requestBlob(
     Accept: "application/pdf, application/zip, application/json",
   };
 
-  if (authenticated) {
-    const token = getToken();
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-  }
-
   let payload: BodyInit | undefined;
   if (body !== undefined) {
     headers["Content-Type"] = "application/json";
     payload = JSON.stringify(body);
   }
 
-  let response: Response;
-  try {
-    response = await fetch(`${API_URL}${path}`, {
-      method,
-      headers,
-      body: payload,
-      signal,
-    });
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") {
-      throw error;
-    }
-    throw new ApiError(NETWORK_ERROR_STATUS, "Network error");
-  }
+  const response = await sendWithSession(
+    path,
+    { method, headers, payload, signal },
+    authenticated,
+  );
 
   if (!response.ok) {
     // NestJS errors still arrive as JSON even when the endpoint normally
     // returns a PDF.
-    const data = await parseBody(response);
-    if (response.status === 401 && authenticated) {
-      clearToken();
-      unauthorizedHandler?.();
-    }
-    throw toApiError(response, data);
+    throw toApiError(response, await parseBody(response));
   }
 
   return {

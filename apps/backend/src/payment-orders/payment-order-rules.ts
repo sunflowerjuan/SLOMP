@@ -1,22 +1,31 @@
+import {
+  EN_FIRME_DAYS,
+  PRESCRIPTION_AFTER_PAYMENT_ORDER_YEARS,
+} from '../settlements/settlement-status-rules.js';
+
 // Business rules of the payment order (mandamiento de pago). Pure functions
 // with no framework or database dependencies: the clock is always injected,
-// so tests never depend on the system time.
+// so tests never depend on the system time. The two agreed numbers live in
+// settlement-status-rules.ts, which also decides which status changes the
+// Administrator may make; they are re-exported here so there is one source.
 
 // A settlement is "En firme" this many days after its resolution was
 // generated. Generation and notification are the same instant.
-export const FIRM_AFTER_DAYS = 60;
+export const FIRM_AFTER_DAYS = EN_FIRME_DAYS;
 
 // From "En firme" a settlement can become PRESCRITA only this many years
 // after its payment order was generated.
-export const PRESCRIPTION_YEARS_AFTER_PAYMENT_ORDER = 5;
+export const PRESCRIPTION_YEARS_AFTER_PAYMENT_ORDER =
+  PRESCRIPTION_AFTER_PAYMENT_ORDER_YEARS;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 // The settlement statuses a payment order can be generated from: the ones an
 // unpaid settlement can be in once it is firm. VIGENTE becomes EN_FIRME by
-// itself after FIRM_AFTER_DAYS; PAGADA, ACUERDO_DE_PAGO and PRESCRITA are
-// already resolved. Compared as plain strings so these rules do not depend
-// on the database enum.
+// itself after FIRM_AFTER_DAYS, but the hourly job that does it may not have
+// run yet, so the date decides and both count; PAGADA, ACUERDO_DE_PAGO and
+// PRESCRITA are already resolved. Compared as plain strings so this function
+// takes any status without importing the database enum.
 const FIRM_CAPABLE_STATUSES: readonly string[] = ['VIGENTE', 'EN_FIRME'];
 
 // The instant a settlement whose resolution was generated at `resolutionIssuedAt`

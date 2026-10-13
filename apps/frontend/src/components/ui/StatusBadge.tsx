@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import "./StatusBadge.css";
 
-type StatusBadgeVariant = "success" | "warning" | "danger" | "neutral";
+type StatusBadgeVariant = "success" | "warning" | "danger" | "neutral" | "info";
 
 interface StatusBadgeProps {
   variant: StatusBadgeVariant;

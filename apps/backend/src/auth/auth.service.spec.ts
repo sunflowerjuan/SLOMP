@@ -1,5 +1,4 @@
 import { UnauthorizedException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import bcrypt from 'bcrypt';
 import { describe, expect, it } from 'vitest';
 import { AuthService } from './auth.service.js';
@@ -16,26 +15,57 @@ const ADMIN = {
   passwordHash: bcrypt.hashSync(PASSWORD, 4),
 };
 
-function buildService(admin: typeof ADMIN | null) {
+const SESSION = { accessToken: 'header.payload.signature', refreshToken: 'r1' };
+
+function buildService(admin: typeof ADMIN | null, revoked: string[] = []) {
   const prisma = { administrator: { findUnique: async () => admin } };
-  const jwtService = new JwtService({ secret: 'test-secret' });
+  const sessions = {
+    start: async (owner: { id: number }) => ({ ...SESSION, ownerId: owner.id }),
+    rotate: async (refreshToken: string) =>
+      refreshToken === SESSION.refreshToken ? SESSION : null,
+    revoke: async (refreshToken: string) => {
+      revoked.push(refreshToken);
+    },
+  };
   return new AuthService(
     prisma as never,
-    jwtService,
+    sessions as never,
     new LoginAttemptTracker(),
   );
 }
 
 describe('AuthService', () => {
-  it('issues a JWT for the right email/password', async () => {
-    const { accessToken } = await buildService(ADMIN).login(
-      ADMIN.email,
-      PASSWORD,
-      IP,
-    );
+  it('opens a session for the right email/password', async () => {
+    const session = await buildService(ADMIN).login(ADMIN.email, PASSWORD, IP);
 
-    expect(typeof accessToken).toBe('string');
-    expect(accessToken.split('.')).toHaveLength(3);
+    expect(session).toMatchObject({ ...SESSION, ownerId: ADMIN.id });
+  });
+
+  it('renews the session behind a valid refresh token', async () => {
+    await expect(
+      buildService(ADMIN).refresh(SESSION.refreshToken),
+    ).resolves.toBe(SESSION);
+  });
+
+  it('rejects a refresh without a token or with one that is not valid', async () => {
+    const service = buildService(ADMIN);
+
+    await expect(service.refresh(null)).rejects.toMatchObject({
+      response: { code: 'AUTH_SESSION_INVALID' },
+    });
+    await expect(service.refresh('stale')).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+  });
+
+  it('revokes the session on logout, and tolerates a logout without one', async () => {
+    const revoked: string[] = [];
+    const service = buildService(ADMIN, revoked);
+
+    await service.logout(null);
+    await service.logout('r1');
+
+    expect(revoked).toEqual(['r1']);
   });
 
   it('rejects a wrong password', async () => {

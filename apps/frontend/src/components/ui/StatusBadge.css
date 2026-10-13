@@ -3,13 +3,14 @@
   align-items: center;
   gap: var(--space-8);
   min-height: 28px;
-  padding: 0 var(--space-12);
+  /* Long labels ("Pérdida temporal de competencia") wrap instead of
+     overflowing a narrow cell. */
+  padding: var(--space-4) var(--space-12);
   border-radius: var(--radius-default);
   font-family: var(--font-sans);
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--semantic-text);
-  white-space: nowrap;
 }
 
 .ui-status-badge::before {
@@ -51,4 +52,13 @@
 
 .ui-status-badge--neutral::before {
   color: var(--grafito-500);
+}
+
+/* EN_FIRME: the palette's Tinta tones, already used for selection. */
+.ui-status-badge--info {
+  background-color: var(--semantic-bg-selected);
+}
+
+.ui-status-badge--info::before {
+  color: var(--semantic-primary);
 }
