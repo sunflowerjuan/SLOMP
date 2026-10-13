@@ -205,6 +205,7 @@ describe('SettlementsService', () => {
       ).rejects.toBeInstanceOf(NotFoundException);
       expect(prisma.settlement.findFirst).toHaveBeenCalledWith({
         where: { id: 99, property: { municipalityId: MUNICIPALITY_ID } },
+        include: { resolution: { select: { issuedAt: true } } },
       });
       expect(prisma.settlement.updateMany).not.toHaveBeenCalled();
     });
@@ -270,8 +271,14 @@ describe('SettlementsService', () => {
       const service = new SettlementsService(prisma as never);
 
       const error = await service
-        .changeStatus(1, SettlementStatus.VIGENTE)
+        .changeStatus(MUNICIPALITY_ID, 1, SettlementStatus.VIGENTE)
         .catch((caught: unknown) => caught);
+
+      // The rules need the resolution's issue date: the lookup must bring it.
+      expect(prisma.settlement.findFirst).toHaveBeenCalledWith({
+        where: { id: 1, property: { municipalityId: MUNICIPALITY_ID } },
+        include: { resolution: { select: { issuedAt: true } } },
+      });
 
       expect(error).toBeInstanceOf(ConflictException);
       expect((error as ConflictException).getResponse()).toMatchObject({
@@ -288,6 +295,7 @@ describe('SettlementsService', () => {
       );
       await expect(
         new SettlementsService(blocked as never).changeStatus(
+          MUNICIPALITY_ID,
           1,
           SettlementStatus.PRESCRITA,
         ),
@@ -299,6 +307,7 @@ describe('SettlementsService', () => {
         { issuedAt: daysAgo(6 * 366) },
       );
       await new SettlementsService(allowed as never).changeStatus(
+        MUNICIPALITY_ID,
         1,
         SettlementStatus.PRESCRITA,
       );
@@ -318,16 +327,23 @@ describe('SettlementsService', () => {
       const service = new SettlementsService(prisma as never);
 
       await expect(
-        service.changeStatus(1, SettlementStatus.VIGENTE),
+        service.changeStatus(MUNICIPALITY_ID, 1, SettlementStatus.VIGENTE),
       ).rejects.toBeInstanceOf(ConflictException);
-      const result = await service.changeStatus(1, SettlementStatus.EN_FIRME);
+      const result = await service.changeStatus(
+        MUNICIPALITY_ID,
+        1,
+        SettlementStatus.EN_FIRME,
+      );
       expect(result.allowedStatuses).toEqual([
         SettlementStatus.EN_FIRME,
         SettlementStatus.PAGADA,
         SettlementStatus.ACUERDO_DE_PAGO,
       ]);
       expect(prisma.settlement.updateMany).toHaveBeenCalledWith({
-        where: { id: { in: [1] } },
+        where: {
+          id: { in: [1] },
+          property: { municipalityId: MUNICIPALITY_ID },
+        },
         data: { status: SettlementStatus.EN_FIRME },
       });
     });

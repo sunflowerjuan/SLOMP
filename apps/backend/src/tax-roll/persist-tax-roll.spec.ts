@@ -537,7 +537,12 @@ describe('persistTaxRoll', () => {
 
   it('never replaces an EN_FIRME settlement: the row is skipped and reported as locked', async () => {
     const prisma = new FakePrisma();
-    await persistTaxRoll(prisma as never, [buildRow({ total: 100 })], false);
+    await persistTaxRoll(
+      prisma as never,
+      MUNICIPALITY_ID,
+      [buildRow({ total: 100 })],
+      false,
+    );
     prisma.settlements[0]!.status = SettlementStatus.EN_FIRME;
 
     const locked = buildRow({ total: 200 }); // same property+period, now final
@@ -549,6 +554,7 @@ describe('persistTaxRoll', () => {
 
     const result = await persistTaxRoll(
       prisma as never,
+      MUNICIPALITY_ID,
       [locked, fresh],
       false,
     );

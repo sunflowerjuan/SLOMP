@@ -195,6 +195,7 @@ export class SettlementsService {
     // does not exist.
     const settlement = await this.prisma.settlement.findFirst({
       where: { id, property: { municipalityId } },
+      include: { resolution: { select: { issuedAt: true } } },
     });
     if (!settlement) {
       throw new NotFoundException(
