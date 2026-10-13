@@ -1,5 +1,5 @@
-# PDF service: POST /render, the pdf-work queue consumer and the legacy
-# POST /convert, on headless LibreOffice.
+# PDF service: POST /render and the pdf-work queue consumer, on headless
+# LibreOffice.
 # Build context is the repo root (pnpm workspace):
 #   docker build -f apps/pdf-function/Dockerfile .
 # Node 24 runs the TypeScript sources directly, so there is no build step.

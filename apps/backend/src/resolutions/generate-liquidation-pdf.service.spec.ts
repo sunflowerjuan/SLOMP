@@ -7,36 +7,9 @@ import {
 import { ResolutionKind, SettlementStatus } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../liquidation-template/render-liquidation-docx.js', () => ({
-  LiquidationTemplateError: class LiquidationTemplateError extends Error {
-    constructor(
-      readonly code: string,
-      message: string,
-    ) {
-      super(message);
-    }
-  },
-  renderLiquidationDocx: vi.fn(() => Buffer.from('fake-docx')),
-}));
-vi.mock('../liquidation-template/convert-docx-to-pdf.js', () => ({
-  PdfConversionError: class PdfConversionError extends Error {
-    constructor(
-      readonly code: string,
-      message: string,
-    ) {
-      super(message);
-    }
-  },
-  convertDocxToPdf: vi.fn(async () => Buffer.from('%PDF-fake')),
-}));
-
-import {
-  convertDocxToPdf,
-  PdfConversionError,
-} from '../liquidation-template/convert-docx-to-pdf.js';
-import { renderLiquidationDocx } from '../liquidation-template/render-liquidation-docx.js';
 import { GenerateLiquidationPdfService } from './generate-liquidation-pdf.service.js';
 import { ErrorCode } from '../common/errors/error-codes.js';
+import { errorBody } from '../common/errors/error-body.js';
 
 function decimal(value: number) {
   return { toNumber: () => value };
@@ -180,7 +153,28 @@ class FakePrisma {
     },
   };
 
+  activeJobs = 0;
+  pdfJob = { count: async () => this.activeJobs };
+  // lockCounter: the INSERT ... ON CONFLICT and the SELECT ... FOR UPDATE.
+  $executeRaw = vi.fn(async () => 1);
+  $queryRaw = vi.fn(async () => [{ lastSequence: 0 }]);
+
   $transaction = vi.fn(async (fn: (tx: this) => Promise<unknown>) => fn(this));
+}
+
+const TEMPLATE = { blob: 'templates/paez/liquidacion/1.docx', sha256: 'abc' };
+
+function fakePdfClient() {
+  return {
+    liquidationTemplate: vi.fn(async () => TEMPLATE),
+    render: vi.fn(async () => Buffer.from('%PDF-fake')),
+  };
+}
+
+let pdf: ReturnType<typeof fakePdfClient>;
+
+function serviceFor(prisma: FakePrisma) {
+  return new GenerateLiquidationPdfService(prisma as never, pdf as never);
 }
 
 function buildSettlement(overrides: Partial<FakeSettlement>): FakeSettlement {
@@ -198,13 +192,12 @@ function buildSettlement(overrides: Partial<FakeSettlement>): FakeSettlement {
 
 describe('GenerateLiquidationPdfService', () => {
   beforeEach(() => {
-    vi.mocked(renderLiquidationDocx).mockClear();
-    vi.mocked(convertDocxToPdf).mockClear();
+    pdf = fakePdfClient();
   });
 
   it('throws NotFoundException when the settlement does not exist', async () => {
     const prisma = new FakePrisma();
-    const service = new GenerateLiquidationPdfService(prisma as never);
+    const service = serviceFor(prisma);
 
     await expect(
       service.generateForSettlement(MUNICIPALITY_ID, 999),
@@ -214,7 +207,7 @@ describe('GenerateLiquidationPdfService', () => {
   it('answers "not found" for a settlement of another municipality, without reserving a number', async () => {
     const prisma = new FakePrisma();
     prisma.settlements.push(buildSettlement({ id: 1 }));
-    const service = new GenerateLiquidationPdfService(prisma as never);
+    const service = serviceFor(prisma);
 
     await expect(
       service.generateForSettlement(OTHER_MUNICIPALITY_ID, 1),
@@ -226,7 +219,7 @@ describe('GenerateLiquidationPdfService', () => {
   it('takes the consecutive of the municipality the settlement belongs to', async () => {
     const prisma = new FakePrisma();
     prisma.settlements.push(buildSettlement({ id: 1 }));
-    const service = new GenerateLiquidationPdfService(prisma as never);
+    const service = serviceFor(prisma);
 
     await service.generateForSettlement(MUNICIPALITY_ID, 1);
 
@@ -239,7 +232,7 @@ describe('GenerateLiquidationPdfService', () => {
   it('throws NotFoundException when the settlement was replaced', async () => {
     const prisma = new FakePrisma();
     prisma.settlements.push(buildSettlement({ id: 1, replacedAt: new Date() }));
-    const service = new GenerateLiquidationPdfService(prisma as never);
+    const service = serviceFor(prisma);
 
     await expect(
       service.generateForSettlement(MUNICIPALITY_ID, 1),
@@ -254,7 +247,7 @@ describe('GenerateLiquidationPdfService', () => {
       // Different kind (prescription risk): must NOT be grouped in.
       buildSettlement({ id: 3, period: 2018 }),
     );
-    const service = new GenerateLiquidationPdfService(prisma as never);
+    const service = serviceFor(prisma);
 
     const result = await service.generateForSettlement(MUNICIPALITY_ID, 1);
 
@@ -273,8 +266,17 @@ describe('GenerateLiquidationPdfService', () => {
     // The prescription-risk settlement was left alone.
     expect(prisma.settlements.find((s) => s.id === 3)?.resolutionId).toBeNull();
 
-    expect(renderLiquidationDocx).toHaveBeenCalledTimes(1);
-    expect(convertDocxToPdf).toHaveBeenCalledTimes(1);
+    expect(pdf.render).toHaveBeenCalledTimes(1);
+    expect(pdf.render).toHaveBeenCalledWith(
+      expect.objectContaining({
+        schemaVersion: 1,
+        documentType: 'LIQUIDACION',
+        template: TEMPLATE,
+        data: expect.objectContaining({
+          resolutionNumber: result.resolutionNumber,
+        }),
+      }),
+    );
   });
 
   it('re-renders the same resolution without reserving a new number when already generated', async () => {
@@ -289,7 +291,7 @@ describe('GenerateLiquidationPdfService', () => {
       propertyId: PROPERTY.id,
     });
     prisma.settlements.push(buildSettlement({ id: 1, resolutionId: 10 }));
-    const service = new GenerateLiquidationPdfService(prisma as never);
+    const service = serviceFor(prisma);
 
     const result = await service.generateForSettlement(MUNICIPALITY_ID, 1);
 
@@ -313,7 +315,7 @@ describe('GenerateLiquidationPdfService', () => {
       const result = await realUpdateMany(args);
       return { count: result.count - 1 };
     };
-    const service = new GenerateLiquidationPdfService(prisma as never);
+    const service = serviceFor(prisma);
 
     await expect(
       service.generateForSettlement(MUNICIPALITY_ID, 1),
@@ -323,27 +325,67 @@ describe('GenerateLiquidationPdfService', () => {
   it('rejects an incomplete liquidation before rendering or converting a PDF', async () => {
     const prisma = new FakePrisma();
     prisma.settlements.push(buildSettlement({ id: 1, details: [] }));
-    const service = new GenerateLiquidationPdfService(prisma as never);
+    const service = serviceFor(prisma);
 
     await expect(
       service.generateForSettlement(MUNICIPALITY_ID, 1),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.resolutions).toHaveLength(0);
     expect(prisma.counters.size).toBe(0);
-    expect(renderLiquidationDocx).not.toHaveBeenCalled();
-    expect(convertDocxToPdf).not.toHaveBeenCalled();
+    expect(pdf.render).not.toHaveBeenCalled();
+  });
+
+  it('answers 409 without reserving while the municipality has a bulk job running', async () => {
+    const prisma = new FakePrisma();
+    prisma.settlements.push(buildSettlement({ id: 1 }));
+    prisma.activeJobs = 1;
+    const service = serviceFor(prisma);
+
+    await expect(
+      service.generateForSettlement(MUNICIPALITY_ID, 1),
+    ).rejects.toMatchObject({
+      response: { code: ErrorCode.BULK_GENERATION_IN_PROGRESS },
+    });
+    expect(prisma.resolutions).toHaveLength(0);
+    expect(prisma.counters.size).toBe(0);
+    expect(prisma.$queryRaw).toHaveBeenCalled(); // took the counter lock
+  });
+
+  it('public consultation: re-renders an issued resolution, never issues one', async () => {
+    const prisma = new FakePrisma();
+    prisma.resolutions.push({
+      id: 10,
+      number: '2026-0007',
+      year: 2026,
+      sequence: 7,
+      municipalityId: MUNICIPALITY_ID,
+      kind: ResolutionKind.NORMAL,
+      propertyId: PROPERTY.id,
+    });
+    prisma.settlements.push(
+      buildSettlement({ id: 1, resolutionId: 10 }),
+      buildSettlement({ id: 2, period: 2018 }),
+    );
+    const service = serviceFor(prisma);
+
+    const issued = await service.generateIssued(MUNICIPALITY_ID, 1);
+    expect(issued.resolutionNumber).toBe('2026-0007');
+    await expect(
+      service.generateIssued(MUNICIPALITY_ID, 2),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.resolutions).toHaveLength(1);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('returns a controlled HTTP error instead of a PDF when conversion fails', async () => {
     const prisma = new FakePrisma();
     prisma.settlements.push(buildSettlement({ id: 1 }));
-    vi.mocked(convertDocxToPdf).mockRejectedValueOnce(
-      new PdfConversionError(
-        ErrorCode.PDF_CONVERSION_TIMEOUT,
-        'PDF generation timed out after 25 seconds.',
+    pdf.render.mockRejectedValueOnce(
+      new ServiceUnavailableException(
+        errorBody(ErrorCode.PDF_CONVERSION_TIMEOUT, 'Timed out.'),
       ),
     );
-    const service = new GenerateLiquidationPdfService(prisma as never);
+    const service = serviceFor(prisma);
 
     const failure = service.generateForSettlement(MUNICIPALITY_ID, 1);
     await expect(failure).rejects.toBeInstanceOf(ServiceUnavailableException);
@@ -359,7 +401,7 @@ describe('GenerateLiquidationPdfService', () => {
       buildSettlement({ id: 1, period: 2024 }), // normal
       buildSettlement({ id: 2, period: 2018 }), // prescription risk
     );
-    const service = new GenerateLiquidationPdfService(prisma as never);
+    const service = serviceFor(prisma);
 
     const normal = await service.generateForSettlement(MUNICIPALITY_ID, 1);
     const prescriptionRisk = await service.generateForSettlement(

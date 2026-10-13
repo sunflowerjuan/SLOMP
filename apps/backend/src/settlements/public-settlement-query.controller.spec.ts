@@ -27,7 +27,7 @@ async function createApp() {
       },
       {
         provide: GenerateLiquidationPdfService,
-        useValue: { generateForSettlement: async () => ({}) },
+        useValue: { generateIssued: async () => ({}) },
       },
       {
         provide: APP_GUARD,

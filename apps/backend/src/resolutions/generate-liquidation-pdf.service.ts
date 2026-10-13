@@ -3,22 +3,18 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
-  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ResolutionKind } from '@prisma/client';
 import {
   buildLiquidationTemplateData,
+  missingLiquidationData,
+  toTemplateSettlements,
   type PropertyLike,
   type SettlementWithDetailsLike,
 } from '../liquidation-template/build-liquidation-template-data.js';
-import {
-  convertDocxToPdf,
-  PdfConversionError,
-} from '../liquidation-template/convert-docx-to-pdf.js';
-import {
-  LiquidationTemplateError,
-  renderLiquidationDocx,
-} from '../liquidation-template/render-liquidation-docx.js';
+import { lockCounter } from '../pdf-jobs/counter-lock.js';
+import { ACTIVE_JOB_STATUSES } from '../pdf-jobs/pdf-job-rules.js';
+import { PdfServiceClient } from '../pdf-jobs/pdf-service.client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   currentYearInColombia,
@@ -34,53 +30,11 @@ export interface GeneratedLiquidationPdf {
   resolutionNumber: string;
 }
 
-export interface PreparedLiquidationDocx {
-  docx: Buffer;
-  resolutionNumber: string;
-  kind: ResolutionKind;
-}
-
-// Raw Decimal amounts from Prisma into the plain numbers
-// buildLiquidationTemplateData works with.
-function toTemplateSettlements(
-  settlements: {
-    period: number;
-    details: { concept: string; amount: { toNumber(): number } }[];
-  }[],
-): SettlementWithDetailsLike[] {
-  return settlements.map((s) => ({
-    period: s.period,
-    details: s.details.map((d) => ({
-      concept: d.concept,
-      amount: d.amount.toNumber(),
-    })),
-  }));
-}
-
 function assertCompleteLiquidationData(
   property: PropertyLike,
   settlements: SettlementWithDetailsLike[],
 ): void {
-  // Stable keys (not prose) so the frontend can name each missing field.
-  const missing: string[] = [];
-  if (!property.cadastralCode?.trim()) missing.push('CADASTRAL_CODE');
-  if (!property.address?.trim()) missing.push('PROPERTY_ADDRESS');
-  if (settlements.length === 0) missing.push('SETTLEMENT_PERIODS');
-  if (settlements.some((settlement) => settlement.details.length === 0)) {
-    missing.push('SETTLEMENT_DETAILS');
-  }
-  if (
-    settlements.some(
-      (settlement) =>
-        !Number.isInteger(settlement.period) ||
-        settlement.details.some(
-          (detail) =>
-            !detail.concept?.trim() || !Number.isFinite(detail.amount),
-        ),
-    )
-  ) {
-    missing.push('SETTLEMENT_VALUES');
-  }
+  const missing = missingLiquidationData(property, settlements);
   if (missing.length > 0) {
     throw new BadRequestException(
       errorBody(
@@ -92,37 +46,66 @@ function assertCompleteLiquidationData(
   }
 }
 
+function settlementNotFound(settlementId: number): NotFoundException {
+  return new NotFoundException(
+    errorBody(
+      ErrorCode.SETTLEMENT_NOT_FOUND,
+      `Settlement ${settlementId} not found.`,
+    ),
+  );
+}
+
 @Injectable()
 export class GenerateLiquidationPdfService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pdf: PdfServiceClient,
+  ) {}
 
-  async generateForSettlement(
+  // Administrator panel: issues the resolution (reserving its consecutive)
+  // the first time, re-renders it afterwards.
+  generateForSettlement(
     municipalityId: number,
     settlementId: number,
   ): Promise<GeneratedLiquidationPdf> {
-    const prepared = await this.prepareLiquidationDocx(
-      municipalityId,
-      settlementId,
-    );
-    let pdf: Buffer;
-    try {
-      pdf = await convertDocxToPdf(prepared.docx);
-    } catch (error) {
-      if (error instanceof PdfConversionError) {
-        throw new ServiceUnavailableException(
-          errorBody(error.code, error.message),
-          { cause: error },
-        );
-      }
-      throw error;
-    }
-    return { pdf, resolutionNumber: prepared.resolutionNumber };
+    return this.generate(municipalityId, settlementId, true);
   }
 
-  async prepareLiquidationDocx(
+  // Public consultation: only resolutions already issued, never reserving a
+  // number (Confluence SL-118, section 2). Not issued looks like not found.
+  generateIssued(
     municipalityId: number,
     settlementId: number,
-  ): Promise<PreparedLiquidationDocx> {
+  ): Promise<GeneratedLiquidationPdf> {
+    return this.generate(municipalityId, settlementId, false);
+  }
+
+  private async generate(
+    municipalityId: number,
+    settlementId: number,
+    mayIssue: boolean,
+  ): Promise<GeneratedLiquidationPdf> {
+    // Before reserving anything: a missing template must not consume a number.
+    const template = await this.pdf.liquidationTemplate(municipalityId);
+    const { data, resolutionNumber } = await this.prepareLiquidationData(
+      municipalityId,
+      settlementId,
+      mayIssue,
+    );
+    const pdf = await this.pdf.render({
+      schemaVersion: 1,
+      documentType: 'LIQUIDACION',
+      template,
+      data: data as unknown as Record<string, unknown>,
+    });
+    return { pdf, resolutionNumber };
+  }
+
+  private async prepareLiquidationData(
+    municipalityId: number,
+    settlementId: number,
+    mayIssue: boolean,
+  ) {
     // A settlement of another municipality is "not found", same as one that
     // does not exist.
     const settlement = await this.prisma.settlement.findFirst({
@@ -131,19 +114,17 @@ export class GenerateLiquidationPdfService {
         property: { include: { owners: { include: { owner: true } } } },
       },
     });
-    if (!settlement || settlement.replacedAt !== null) {
-      throw new NotFoundException(
-        errorBody(
-          ErrorCode.SETTLEMENT_NOT_FOUND,
-          `Settlement ${settlementId} not found.`,
-        ),
-      );
+    if (
+      !settlement ||
+      settlement.replacedAt !== null ||
+      (!mayIssue && settlement.resolutionId === null)
+    ) {
+      throw settlementNotFound(settlementId);
     }
 
     const property: PropertyLike = settlement.property;
 
     let resolutionNumber: string;
-    let kind: ResolutionKind;
     let templateSettlements: SettlementWithDetailsLike[];
 
     if (settlement.resolutionId !== null) {
@@ -155,11 +136,10 @@ export class GenerateLiquidationPdfService {
         include: { settlements: { include: { details: true } } },
       });
       resolutionNumber = resolution.number;
-      kind = resolution.kind;
       templateSettlements = toTemplateSettlements(resolution.settlements);
     } else {
       const currentYear = currentYearInColombia();
-      kind = isPrescriptionRisk(settlement.period, currentYear)
+      const kind = isPrescriptionRisk(settlement.period, currentYear)
         ? ResolutionKind.PRESCRIPTION_RISK
         : ResolutionKind.NORMAL;
 
@@ -193,6 +173,20 @@ export class GenerateLiquidationPdfService {
 
       const { resolution, settlements: grouped } =
         await this.prisma.$transaction(async (tx) => {
+          // Same lock as the bulk job: while the municipality has one
+          // running, its range must stay contiguous so it can be reverted.
+          await lockCounter(tx, municipalityId, currentYear);
+          const activeJobs = await tx.pdfJob.count({
+            where: { municipalityId, status: { in: ACTIVE_JOB_STATUSES } },
+          });
+          if (activeJobs > 0) {
+            throw new ConflictException(
+              errorBody(
+                ErrorCode.BULK_GENERATION_IN_PROGRESS,
+                'A bulk generation job is running for this municipality. Try again when it finishes.',
+              ),
+            );
+          }
           const reserved = await reserveResolutionNumber(
             tx,
             municipalityId,
@@ -239,27 +233,16 @@ export class GenerateLiquidationPdfService {
       templateSettlements = toTemplateSettlements(grouped);
     }
 
-    // Validate before template rendering so missing data never becomes a
-    // misleading zero-value document.
+    // Validate before rendering so missing data never becomes a misleading
+    // zero-value document.
     assertCompleteLiquidationData(property, templateSettlements);
-    const templateData = buildLiquidationTemplateData(
+    return {
       resolutionNumber,
-      property,
-      templateSettlements,
-    );
-    let docx: Buffer;
-    try {
-      docx = renderLiquidationDocx(templateData);
-    } catch (error) {
-      if (error instanceof LiquidationTemplateError) {
-        throw new ServiceUnavailableException(
-          errorBody(error.code, error.message),
-          { cause: error },
-        );
-      }
-      throw error;
-    }
-
-    return { docx, resolutionNumber, kind };
+      data: buildLiquidationTemplateData(
+        resolutionNumber,
+        property,
+        templateSettlements,
+      ),
+    };
   }
 }
