@@ -1,5 +1,12 @@
-import { BadRequestException, Body, Controller, Post } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Post,
+  Req,
+} from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { AuthService } from './auth.service.js';
 import { LoginDto } from './login.dto.js';
 import { Public } from './public.decorator.js';
@@ -34,9 +41,9 @@ export class AuthController {
   @ApiResponse({
     status: 401,
     description:
-      'El email no corresponde a un administrador registrado, o la contraseña no coincide.',
+      'El email no corresponde a un administrador registrado, o la contraseña no coincide. Tras 5 fallos en 15 minutos (por email o por IP) el login se bloquea temporalmente y responde este mismo error.',
   })
-  login(@Body() body: LoginDto) {
+  login(@Body() body: LoginDto, @Req() request: Request) {
     if (typeof body?.email !== 'string' || typeof body?.password !== 'string') {
       throw new BadRequestException(
         errorBody(
@@ -45,6 +52,10 @@ export class AuthController {
         ),
       );
     }
-    return this.authService.login(body.email, body.password);
+    return this.authService.login(
+      body.email,
+      body.password,
+      request.ip ?? 'unknown',
+    );
   }
 }
