@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+.git
+.github
+.claude
+.env
+**/.env
+apps/frontend/**
+!apps/frontend/package.json
+infra
+packages/shared/.agents
+packages/shared/.windsurf

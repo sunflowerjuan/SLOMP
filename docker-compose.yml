@@ -8,6 +8,71 @@ services:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d predial_dev"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # Storage/Queue emulator (Blob 10000, Queue 10001, Table 10002).
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --skipApiVersionCheck
+    ports:
+      - "10000:10000"
+      - "10001:10001"
+      - "10002:10002"
+    volumes:
+      - azurite_data:/data
+
+  pdf:
+    build: apps/pdf-function
+    environment:
+      MAX_CONCURRENT_CONVERSIONS: 4
+    ports:
+      - "3001:3001"
+
+  # One-shot: applies Prisma migrations, then exits. Seed is manual:
+  #   docker compose run --rm migrate pnpm --filter shared db:seed
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+      target: tooling
+    command: pnpm --filter shared db:migrate:deploy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/predial_dev
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@paez-boyaca.gov.co}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-changeme123}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+      target: runtime
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/predial_dev
+      JWT_SECRET: ${JWT_SECRET:-local-compose-only-change-me}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      PORT: 3000
+      PDF_SERVICE_URL: http://pdf:3001
+    volumes:
+      # The official template is client material and isn't in git.
+      - ./apps/backend/templates:/app/templates:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      pdf:
+        condition: service_started
+      azurite:
+        condition: service_started
 
 volumes:
   db_data:
+  azurite_data:

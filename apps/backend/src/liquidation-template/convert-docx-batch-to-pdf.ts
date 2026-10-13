@@ -3,7 +3,11 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { resolveSofficeBinary } from './resolve-soffice-binary.js';
-import { isCompletePdf, PdfConversionError } from './convert-docx-to-pdf.js';
+import {
+  convertDocxToPdf,
+  isCompletePdf,
+  PdfConversionError,
+} from './convert-docx-to-pdf.js';
 import { ErrorCode } from '../common/errors/error-codes.js';
 
 const execFileAsync = promisify(execFile);
@@ -17,6 +21,29 @@ export async function convertDocxBatchToPdf(
     string,
     { pdf?: Buffer; error?: PdfConversionError }
   >();
+  if (process.env.PDF_SERVICE_URL) {
+    // The service converts one document per request (and limits how many run
+    // at once), so the batch is fanned out instead of sharing one soffice.
+    await Promise.all(
+      docs.map(async ({ name, docx }) => {
+        try {
+          results.set(name, { pdf: await convertDocxToPdf(docx) });
+        } catch (error) {
+          results.set(name, {
+            error:
+              error instanceof PdfConversionError
+                ? error
+                : new PdfConversionError(
+                    ErrorCode.PDF_CONVERSION_FAILED,
+                    'The PDF service could not convert the document.',
+                    { cause: error },
+                  ),
+          });
+        }
+      }),
+    );
+    return results;
+  }
   const paths = await Promise.all(
     docs.map(async ({ name, docx }) => {
       const path = join(directory, `${name}.docx`);
