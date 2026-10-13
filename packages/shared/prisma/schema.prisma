@@ -72,12 +72,14 @@ model Municipality {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  properties         Property[]
-  owners             Owner[]
-  resolutions        Resolution[]
-  resolutionCounters ResolutionCounter[]
-  taxRollImports     TaxRollImport[]
-  pdfJobs            PdfJob[]
+  properties           Property[]
+  owners               Owner[]
+  resolutions          Resolution[]
+  resolutionCounters   ResolutionCounter[]
+  taxRollImports       TaxRollImport[]
+  paymentOrders        PaymentOrder[]
+  paymentOrderCounters PaymentOrderCounter[]
+  pdfJobs              PdfJob[]
 
   @@map("municipalities")
 }
@@ -180,8 +182,8 @@ model Settlement {
   resolutionId Int?
   resolution   Resolution? @relation(fields: [resolutionId], references: [id], onDelete: Restrict)
 
-  details       SettlementDetail[]
-  paymentOrders PaymentOrder[]
+  details      SettlementDetail[]
+  paymentOrder PaymentOrder?
 
   @@index([propertyId, period])
   @@index([resolutionId])
@@ -252,26 +254,53 @@ model SettlementDetail {
 }
 
 // ----------------------------------------------------------------------------
-// PaymentOrder
+// PaymentOrder (mandamiento de pago)
+// At most one per settlement, and only for a settlement that is "En firme"
+// (60 days after its resolution was generated). `issuedAt` is the generation
+// date: from it run the 5 years after which the settlement may become
+// PRESCRITA. The number restarts every year, per municipality.
 //
-// NOTE: the rule for what happens to a payment order when its associated
-// settlement is replaced was flagged as a high-complexity edge case,
-// PENDING validation with the client. That's why the relation is left in
-// restrictive mode (onDelete: Restrict), so payment orders are not lost or
-// automatically reassigned until that rule is confirmed.
+// The relation to the settlement stays restrictive (onDelete: Restrict): a
+// payment order is never lost or reassigned when its settlement changes.
 // ----------------------------------------------------------------------------
 model PaymentOrder {
-  id       Int      @id @default(autoincrement())
-  number   String   @unique
-  issuedAt DateTime @default(now())
+  id        Int      @id @default(autoincrement())
+  number    String // <year>-<sequence padded to 4 digits>, e.g. 2026-0001
+  year      Int
+  sequence  Int
+  issuedAt  DateTime @default(now())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  settlementId Int
+  settlementId Int        @unique
   settlement   Settlement @relation(fields: [settlementId], references: [id], onDelete: Restrict)
 
-  @@index([settlementId])
+  municipalityId Int
+  municipality   Municipality @relation(fields: [municipalityId], references: [id])
+
+  // Nullable so the row survives if the Administrator account is deleted.
+  administratorId Int?
+  administrator   Administrator? @relation(fields: [administratorId], references: [id], onDelete: SetNull)
+
+  @@unique([municipalityId, number])
+  @@unique([municipalityId, year, sequence])
+  @@index([municipalityId, issuedAt])
   @@map("payment_orders")
+}
+
+// ----------------------------------------------------------------------------
+// PaymentOrderCounter
+// One row per municipality and year: the consecutive restarts every year and
+// every municipality has its own.
+// ----------------------------------------------------------------------------
+model PaymentOrderCounter {
+  municipalityId Int
+  municipality   Municipality @relation(fields: [municipalityId], references: [id])
+  year           Int
+  lastSequence   Int          @default(0)
+
+  @@id([municipalityId, year])
+  @@map("payment_order_counters")
 }
 
 // ----------------------------------------------------------------------------
@@ -288,6 +317,7 @@ model Administrator {
   updatedAt    DateTime @updatedAt
 
   taxRollImports TaxRollImport[]
+  paymentOrders  PaymentOrder[]
   refreshTokens  RefreshToken[]
   pdfJobs        PdfJob[]
 

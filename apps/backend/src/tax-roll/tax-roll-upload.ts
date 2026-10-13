@@ -15,6 +15,29 @@ export const MAX_TAX_ROLL_FILE_SIZE_MB = 10;
 export const MAX_TAX_ROLL_FILE_SIZE_BYTES =
   MAX_TAX_ROLL_FILE_SIZE_MB * 1024 * 1024;
 
+// The checks both Excel uploads (tax roll and payment orders) run before
+// reading the file.
+export function assertUploadedXlsx(
+  file: Express.Multer.File | undefined,
+): asserts file is Express.Multer.File {
+  if (!file) {
+    throw new BadRequestException(
+      errorBody(
+        ErrorCode.TAX_ROLL_FILE_MISSING,
+        'You must attach an Excel file (.xlsx) in the "file" field.',
+      ),
+    );
+  }
+  if (!file.originalname.toLowerCase().endsWith('.xlsx')) {
+    throw new BadRequestException(
+      errorBody(
+        ErrorCode.TAX_ROLL_FILE_EXTENSION,
+        'The file must have a .xlsx extension.',
+      ),
+    );
+  }
+}
+
 export const TAX_ROLL_UPLOAD_LIMITS = {
   fileSize: MAX_TAX_ROLL_FILE_SIZE_BYTES,
   files: 1,

@@ -29,7 +29,7 @@ const settlement = (
   totalAmount: decimal(1000),
   resolution,
   resolutionId: (resolution as { id?: number } | null)?.id ?? null,
-  paymentOrders: [],
+  paymentOrder: null,
 });
 
 const ONE_PROPERTY = {

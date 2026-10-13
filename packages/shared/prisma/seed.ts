@@ -38,6 +38,7 @@ async function main() {
   console.log("Cleaning up existing data...");
   await prisma.taxRollImport.deleteMany();
   await prisma.paymentOrder.deleteMany();
+  await prisma.paymentOrderCounter.deleteMany();
   await prisma.settlementDetail.deleteMany();
   await prisma.settlement.deleteMany();
   // Resolutions hold an onDelete: Restrict FK to properties -- must go
@@ -217,7 +218,8 @@ async function main() {
     },
   ];
 
-  let paymentOrderSeq = 1;
+  // Payment orders restart their consecutive every year, per municipality.
+  const paymentOrderSequenceByYear = new Map<number, number>();
 
   for (const propertySeed of propertiesSeed) {
     const property = await prisma.property.create({
@@ -271,18 +273,31 @@ async function main() {
       );
 
       if (propertySeed.hasPaymentOrder) {
-        const number = `MP-${period}-${String(paymentOrderSeq).padStart(4, "0")}`;
-        paymentOrderSeq += 1;
+        const issuedAt = new Date(`${period + 1}-03-15`);
+        const year = issuedAt.getUTCFullYear();
+        const sequence = (paymentOrderSequenceByYear.get(year) ?? 0) + 1;
+        paymentOrderSequenceByYear.set(year, sequence);
         await prisma.paymentOrder.create({
           data: {
-            number,
-            issuedAt: new Date(`${period + 1}-03-15`),
+            municipalityId: municipality.id,
+            number: `${year}-${String(sequence).padStart(4, "0")}`,
+            year,
+            sequence,
+            issuedAt,
             settlementId,
           },
         });
       }
     }
   }
+
+  await prisma.paymentOrderCounter.createMany({
+    data: [...paymentOrderSequenceByYear].map(([year, lastSequence]) => ({
+      municipalityId: municipality.id,
+      year,
+      lastSequence,
+    })),
+  });
 
   console.log("Seed completed.");
 }

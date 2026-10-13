@@ -49,15 +49,15 @@ export interface SettlementSearchResult extends SettlementGroup {
 function firstPaymentOrderByResolution(
   settlements: {
     resolutionId: number | null;
-    paymentOrders: { issuedAt: Date }[];
+    paymentOrder: { issuedAt: Date } | null;
   }[],
 ): Map<number, Date> {
   const first = new Map<number, Date>();
-  for (const { resolutionId, paymentOrders } of settlements) {
-    if (resolutionId === null) continue;
-    for (const { issuedAt } of paymentOrders) {
-      const current = first.get(resolutionId);
-      if (!current || issuedAt < current) first.set(resolutionId, issuedAt);
+  for (const { resolutionId, paymentOrder } of settlements) {
+    if (resolutionId === null || paymentOrder === null) continue;
+    const current = first.get(resolutionId);
+    if (!current || paymentOrder.issuedAt < current) {
+      first.set(resolutionId, paymentOrder.issuedAt);
     }
   }
   return first;
@@ -120,7 +120,7 @@ export class SettlementsService {
           where: { replacedAt: null },
           include: {
             resolution: true,
-            paymentOrders: { select: { issuedAt: true } },
+            paymentOrder: { select: { issuedAt: true } },
           },
         },
       },
@@ -143,7 +143,9 @@ export class SettlementsService {
         })),
         currentYear,
       );
-      const paymentOrders = firstPaymentOrderByResolution(property.settlements);
+      const firstPaymentOrders = firstPaymentOrderByResolution(
+        property.settlements,
+      );
       return groups.map((group) => {
         // The PATCH uses the clicked (first) settlement's state, so the
         // selector does too -- also for legacy MIXED groups.
@@ -161,7 +163,7 @@ export class SettlementsService {
             firstPaymentOrderAt:
               trigger.resolutionId === null
                 ? null
-                : (paymentOrders.get(trigger.resolutionId) ?? null),
+                : (firstPaymentOrders.get(trigger.resolutionId) ?? null),
             now,
           }),
         };
