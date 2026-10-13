@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    // Node 24 runs these .ts files directly (type stripping), so there is no
+    // emit step: tsc only type-checks, and only erasable syntax is allowed.
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "target": "ES2023",
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["src", "test", "scripts", "vitest.config.ts"]
+}
