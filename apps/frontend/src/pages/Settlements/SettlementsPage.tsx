@@ -127,14 +127,14 @@ export function SettlementsPage() {
     setStatusChangeId(entry.settlementId);
     setStatusChangeError(null);
     try {
-      const { allowedStatuses } = await changeSettlementStatus(
+      const { allowedStatuses, missingPeriods } = await changeSettlementStatus(
         entry.settlementId,
         status,
       );
       setResults((current) =>
         current.map((row) =>
           row.settlementId === entry.settlementId
-            ? { ...row, status, allowedStatuses }
+            ? { ...row, status, allowedStatuses, missingPeriods }
             : row,
         ),
       );

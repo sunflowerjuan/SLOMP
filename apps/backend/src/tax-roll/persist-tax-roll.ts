@@ -3,6 +3,7 @@ import type { PrismaService } from '../prisma/prisma.service.js';
 import type { TaxRollRowDto } from './tax-roll-row.dto.js';
 import { CodedError } from '../common/errors/coded-error.js';
 import { ErrorCode } from '../common/errors/error-codes.js';
+import { findMissingPeriods } from './missing-periods.js';
 
 export interface TaxRollConflict {
   cadastralCode: string;
@@ -199,7 +200,13 @@ export async function persistTaxRoll(
       property: { municipalityId },
       replacedAt: null,
     },
-    select: { id: true, propertyId: true, period: true, status: true },
+    select: {
+      id: true,
+      propertyId: true,
+      period: true,
+      status: true,
+      missingSince: true,
+    },
   });
   const currentByPropertyPeriod = new Map(
     currentSettlements.map((s) => [`${s.propertyId}:${s.period}`, s]),
@@ -249,6 +256,28 @@ export async function persistTaxRoll(
     await prisma.settlement.updateMany({
       where: { id: { in: toSupersede }, property: { municipalityId } },
       data: { replacedAt: new Date() },
+    });
+  }
+
+  // Periods this import no longer brings for a property it does bring. Only
+  // on the pass that writes settlements, and keeping the date of the first
+  // import that missed each one.
+  const newlyMissing = shouldPersistSettlements
+    ? findMissingPeriods(
+        currentSettlements.filter((s) => s.missingSince == null),
+        allClassifiedRows.map(({ row, propertyId }) => ({
+          propertyId,
+          period: row.period,
+        })),
+      )
+    : [];
+  if (newlyMissing.length > 0) {
+    await prisma.settlement.updateMany({
+      where: {
+        id: { in: newlyMissing.map((s) => s.id) },
+        property: { municipalityId },
+      },
+      data: { missingSince: new Date() },
     });
   }
 

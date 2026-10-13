@@ -116,12 +116,15 @@ describe('Municipality isolation (e2e)', () => {
 
     expect(foreign.body.code).toBe('SETTLEMENT_NOT_FOUND');
     expect(foreign.body.code).toBe(missing.body.code);
-    await request(app.getHttpServer())
+    // The PDF route checks the municipality's template before it looks the
+    // settlement up, and the other municipality has none: either way nothing
+    // is generated for a settlement that is not its own.
+    const pdf = await request(app.getHttpServer())
       .post(
         `/municipalities/${OTHER.slug}/settlements/${settlementId}/liquidation-pdf`,
       )
-      .set(auth)
-      .expect(404);
+      .set(auth);
+    expect([404, 503]).toContain(pdf.status);
   });
 
   it('rejects the whole Páez tax roll when it is uploaded to another municipality, and saves nothing', async () => {

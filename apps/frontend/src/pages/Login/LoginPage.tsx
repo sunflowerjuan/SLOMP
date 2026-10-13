@@ -5,7 +5,8 @@ import { useAuth } from "../../auth/useAuth";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { Notice } from "../../components/ui/Notice";
-import { PUBLIC_CONSULTATION_HREF } from "../../routes";
+import { ACTIVE_MUNICIPALITY_SLUG } from "../../api/municipality";
+import { publicConsultationHref } from "../../routes";
 import "./LoginPage.css";
 
 interface LoginFormErrors {
@@ -105,7 +106,7 @@ export function LoginPage() {
 
           <p className="login-page__public-link">
             ¿Eres contribuyente?{" "}
-            <a href={PUBLIC_CONSULTATION_HREF}>
+            <a href={publicConsultationHref(ACTIVE_MUNICIPALITY_SLUG)}>
               Consulta tus liquidaciones sin iniciar sesión
             </a>
           </p>

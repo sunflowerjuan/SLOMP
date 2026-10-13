@@ -25,6 +25,12 @@ export interface PublicSettlementQueryResult extends SettlementGroup {
   ownerName: string;
 }
 
+export interface PublicMunicipalityInfo {
+  id: number;
+  slug: string;
+  name: string;
+}
+
 // This is an anonymous, public endpoint — it must never leak which part of
 // a guess was right or suggest close matches. Every given field is matched
 // with `equals` (never `contains`) and AND-ed together, so a query either
@@ -33,37 +39,37 @@ export interface PublicSettlementQueryResult extends SettlementGroup {
 export class PublicSettlementQueryService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // The public routes are not scoped by municipality yet; the PDF still has
-  // to take its consecutive from the municipality the settlement belongs to.
-  async municipalityIdOf(settlementId: number): Promise<number | null> {
-    const settlement = await this.prisma.settlement.findUnique({
-      where: { id: settlementId },
-      select: { property: { select: { municipalityId: true } } },
+  // Public identity of a municipality: only what its own iframe may show.
+  // `null` for an unknown slug -- callers must answer it like "no results".
+  async findPublicMunicipality(
+    slug: string,
+  ): Promise<PublicMunicipalityInfo | null> {
+    return this.prisma.municipality.findUnique({
+      where: { slug },
+      select: { id: true, slug: true, name: true },
     });
-    return settlement?.property.municipalityId ?? null;
+  }
+
+  // Entry point of POST /consulta-publica/:slug. An unknown slug answers
+  // exactly like a known one with no match (an empty list), so the route can
+  // not be used to discover which municipalities exist. The criteria are
+  // validated first so a bad request fails the same way for any slug.
+  async queryBySlug(
+    slug: string,
+    criteria: PublicSettlementQueryCriteria,
+  ): Promise<PublicSettlementQueryResult[]> {
+    const normalized = this.normalizeCriteria(criteria);
+    const municipality = await this.findPublicMunicipality(slug);
+    if (!municipality) return [];
+    return this.query(municipality.id, normalized);
   }
 
   async query(
+    municipalityId: number,
     criteria: PublicSettlementQueryCriteria,
   ): Promise<PublicSettlementQueryResult[]> {
-    const cadastralCode = criteria.cadastralCode?.trim();
-    const ownerName = criteria.ownerName?.trim();
-    const address = criteria.address?.trim();
-
-    // The citizen must corroborate at least 2 of the 3 identifying facts
-    // about the predio — a single field is not enough to prove they are
-    // entitled to see its settlements.
-    const providedCount = [cadastralCode, ownerName, address].filter(
-      (value) => !!value,
-    ).length;
-    if (providedCount < 2) {
-      throw new BadRequestException(
-        errorBody(
-          ErrorCode.PUBLIC_QUERY_CRITERIA_REQUIRED,
-          'Provide at least 2 of: cadastralCode, ownerName, address.',
-        ),
-      );
-    }
+    const { cadastralCode, ownerName, address } =
+      this.normalizeCriteria(criteria);
 
     const settlements = await this.prisma.settlement.findMany({
       where: {
@@ -72,6 +78,9 @@ export class PublicSettlementQueryService {
         // pago/prescrita settlement too, not just ones literally VIGENTE.
         replacedAt: null,
         property: {
+          // The one rule that keeps each municipality's iframe to its own
+          // data: every public lookup is pinned to a municipality id.
+          municipalityId,
           ...(cadastralCode
             ? { cadastralCode: { equals: cadastralCode, mode: 'insensitive' } }
             : {}),
@@ -118,6 +127,9 @@ export class PublicSettlementQueryService {
           period: settlement.period,
           status: settlement.status,
           totalAmount: settlement.totalAmount.toNumber(),
+          // The missing-period mark is for the Administrator only: it never
+          // reaches the public consultation.
+          missingSince: null,
           resolution: settlement.resolution,
         })),
         currentYear,
@@ -130,5 +142,29 @@ export class PublicSettlementQueryService {
           ownerName,
         }));
     });
+  }
+
+  private normalizeCriteria(
+    criteria: PublicSettlementQueryCriteria,
+  ): PublicSettlementQueryCriteria {
+    const cadastralCode = criteria.cadastralCode?.trim();
+    const ownerName = criteria.ownerName?.trim();
+    const address = criteria.address?.trim();
+
+    // The citizen must corroborate at least 2 of the 3 identifying facts
+    // about the predio — a single field is not enough to prove they are
+    // entitled to see its settlements.
+    const providedCount = [cadastralCode, ownerName, address].filter(
+      (value) => !!value,
+    ).length;
+    if (providedCount < 2) {
+      throw new BadRequestException(
+        errorBody(
+          ErrorCode.PUBLIC_QUERY_CRITERIA_REQUIRED,
+          'Provide at least 2 of: cadastralCode, ownerName, address.',
+        ),
+      );
+    }
+    return { cadastralCode, ownerName, address };
   }
 }

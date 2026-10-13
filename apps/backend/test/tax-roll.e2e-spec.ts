@@ -68,6 +68,7 @@ describe('POST /municipalities/:slug/tax-roll/import (e2e, real Páez tax roll f
       owners: 809,
       settlements: validRows.length,
       conflicts: [],
+      locked: [],
     });
     // Persisting 11,202 rows takes ~15 s locally, far over the 5 s default.
   }, 60_000);
@@ -215,6 +216,7 @@ describe('POST /municipalities/:slug/tax-roll/import (e2e, real Páez tax roll f
         owners: 1,
         settlements: 0,
         conflicts: [{ cadastralCode: '155140009000100010001', period: 2024 }],
+        locked: [],
       });
     });
 
@@ -237,6 +239,7 @@ describe('POST /municipalities/:slug/tax-roll/import (e2e, real Páez tax roll f
         owners: 1,
         settlements: 1,
         conflicts: [],
+        locked: [],
       });
     });
   });
