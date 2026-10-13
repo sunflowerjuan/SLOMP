@@ -11,6 +11,7 @@ import { MunicipalitiesModule } from './municipalities/municipalities.module.js'
 import { PrismaModule } from './prisma/prisma.module.js';
 import { SettlementsModule } from './settlements/settlements.module.js';
 import { TaxRollModule } from './tax-roll/tax-roll.module.js';
+import { TemplatesModule } from './templates/templates.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -28,6 +29,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     MunicipalitiesModule,
     TaxRollModule,
     SettlementsModule,
+    TemplatesModule,
   ],
   controllers: [AppController],
   providers: [

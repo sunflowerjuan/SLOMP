@@ -44,6 +44,27 @@ $ pnpm run start:dev
 $ pnpm run start:prod
 ```
 
+## Document templates (SL-91)
+
+Each municipality has its own `.docx` templates, uploaded through
+`POST /municipalities/:slug/templates` (multipart: `file` and `documentType`).
+The upload is validated against the field catalog
+(`src/templates/validate-template-fields.ts`): a valid template becomes the
+active version automatically and the previous ones are kept
+(`POST .../templates/:id/activate` brings one back); an invalid one is
+rejected with the markers that are missing or unknown. PDF generation reads
+the active template from the database and Blob, so changing a template does
+not need a deploy. The files live in the `templates` container of Storage
+(`AZURE_STORAGE_CONNECTION_STRING`), so Azurite must be running locally.
+
+A municipality has no template until one is uploaded, and PDF generation
+answers 503 `PDF_TEMPLATE_UNAVAILABLE` meanwhile. To install Páez's official
+template (client material, not in git) against a running backend:
+
+```bash
+$ pnpm --filter backend templates:upload paez LIQUIDACION templates/liquidacion-paez.docx
+```
+
 ## Run tests
 
 ```bash

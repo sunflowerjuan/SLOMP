@@ -78,6 +78,7 @@ model Municipality {
   resolutionCounters ResolutionCounter[]
   taxRollImports     TaxRollImport[]
   pdfJobs            PdfJob[]
+  templates          Template[]
 
   @@map("municipalities")
 }
@@ -286,6 +287,7 @@ model Administrator {
   taxRollImports TaxRollImport[]
   refreshTokens  RefreshToken[]
   pdfJobs        PdfJob[]
+  templates      Template[]
 
   @@map("administrators")
 }
@@ -429,4 +431,35 @@ model PdfJobBatch {
 
   @@id([jobId, batchIndex])
   @@map("pdf_job_batches")
+}
+
+// ----------------------------------------------------------------------------
+// Template
+// One row per uploaded .docx version of a municipality's document template.
+// Only valid templates are stored. At most one version per municipality and
+// document type is active: partial unique index created by hand in the
+// migration. The file lives in Blob at `blobPath` ("<container>/<slug>/
+// <type>/<version>.docx"); older versions are kept so one can be reactivated.
+// ----------------------------------------------------------------------------
+model Template {
+  id           Int             @id @default(autoincrement())
+  documentType PdfDocumentType
+  version      Int
+  blobPath     String
+  // Hash of the file: travels with the blob path in every PDF message.
+  sha256       String
+  fileName     String
+  // The {markers} found in the file, as validated against the field catalog.
+  fields       String[]
+  isActive     Boolean         @default(false)
+  createdAt    DateTime        @default(now())
+
+  municipalityId Int
+  municipality   Municipality @relation(fields: [municipalityId], references: [id])
+
+  uploadedById Int?
+  uploadedBy   Administrator? @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@unique([municipalityId, documentType, version])
+  @@map("templates")
 }
