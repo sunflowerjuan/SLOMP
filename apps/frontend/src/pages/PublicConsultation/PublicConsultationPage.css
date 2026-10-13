@@ -336,3 +336,18 @@
     flex: 1;
   }
 }
+
+/* "Consulta no disponible": a single card, no form to lay out. */
+.public-consultation--unavailable .public-consultation__main {
+  display: block;
+  max-width: 640px;
+  height: auto;
+  overflow: visible;
+}
+
+@media (min-width: 769px) {
+  .public-consultation--unavailable {
+    display: block;
+    height: auto;
+  }
+}

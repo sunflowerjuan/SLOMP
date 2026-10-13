@@ -1,15 +1,15 @@
 import { AppRoutes } from "./AppRoutes";
 import { AuthProvider } from "./auth/AuthProvider";
-import { PublicConsultationPage } from "./pages/PublicConsultation/PublicConsultationPage";
-import { useIsPublicConsultationRoute } from "./routes";
+import { PublicConsultationRoute } from "./pages/PublicConsultation/PublicConsultationRoute";
+import { usePublicConsultationRoute } from "./routes";
 
 function App() {
-  const isPublicConsultation = useIsPublicConsultationRoute();
+  const publicConsultation = usePublicConsultationRoute();
 
   // The public consultation lives OUTSIDE AuthProvider and the login flow:
   // it neither depends on nor touches the Administrator's session.
-  if (isPublicConsultation) {
-    return <PublicConsultationPage />;
+  if (publicConsultation) {
+    return <PublicConsultationRoute slug={publicConsultation.slug} />;
   }
 
   return (

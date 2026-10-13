@@ -4,13 +4,24 @@ import { describe, expect, it, vi } from 'vitest';
 import { PublicSettlementQueryService } from './public-settlement-query.service.js';
 
 function buildPrisma(settlements: unknown[]) {
-  return { settlement: { findMany: vi.fn().mockResolvedValue(settlements) } };
+  return {
+    settlement: { findMany: vi.fn().mockResolvedValue(settlements) },
+    municipality: {
+      findUnique: vi.fn(async ({ where }: { where: { slug: string } }) =>
+        where.slug === 'paez'
+          ? { id: MUNICIPALITY_ID, slug: 'paez', name: 'Páez' }
+          : null,
+      ),
+    },
+  };
 }
 
 // Decimal.toNumber() is the only Decimal method the service calls.
 function decimal(value: number) {
   return { toNumber: () => value };
 }
+
+const MUNICIPALITY_ID = 3;
 
 const ONE_SETTLEMENT = {
   id: 1,
@@ -32,12 +43,18 @@ describe('PublicSettlementQueryService', () => {
     const prisma = buildPrisma([]);
     const service = new PublicSettlementQueryService(prisma as never);
 
-    await expect(service.query({})).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.query(MUNICIPALITY_ID, {})).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
     await expect(
-      service.query({ cadastralCode: '000100010001' }),
+      service.query(MUNICIPALITY_ID, { cadastralCode: '000100010001' }),
     ).rejects.toBeInstanceOf(BadRequestException);
     await expect(
-      service.query({ cadastralCode: '  ', ownerName: '', address: undefined }),
+      service.query(MUNICIPALITY_ID, {
+        cadastralCode: '  ',
+        ownerName: '',
+        address: undefined,
+      }),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.settlement.findMany).not.toHaveBeenCalled();
   });
@@ -46,7 +63,7 @@ describe('PublicSettlementQueryService', () => {
     const prisma = buildPrisma([ONE_SETTLEMENT]);
     const service = new PublicSettlementQueryService(prisma as never);
 
-    const result = await service.query({
+    const result = await service.query(MUNICIPALITY_ID, {
       cadastralCode: '000100010001',
       address: 'Finca La Esperanza',
     });
@@ -56,6 +73,7 @@ describe('PublicSettlementQueryService', () => {
         where: expect.objectContaining({
           replacedAt: null,
           property: {
+            municipalityId: MUNICIPALITY_ID,
             cadastralCode: { equals: '000100010001', mode: 'insensitive' },
             address: { equals: 'Finca La Esperanza', mode: 'insensitive' },
           },
@@ -81,7 +99,7 @@ describe('PublicSettlementQueryService', () => {
     const prisma = buildPrisma([]);
     const service = new PublicSettlementQueryService(prisma as never);
 
-    await service.query({
+    await service.query(MUNICIPALITY_ID, {
       cadastralCode: '000100010001',
       address: 'Finca La Esperanza',
       ownerName: 'Juan Pérez',
@@ -108,7 +126,7 @@ describe('PublicSettlementQueryService', () => {
     const prisma = buildPrisma([]);
     const service = new PublicSettlementQueryService(prisma as never);
 
-    await service.query({
+    await service.query(MUNICIPALITY_ID, {
       cadastralCode: '000100010001',
       address: 'Finca La Esperanza',
     });
@@ -139,7 +157,7 @@ describe('PublicSettlementQueryService', () => {
     const prisma = buildPrisma(rows);
     const service = new PublicSettlementQueryService(prisma as never);
 
-    const result = await service.query({
+    const result = await service.query(MUNICIPALITY_ID, {
       cadastralCode: '000100010001',
       address: 'Finca La Esperanza',
     });
@@ -166,11 +184,73 @@ describe('PublicSettlementQueryService', () => {
     const prisma = buildPrisma([]);
     const service = new PublicSettlementQueryService(prisma as never);
 
-    const result = await service.query({
+    const result = await service.query(MUNICIPALITY_ID, {
       cadastralCode: '000100010001',
       ownerName: 'Nombre Que No Coincide',
     });
 
     expect(result).toEqual([]);
+  });
+
+  it('pins every lookup to the municipality id, even when only one field is given a value that exists elsewhere', async () => {
+    const prisma = buildPrisma([]);
+    const service = new PublicSettlementQueryService(prisma as never);
+
+    await service.query(99, { cadastralCode: '0001', address: 'X' });
+
+    expect(prisma.settlement.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          property: expect.objectContaining({ municipalityId: 99 }),
+        }),
+      }),
+    );
+  });
+
+  describe('queryBySlug', () => {
+    it('resolves the slug and queries only that municipality', async () => {
+      const prisma = buildPrisma([ONE_SETTLEMENT]);
+      const service = new PublicSettlementQueryService(prisma as never);
+
+      const result = await service.queryBySlug('paez', {
+        cadastralCode: '000100010001',
+        address: 'Finca La Esperanza',
+      });
+
+      expect(result).toHaveLength(1);
+      expect(prisma.settlement.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            property: expect.objectContaining({
+              municipalityId: MUNICIPALITY_ID,
+            }),
+          }),
+        }),
+      );
+    });
+
+    it('answers an unknown slug exactly like "no results": an empty list, without touching settlements', async () => {
+      const prisma = buildPrisma([ONE_SETTLEMENT]);
+      const service = new PublicSettlementQueryService(prisma as never);
+
+      const result = await service.queryBySlug('no-existe', {
+        cadastralCode: '000100010001',
+        address: 'Finca La Esperanza',
+      });
+
+      expect(result).toEqual([]);
+      expect(prisma.settlement.findMany).not.toHaveBeenCalled();
+    });
+
+    it('rejects too few fields the same way for a known and an unknown slug', async () => {
+      const prisma = buildPrisma([]);
+      const service = new PublicSettlementQueryService(prisma as never);
+
+      for (const slug of ['paez', 'no-existe']) {
+        await expect(
+          service.queryBySlug(slug, { cadastralCode: '0001' }),
+        ).rejects.toBeInstanceOf(BadRequestException);
+      }
+    });
   });
 });
