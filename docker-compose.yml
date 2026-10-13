@@ -26,11 +26,22 @@ services:
       - azurite_data:/data
 
   pdf:
-    build: apps/pdf-function
+    build:
+      context: .
+      dockerfile: apps/pdf-function/Dockerfile
     environment:
       MAX_CONCURRENT_CONVERSIONS: 4
+      PDF_SERVICE_KEY: ${PDF_SERVICE_KEY:-local-compose-only-change-me}
+      # Empty: the service runs without the queue consumer and /render.
+      # See .env.example to point it at the azurite container.
+      AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-}
+      # Parallel LibreOffice slots for queue batches (default: CPUs - 1).
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-}
     ports:
       - "3001:3001"
+    depends_on:
+      azurite:
+        condition: service_started
 
   # One-shot: applies Prisma migrations, then exits. Seed is manual:
   #   docker compose run --rm migrate pnpm --filter shared db:seed
