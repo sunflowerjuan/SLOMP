@@ -6,7 +6,7 @@ import type { JwtPayload } from './session.service.js';
 
 const MINUTE = 60_000;
 const POLICY = sessionPolicyFromEnv({});
-const ADMIN = { id: 1, email: 'admin@example.com' };
+const ADMIN = { id: 1, email: 'admin@example.com', mustChangePassword: false };
 const START = Date.UTC(2026, 9, 13, 14, 0, 0);
 
 interface Row {
@@ -123,12 +123,24 @@ describe('SessionService', () => {
     expect(session.sessionExpiresAt).toBe(
       new Date(START + 8 * 60 * MINUTE).toISOString(),
     );
+    expect(session.mustChangePassword).toBe(false);
     expect(session.refreshTokenExpiresAt).toEqual(
       new Date(START + 30 * MINUTE),
     );
     expect(rows).toHaveLength(1);
     expect(rows[0].tokenHash).toBe(hashRefreshToken(session.refreshToken));
     expect(rows[0].familyId).toBe(payload.sid);
+  });
+
+  it('tells the panel the password must be changed, on login and on every refresh', async () => {
+    const flagged = { ...ADMIN, mustChangePassword: true };
+    const { service } = buildService([flagged]);
+
+    const session = await service.start(flagged);
+    const renewed = await service.rotate(session.refreshToken);
+
+    expect(session.mustChangePassword).toBe(true);
+    expect(renewed?.mustChangePassword).toBe(true);
   });
 
   it('rotates the refresh token: a new one in the same session, the old one revoked', async () => {

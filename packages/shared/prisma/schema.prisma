@@ -310,12 +310,16 @@ model PaymentOrderCounter {
 // no per-admin permissions/roles yet.
 // ----------------------------------------------------------------------------
 model Administrator {
-  id           Int      @id @default(autoincrement())
-  email        String   @unique
-  passwordHash String
-  name         String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                 Int      @id @default(autoincrement())
+  email              String   @unique
+  passwordHash       String
+  name               String?
+  // Set when someone else chose the password (seed outside a local machine,
+  // admin:create, admin:rotate-password). Until the Administrator picks a new
+  // one, the API only allows changing it (security policy, 4.3; SL-115).
+  mustChangePassword Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   taxRollImports TaxRollImport[]
   paymentOrders  PaymentOrder[]

@@ -56,6 +56,9 @@ async function main() {
       email: seedAdmin.email,
       passwordHash: await bcrypt.hash(seedAdmin.password, BCRYPT_SALT_ROUNDS),
       name: "Administrador SLOMP",
+      // Outside a local machine whoever ran the seed knows the password, so
+      // the Administrator must replace it on first login.
+      mustChangePassword: !seedAdmin.isLocal,
     },
   });
   // The password is only echoed on a local machine; elsewhere it would end

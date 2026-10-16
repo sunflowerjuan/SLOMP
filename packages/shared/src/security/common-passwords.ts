@@ -3,7 +3,9 @@
 // only longer passwords are listed, plus the words people pad with digits or
 // symbols to reach the minimum ("Password2026!", "admin1234567").
 
-const COMMON_PASSWORDS: ReadonlySet<string> = new Set([
+// Kept identical to apps/backend/src/auth/common-passwords.ts, which the
+// password change endpoint uses (a backend test compares both).
+export const COMMON_PASSWORDS: ReadonlySet<string> = new Set([
   "1q2w3e4r5t6y",
   "1q2w3e4r5t6y7u",
   "q1w2e3r4t5y6",
@@ -26,7 +28,7 @@ const COMMON_PASSWORDS: ReadonlySet<string> = new Set([
   "changemechangeme",
 ]);
 
-const COMMON_WORDS: ReadonlySet<string> = new Set([
+export const COMMON_WORDS: ReadonlySet<string> = new Set([
   "password",
   "passwd",
   "passw0rd",

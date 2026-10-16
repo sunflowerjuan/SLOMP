@@ -17,8 +17,10 @@ import {
 //
 // The password is read from ADMIN_PASSWORD (never from an argument, which
 // would end up in the shell history) and must pass the password policy. If
-// it is not set, a random one is generated and printed once. Rotating a
-// password also closes every open session of that administrator.
+// it is not set, a random one is generated and printed once. Either way the
+// administrator must replace it on the next login, since someone else chose
+// it. Rotating a password also closes every open session of that
+// administrator.
 
 const BCRYPT_SALT_ROUNDS = 10;
 const USAGE = `Usage:
@@ -86,16 +88,23 @@ async function main() {
 
     if (command === "create") {
       await prisma.administrator.create({
-        data: { email, passwordHash, name: values.name?.trim() || null },
+        data: {
+          email,
+          passwordHash,
+          name: values.name?.trim() || null,
+          mustChangePassword: true,
+        },
       });
-      console.log(`Administrator created: ${email}`);
+      console.log(
+        `Administrator created: ${email} (must change the password on first login)`,
+      );
     } else {
       // Same as a logout everywhere: the refresh tokens stop working, and the
       // access tokens already issued expire within minutes (SL-134).
       const [, closed] = await prisma.$transaction([
         prisma.administrator.update({
           where: { email },
-          data: { passwordHash },
+          data: { passwordHash, mustChangePassword: true },
         }),
         prisma.refreshToken.updateMany({
           where: { administrator: { email }, revokedAt: null },
@@ -103,7 +112,7 @@ async function main() {
         }),
       ]);
       console.log(
-        `Password rotated for administrator: ${email} (${closed.count} open session tokens revoked)`,
+        `Password rotated for administrator: ${email} (${closed.count} open session tokens revoked; must change the password on next login)`,
       );
     }
 

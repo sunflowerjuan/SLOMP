@@ -1,4 +1,4 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import bcrypt from 'bcrypt';
 import { describe, expect, it } from 'vitest';
 import { AuthService } from './auth.service.js';
@@ -120,5 +120,111 @@ describe('AuthService', () => {
       }
       await service.login(ADMIN.email, PASSWORD, IP);
     }
+  });
+});
+
+describe('AuthService.changePassword', () => {
+  const NEW_PASSWORD = 'una frase larga que nadie conoce';
+  const USER = {
+    id: ADMIN.id,
+    email: ADMIN.email,
+    mustChangePassword: true,
+    sessionId: 'current-session',
+  };
+
+  function buildForChange() {
+    const state = {
+      admin: { ...ADMIN, mustChangePassword: true },
+      revokedWhere: null as unknown,
+    };
+    const prisma = {
+      administrator: {
+        findUnique: async () => state.admin,
+        update: async ({ data }: { data: Partial<typeof state.admin> }) =>
+          Object.assign(state.admin, data),
+      },
+      refreshToken: {
+        updateMany: async ({ where }: { where: unknown }) => {
+          state.revokedWhere = where;
+          return { count: 2 };
+        },
+      },
+      $transaction: async (operations: Promise<unknown>[]) =>
+        Promise.all(operations),
+    };
+    const service = new AuthService(
+      prisma as never,
+      {} as never,
+      new LoginAttemptTracker(),
+    );
+    return { service, state };
+  }
+
+  it('stores the new password, clears the flag and closes only the other sessions', async () => {
+    const { service, state } = buildForChange();
+
+    await service.changePassword(USER, PASSWORD, NEW_PASSWORD, IP);
+
+    expect(state.admin.mustChangePassword).toBe(false);
+    expect(bcrypt.compareSync(NEW_PASSWORD, state.admin.passwordHash)).toBe(
+      true,
+    );
+    expect(state.revokedWhere).toEqual({
+      administratorId: ADMIN.id,
+      revokedAt: null,
+      familyId: { not: 'current-session' },
+    });
+  });
+
+  it('rejects a wrong current password with 400, leaving everything as it was', async () => {
+    const { service, state } = buildForChange();
+
+    await expect(
+      service.changePassword(USER, 'wrong', NEW_PASSWORD, IP),
+    ).rejects.toMatchObject({
+      status: 400,
+      response: { code: 'AUTH_CURRENT_PASSWORD_INVALID' },
+    });
+    expect(state.admin.mustChangePassword).toBe(true);
+    expect(state.revokedWhere).toBeNull();
+  });
+
+  it('reports every policy violation of the new password', async () => {
+    const { service } = buildForChange();
+
+    await expect(
+      service.changePassword(USER, PASSWORD, 'changeme123', IP),
+    ).rejects.toMatchObject({
+      status: 400,
+      response: {
+        code: 'AUTH_PASSWORD_POLICY_VIOLATION',
+        details: { violations: ['TOO_SHORT', 'COMMON'] },
+      },
+    });
+  });
+
+  it('rejects keeping the same password', async () => {
+    const { service } = buildForChange();
+
+    await expect(
+      service.changePassword(USER, PASSWORD, PASSWORD, IP),
+    ).rejects.toMatchObject({
+      response: { details: { violations: ['SAME_AS_CURRENT'] } },
+    });
+  });
+
+  it('counts wrong current passwords towards the login lockout', async () => {
+    const { service } = buildForChange();
+    for (let attempt = 0; attempt < MAX_FAILED_ATTEMPTS; attempt += 1) {
+      await expect(
+        service.changePassword(USER, 'wrong', NEW_PASSWORD, IP),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    }
+
+    await expect(
+      service.changePassword(USER, PASSWORD, NEW_PASSWORD, IP),
+    ).rejects.toMatchObject({
+      response: { code: 'AUTH_CURRENT_PASSWORD_INVALID' },
+    });
   });
 });

@@ -25,6 +25,8 @@ export interface IssuedSession {
   idleTimeoutSeconds: number;
   // ISO date of the absolute end of the session.
   sessionExpiresAt: string;
+  // The Administrator must pick a new password before using the panel.
+  mustChangePassword: boolean;
   // Never part of a response body: it only travels in the httpOnly cookie.
   refreshToken: string;
   refreshTokenExpiresAt: Date;
@@ -33,7 +35,14 @@ export interface IssuedSession {
 interface SessionOwner {
   id: number;
   email: string;
+  mustChangePassword: boolean;
 }
+
+const OWNER_FIELDS = {
+  id: true,
+  email: true,
+  mustChangePassword: true,
+} as const;
 
 @Injectable()
 export class SessionService {
@@ -68,7 +77,7 @@ export class SessionService {
     return this.prisma.$transaction(async (tx) => {
       const current = await tx.refreshToken.findUnique({
         where: { tokenHash: hashRefreshToken(refreshToken) },
-        include: { administrator: { select: { id: true, email: true } } },
+        include: { administrator: { select: OWNER_FIELDS } },
       });
       if (!current) return null;
 
@@ -112,6 +121,7 @@ export class SessionService {
 
   // The Administrator behind an access token, or null once its session was
   // closed (logout, reuse detected, expired) or the account was deleted.
+  // Read on every request, so mustChangePassword is always current.
   async findActiveOwner(
     payload: Pick<JwtPayload, 'sub' | 'sid'>,
   ): Promise<SessionOwner | null> {
@@ -123,7 +133,7 @@ export class SessionService {
         revokedAt: null,
         expiresAt: { gt: new Date(this.now()) },
       },
-      select: { administrator: { select: { id: true, email: true } } },
+      select: { administrator: { select: OWNER_FIELDS } },
     });
     return live?.administrator ?? null;
   }
@@ -165,6 +175,7 @@ export class SessionService {
       expiresIn,
       idleTimeoutSeconds: Math.floor(this.policy.idleTimeoutMs / 1000),
       sessionExpiresAt: new Date(sessionExpiresAt).toISOString(),
+      mustChangePassword: admin.mustChangePassword,
       refreshToken,
       refreshTokenExpiresAt,
     };
