@@ -1,11 +1,13 @@
-.login-page {
+/* Screens outside the panel: login and the mandatory password change. */
+
+.auth-layout {
   display: flex;
   min-height: 100vh;
   min-height: 100dvh;
   background-color: var(--semantic-surface-muted);
 }
 
-.login-page__institutional {
+.auth-layout__institutional {
   position: relative;
   flex: 1 1 40%;
   max-width: 480px;
@@ -18,7 +20,7 @@
   box-sizing: border-box;
 }
 
-.login-page__grid {
+.auth-layout__grid {
   position: absolute;
   inset: 0;
   background-image:
@@ -27,14 +29,14 @@
   background-size: 40px 40px;
 }
 
-.login-page__brand {
+.auth-layout__brand {
   position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
 
-.login-page__brand-tag {
+.auth-layout__brand-tag {
   font-size: var(--text-3xl);
   font-weight: 700;
   color: var(--semantic-on-primary);
@@ -42,14 +44,14 @@
   text-transform: uppercase;
 }
 
-.login-page__brand-name {
+.auth-layout__brand-name {
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--tinta-100);
   letter-spacing: 0.2px;
 }
 
-.login-page__content {
+.auth-layout__content {
   flex: 1;
   display: flex;
   align-items: center;
@@ -58,7 +60,7 @@
   box-sizing: border-box;
 }
 
-.login-page__card {
+.auth-layout__card {
   width: 100%;
   max-width: 400px;
   padding: var(--space-40);
@@ -68,20 +70,20 @@
   box-sizing: border-box;
 }
 
-.login-page__title {
+.auth-layout__title {
   margin: 0 0 var(--space-24);
   font-size: var(--text-xl);
   font-weight: 700;
   color: var(--semantic-text);
 }
 
-.login-page__form {
+.auth-layout__form {
   display: flex;
   flex-direction: column;
   gap: var(--space-20);
 }
 
-.login-page__public-link {
+.auth-layout__footer {
   margin: var(--space-24) 0 0;
   padding-top: var(--space-20);
   border-top: 1px solid var(--semantic-border);
@@ -90,7 +92,7 @@
   text-align: center;
 }
 
-.login-page__public-link a {
+.auth-layout__footer a {
   color: var(--semantic-primary-hover);
   font-weight: 500;
   text-decoration: underline;
@@ -102,11 +104,11 @@
 }
 
 @media (max-width: 768px) {
-  .login-page {
+  .auth-layout {
     flex-direction: column;
   }
 
-  .login-page__institutional {
+  .auth-layout__institutional {
     flex: none;
     max-width: none;
     min-height: 0;
@@ -116,24 +118,24 @@
     align-items: center;
   }
 
-  .login-page__brand-tag {
+  .auth-layout__brand-tag {
     font-size: 28px;
   }
 
-  .login-page__content {
+  .auth-layout__content {
     padding: var(--space-16);
   }
 
-  .login-page__card {
+  .auth-layout__card {
     padding: var(--space-24);
     border: 0;
   }
 }
 
-.login-page__institutional {
+.auth-layout__institutional {
   animation: fade-in var(--duration-intro) var(--ease-out) backwards;
 }
 
-.login-page__card {
+.auth-layout__card {
   animation: rise-in var(--duration-enter) var(--ease-out) 120ms backwards;
 }

@@ -2,12 +2,12 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { getErrorMessage } from "../../api/ApiError";
 import { useAuth } from "../../auth/useAuth";
+import { AuthLayout } from "../../components/layout/AuthLayout";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { Notice } from "../../components/ui/Notice";
 import { ACTIVE_MUNICIPALITY_SLUG } from "../../api/municipality";
 import { publicConsultationHref } from "../../routes";
-import "./LoginPage.css";
 
 interface LoginFormErrors {
   email?: string;
@@ -59,59 +59,48 @@ export function LoginPage() {
   }
 
   return (
-    <div className="login-page">
-      <aside className="login-page__institutional">
-        <div className="login-page__grid" aria-hidden="true" />
-        <div className="login-page__brand">
-          <span className="login-page__brand-tag">SLOMP</span>
-          <span className="login-page__brand-name">Tributaria Predial</span>
-        </div>
-      </aside>
+    <AuthLayout
+      title="Ingresar"
+      footer={
+        <>
+          ¿Eres contribuyente?{" "}
+          <a href={publicConsultationHref(ACTIVE_MUNICIPALITY_SLUG)}>
+            Consulta tus liquidaciones sin iniciar sesión
+          </a>
+        </>
+      }
+    >
+      <form className="auth-layout__form" onSubmit={handleSubmit} noValidate>
+        {sessionEndReason && !submitError && (
+          <Notice variant="info">
+            {sessionEndReason === "inactivity"
+              ? "Cerramos tu sesión porque estuvo inactiva. Vuelve a iniciar sesión para continuar."
+              : "Tu sesión expiró. Vuelve a iniciar sesión para continuar."}
+          </Notice>
+        )}
+        {submitError && <Notice>{submitError}</Notice>}
+        <Input
+          label="Correo electrónico"
+          type="email"
+          autoComplete="username"
+          autoFocus
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          error={errors.email}
+        />
+        <Input
+          label="Contraseña"
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          error={errors.password}
+        />
 
-      <main className="login-page__content">
-        <div className="login-page__card">
-          <h1 className="login-page__title">Ingresar</h1>
-
-          <form className="login-page__form" onSubmit={handleSubmit} noValidate>
-            {sessionEndReason && !submitError && (
-              <Notice variant="info">
-                {sessionEndReason === "inactivity"
-                  ? "Cerramos tu sesión porque estuvo inactiva. Vuelve a iniciar sesión para continuar."
-                  : "Tu sesión expiró. Vuelve a iniciar sesión para continuar."}
-              </Notice>
-            )}
-            {submitError && <Notice>{submitError}</Notice>}
-            <Input
-              label="Correo electrónico"
-              type="email"
-              autoComplete="username"
-              autoFocus
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              error={errors.email}
-            />
-            <Input
-              label="Contraseña"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              error={errors.password}
-            />
-
-            <Button type="submit" size="lg" fullWidth loading={isSubmitting}>
-              Ingresar
-            </Button>
-          </form>
-
-          <p className="login-page__public-link">
-            ¿Eres contribuyente?{" "}
-            <a href={publicConsultationHref(ACTIVE_MUNICIPALITY_SLUG)}>
-              Consulta tus liquidaciones sin iniciar sesión
-            </a>
-          </p>
-        </div>
-      </main>
-    </div>
+        <Button type="submit" size="lg" fullWidth loading={isSubmitting}>
+          Ingresar
+        </Button>
+      </form>
+    </AuthLayout>
   );
 }
