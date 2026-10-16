@@ -31,6 +31,20 @@ const SEQUENCES = wordList(`
   qwertyuiopasdfghjklzxcvbnm 01234567890123456789
 `);
 
+const LETTER = /\p{L}/u;
+
+// Drops digits and symbols from both ends. A loop instead of an anchored
+// regex like /[^\p{L}]+$/, which backtracks quadratically: the password
+// change endpoint receives text of any length.
+function trimNonLetters(value: string): string {
+  const chars = [...value];
+  let start = 0;
+  let end = chars.length;
+  while (start < end && !LETTER.test(chars[start])) start += 1;
+  while (end > start && !LETTER.test(chars[end - 1])) end -= 1;
+  return chars.slice(start, end).join('');
+}
+
 function isSequence(value: string): boolean {
   if (value.length < 6) return false;
   const reversed = [...value].reverse().join('');
@@ -47,6 +61,6 @@ export function isCommonPassword(password: string): boolean {
   if (isSequence(normalized)) return true;
 
   // A common word or run padded with digits or symbols on either end.
-  const core = normalized.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '');
+  const core = trimNonLetters(normalized);
   return COMMON_WORDS.has(core) || isSequence(core);
 }

@@ -11,7 +11,11 @@ interface AuthLayoutProps {
 // Screens outside the panel (login, mandatory password change): the
 // institutional band and a single card, stacked on mobile. Forms inside use
 // the `auth-layout__form` class for their spacing.
-export function AuthLayout({ title, children, footer }: AuthLayoutProps) {
+export function AuthLayout({
+  title,
+  children,
+  footer,
+}: Readonly<AuthLayoutProps>) {
   return (
     <div className="auth-layout">
       <aside className="auth-layout__institutional">

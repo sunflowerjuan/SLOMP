@@ -42,6 +42,12 @@ describe('isCommonPassword', () => {
   ])('accepts a password that is not common: %s', (password) => {
     expect(isCommonPassword(password)).toBe(false);
   });
+
+  it('answers quickly for a very long input made of symbols', () => {
+    const started = performance.now();
+    isCommonPassword(`a${'!'.repeat(100_000)}b`);
+    expect(performance.now() - started).toBeLessThan(500);
+  });
 });
 
 describe('checkPasswordPolicy', () => {
