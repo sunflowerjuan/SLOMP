@@ -9,9 +9,7 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
-    "db:reset": "prisma migrate reset",
-    "admin:create": "tsx scripts/admin.ts create",
-    "admin:rotate-password": "tsx scripts/admin.ts rotate-password"
+    "db:reset": "prisma migrate reset"
   },
   "keywords": [],
   "author": "",

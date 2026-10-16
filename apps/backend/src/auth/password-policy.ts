@@ -3,8 +3,8 @@ import { isCommonPassword } from './common-passwords.js';
 // Administrator password policy (security policy, section 4.3 and SEC-09):
 // at least 12 characters, no forced composition rules, and not a common
 // password. bcrypt only hashes the first 72 bytes; a longer password would be
-// silently truncated, so it is rejected instead. Same rules as the seed and
-// the admin scripts (packages/shared/src/security/password-policy.ts).
+// silently truncated, so it is rejected instead. Applied by the password
+// change endpoint and by the admin scripts (scripts/admin.ts).
 export const MIN_PASSWORD_LENGTH = 12;
 export const MAX_PASSWORD_BYTES = 72;
 

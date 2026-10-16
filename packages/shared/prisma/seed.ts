@@ -31,8 +31,7 @@ function round2(value: number): number {
 }
 
 async function main() {
-  // Resolved before anything is deleted: outside a local machine this throws
-  // unless explicit credentials that pass the password policy were given.
+  // Null outside a local machine: no administrator is seeded there.
   const seedAdmin = resolveSeedAdminCredentials(process.env);
 
   console.log("Cleaning up existing data...");
@@ -49,25 +48,25 @@ async function main() {
   await prisma.property.deleteMany();
   await prisma.owner.deleteMany();
   await prisma.municipality.deleteMany();
-  await prisma.administrator.deleteMany();
 
-  await prisma.administrator.create({
-    data: {
-      email: seedAdmin.email,
-      passwordHash: await bcrypt.hash(seedAdmin.password, BCRYPT_SALT_ROUNDS),
-      name: "Administrador SLOMP",
-      // Outside a local machine whoever ran the seed knows the password, so
-      // the Administrator must replace it on first login.
-      mustChangePassword: !seedAdmin.isLocal,
-    },
-  });
-  // The password is only echoed on a local machine; elsewhere it would end
-  // up in deployment logs.
-  console.log(
-    seedAdmin.isLocal
-      ? `Seeded administrator: ${seedAdmin.email} / ${seedAdmin.password}`
-      : `Seeded administrator: ${seedAdmin.email}`,
-  );
+  if (seedAdmin) {
+    await prisma.administrator.deleteMany();
+    await prisma.administrator.create({
+      data: {
+        email: seedAdmin.email,
+        passwordHash: await bcrypt.hash(seedAdmin.password, BCRYPT_SALT_ROUNDS),
+        name: "Administrador SLOMP",
+      },
+    });
+    console.log(
+      `Seeded administrator: ${seedAdmin.email} / ${seedAdmin.password}`,
+    );
+  } else {
+    // Existing accounts are kept, so the seed can run before or after them.
+    console.log(
+      "Not a local database: no administrator seeded and existing ones kept. Create one with: pnpm --filter backend run admin:create --email <email>",
+    );
+  }
 
   const municipality = await prisma.municipality.create({
     data: {
