@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { flushSync } from "react-dom";
-import { login, logout } from "../api/auth";
+import {
+  changePassword as requestPasswordChange,
+  login,
+  logout,
+} from "../api/auth";
 import { refreshSession, setUnauthorizedHandler } from "../api/httpClient";
 import {
   clearActivity,
@@ -9,6 +13,7 @@ import {
   getLastActivity,
   hasSessionHint,
   markActivity,
+  markPasswordChanged,
   setSession,
 } from "../api/tokenStorage";
 import { AuthContext } from "./AuthContext";
@@ -26,6 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
   const [sessionEndReason, setSessionEndReason] =
     useState<SessionEndReason | null>(null);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
 
   const endSession = useCallback((reason: SessionEndReason | null) => {
     // The screen changes right away; if the backend can't be reached, the
@@ -34,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearToken();
     clearActivity();
     setSessionEndReason(reason);
+    setMustChangePassword(false);
     setStatus("anonymous");
   }, []);
 
@@ -53,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // idle limit before this page was opened.
           endSession("inactivity");
         } else {
+          setMustChangePassword(session.mustChangePassword);
           setStatus("authenticated");
         }
       })
@@ -75,10 +83,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    setSession(await login(email, password));
+    const session = setSession(await login(email, password));
     markActivity();
     const enterPanel = () => {
       setSessionEndReason(null);
+      setMustChangePassword(session.mustChangePassword);
       setStatus("authenticated");
     };
     // Cross-fade login -> panel instead of swapping the screens in one frame.
@@ -89,6 +98,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      await requestPasswordChange(currentPassword, newPassword);
+      markPasswordChanged();
+      markActivity();
+      const enterPanel = () => setMustChangePassword(false);
+      if (document.startViewTransition) {
+        document.startViewTransition(() => flushSync(enterPanel));
+      } else {
+        enterPanel();
+      }
+    },
+    [],
+  );
+
   const signOut = useCallback(() => endSession(null), [endSession]);
 
   useSessionKeepAlive(status === "authenticated", endSession);
@@ -96,12 +120,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextValue>(
     () => ({
       isAuthenticated: status === "authenticated",
+      mustChangePassword,
       isRestoring: status === "restoring",
       sessionEndReason,
       signIn,
+      changePassword,
       signOut,
     }),
-    [status, sessionEndReason, signIn, signOut],
+    [
+      status,
+      mustChangePassword,
+      sessionEndReason,
+      signIn,
+      changePassword,
+      signOut,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -48,6 +48,16 @@ const MISSING_LIQUIDATION_FIELD_LABELS: Record<string, string> = {
   SETTLEMENT_VALUES: "valores válidos en los conceptos",
 };
 
+// What the new password still needs, per violation the backend reports
+// (security policy, 4.3).
+const PASSWORD_RULE_LABELS: Record<string, string> = {
+  TOO_SHORT: "tener al menos 12 caracteres",
+  TOO_LONG: "ser más corta (hasta 72 caracteres)",
+  COMMON:
+    "no ser una contraseña común ni una palabra común con números o símbolos",
+  SAME_AS_CURRENT: "ser distinta de la actual",
+};
+
 const ERROR_MESSAGES: Record<string, CatalogEntry> = {
   // Generic
   BAD_REQUEST: GENERIC_ERROR_MESSAGES.invalidRequest,
@@ -72,6 +82,18 @@ const ERROR_MESSAGES: Record<string, CatalogEntry> = {
   AUTH_INVALID_CREDENTIALS: "Correo o contraseña incorrectos.",
   AUTH_SESSION_INVALID:
     "Tu sesión ya no es válida. Vuelve a iniciar sesión para continuar.",
+  AUTH_PASSWORD_CHANGE_REQUIRED:
+    "Debes cambiar tu contraseña antes de continuar. Vuelve a iniciar sesión para hacerlo.",
+  AUTH_CURRENT_PASSWORD_INVALID:
+    "La contraseña actual no es correcta. Revísala e intenta de nuevo.",
+  AUTH_PASSWORD_POLICY_VIOLATION: (details) => {
+    const rules = stringList(details.violations)
+      .map((violation) => PASSWORD_RULE_LABELS[violation])
+      .filter(Boolean);
+    return rules.length > 0
+      ? `La nueva contraseña debe ${joinWithY(rules)}.`
+      : "La nueva contraseña no cumple la política de contraseñas. Usa al menos 12 caracteres y evita contraseñas comunes.";
+  },
 
   // Tax roll upload
   TAX_ROLL_FILE_MISSING: "Selecciona un archivo de Excel (.xlsx) para cargar.",
