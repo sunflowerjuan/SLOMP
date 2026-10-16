@@ -54,7 +54,22 @@ describe("AUTH_PASSWORD_POLICY_VIOLATION message", () => {
         violations: ["TOO_SHORT", "COMMON"],
       }),
     ).toBe(
-      "La nueva contraseña debe tener al menos 12 caracteres y no ser una contraseña común ni una palabra común con números o símbolos.",
+      "La nueva contraseña debe tener al menos 12 caracteres. Además, es muy común o fácil de adivinar: evita palabras conocidas, secuencias como 123456 y números o símbolos al final.",
+    );
+    expect(
+      messageForErrorCode("AUTH_PASSWORD_POLICY_VIOLATION", {
+        violations: ["SAME_AS_CURRENT"],
+      }),
+    ).toBe("La nueva contraseña debe ser distinta de la actual.");
+  });
+
+  it("explains a common password on its own", () => {
+    expect(
+      messageForErrorCode("AUTH_PASSWORD_POLICY_VIOLATION", {
+        violations: ["COMMON"],
+      }),
+    ).toBe(
+      "La nueva contraseña es muy común o fácil de adivinar: evita palabras conocidas, secuencias como 123456 y números o símbolos al final.",
     );
   });
 
