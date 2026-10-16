@@ -48,6 +48,40 @@ const MISSING_LIQUIDATION_FIELD_LABELS: Record<string, string> = {
   SETTLEMENT_VALUES: "valores válidos en los conceptos",
 };
 
+// What the new password still needs, per violation the backend reports
+// (security policy, 4.3). COMMON gets its own sentence below.
+const PASSWORD_RULE_LABELS: Record<string, string> = {
+  TOO_SHORT: "tener al menos 12 caracteres",
+  TOO_LONG: "ser más corta (hasta 72 caracteres)",
+  SAME_AS_CURRENT: "ser distinta de la actual",
+};
+
+const COMMON_PASSWORD_ADVICE =
+  "evita palabras conocidas, secuencias como 123456 y números o símbolos al final";
+
+function passwordPolicyMessage(details: ErrorDetails): string {
+  const violations = stringList(details.violations);
+  const rules = violations
+    .map((violation) => PASSWORD_RULE_LABELS[violation])
+    .filter(Boolean);
+  const isCommon = violations.includes("COMMON");
+  if (rules.length === 0 && !isCommon) {
+    return "La nueva contraseña no cumple la política de contraseñas. Usa al menos 12 caracteres y evita contraseñas comunes.";
+  }
+  const sentences: string[] = [];
+  if (rules.length > 0) {
+    sentences.push(`La nueva contraseña debe ${joinWithY(rules)}.`);
+  }
+  if (isCommon) {
+    sentences.push(
+      rules.length > 0
+        ? `Además, es muy común o fácil de adivinar: ${COMMON_PASSWORD_ADVICE}.`
+        : `La nueva contraseña es muy común o fácil de adivinar: ${COMMON_PASSWORD_ADVICE}.`,
+    );
+  }
+  return sentences.join(" ");
+}
+
 const ERROR_MESSAGES: Record<string, CatalogEntry> = {
   // Generic
   BAD_REQUEST: GENERIC_ERROR_MESSAGES.invalidRequest,
@@ -72,6 +106,11 @@ const ERROR_MESSAGES: Record<string, CatalogEntry> = {
   AUTH_INVALID_CREDENTIALS: "Correo o contraseña incorrectos.",
   AUTH_SESSION_INVALID:
     "Tu sesión ya no es válida. Vuelve a iniciar sesión para continuar.",
+  AUTH_PASSWORD_CHANGE_REQUIRED:
+    "Debes cambiar tu contraseña antes de continuar. Vuelve a iniciar sesión para hacerlo.",
+  AUTH_CURRENT_PASSWORD_INVALID:
+    "La contraseña actual no es correcta. Revísala e intenta de nuevo.",
+  AUTH_PASSWORD_POLICY_VIOLATION: passwordPolicyMessage,
 
   // Tax roll upload
   TAX_ROLL_FILE_MISSING: "Selecciona un archivo de Excel (.xlsx) para cargar.",

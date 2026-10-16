@@ -52,6 +52,9 @@ services:
     command: pnpm --filter shared db:migrate:deploy
     environment:
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/predial_dev
+      # This stack is local-only: lets the seed and the backend accept the
+      # development defaults below. Never set it in a deployed environment.
+      ALLOW_DEV_CREDENTIALS: "true"
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@paez-boyaca.gov.co}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-changeme123}
     depends_on:
@@ -68,6 +71,7 @@ services:
       - "${BACKEND_PORT:-3000}:3000"
     environment:
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/predial_dev
+      ALLOW_DEV_CREDENTIALS: "true"
       JWT_SECRET: ${JWT_SECRET:-local-compose-only-change-me}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
       PORT: 3000

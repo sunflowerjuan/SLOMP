@@ -7,16 +7,12 @@ import {
   PrismaClient,
   SettlementStatus,
 } from "@prisma/client";
+import { resolveSeedAdminCredentials } from "../src/security/seed-admin-credentials.js";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
 
 const BCRYPT_SALT_ROUNDS = 10;
-// Dev-only fallback so `db:seed` works out of the box; override via env for
-// anything that isn't a local machine.
-const SEED_ADMIN_EMAIL =
-  process.env.SEED_ADMIN_EMAIL ?? "admin@paez-boyaca.gov.co";
-const SEED_ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? "changeme123";
 
 // Standard surcharges on top of the unified property tax, as billed in most
 // municipalities in Boyacá. Same 3 capital concepts the real tax-roll import
@@ -35,6 +31,9 @@ function round2(value: number): number {
 }
 
 async function main() {
+  // Null outside a local machine: no administrator is seeded there.
+  const seedAdmin = resolveSeedAdminCredentials(process.env);
+
   console.log("Cleaning up existing data...");
   await prisma.taxRollImport.deleteMany();
   await prisma.paymentOrder.deleteMany();
@@ -49,18 +48,25 @@ async function main() {
   await prisma.property.deleteMany();
   await prisma.owner.deleteMany();
   await prisma.municipality.deleteMany();
-  await prisma.administrator.deleteMany();
 
-  await prisma.administrator.create({
-    data: {
-      email: SEED_ADMIN_EMAIL,
-      passwordHash: await bcrypt.hash(SEED_ADMIN_PASSWORD, BCRYPT_SALT_ROUNDS),
-      name: "Administrador SLOMP",
-    },
-  });
-  console.log(
-    `Seeded administrator: ${SEED_ADMIN_EMAIL} / ${SEED_ADMIN_PASSWORD}`,
-  );
+  if (seedAdmin) {
+    await prisma.administrator.deleteMany();
+    await prisma.administrator.create({
+      data: {
+        email: seedAdmin.email,
+        passwordHash: await bcrypt.hash(seedAdmin.password, BCRYPT_SALT_ROUNDS),
+        name: "Administrador SLOMP",
+      },
+    });
+    console.log(
+      `Seeded administrator: ${seedAdmin.email} / ${seedAdmin.password}`,
+    );
+  } else {
+    // Existing accounts are kept, so the seed can run before or after them.
+    console.log(
+      "Not a local database: no administrator seeded and existing ones kept. Create one with: pnpm --filter backend run admin:create --email <email>",
+    );
+  }
 
   const municipality = await prisma.municipality.create({
     data: {

@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"sin pruebas todavia (pendiente HU11)\" && exit 0",
+    "test": "vitest run",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
@@ -20,7 +20,8 @@
     "@types/pg": "^8.15.5",
     "dotenv": "^17.4.2",
     "prisma": "^7.10.0",
-    "tsx": "^4.20.6"
+    "tsx": "^4.20.6",
+    "vitest": "^4.1.11"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",

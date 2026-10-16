@@ -2,7 +2,7 @@ import { UnauthorizedException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
 import { JwtStrategy } from './jwt.strategy.js';
 
-const ADMIN = { id: 1, email: 'admin@example.com' };
+const ADMIN = { id: 1, email: 'admin@example.com', mustChangePassword: false };
 const PAYLOAD = { sub: ADMIN.id, email: ADMIN.email, sid: 'session-1' };
 
 function buildStrategy(owner: typeof ADMIN | null) {
@@ -12,8 +12,11 @@ function buildStrategy(owner: typeof ADMIN | null) {
 }
 
 describe('JwtStrategy', () => {
-  it('resolves the Administrator for a token whose session is still open', async () => {
-    expect(await buildStrategy(ADMIN).validate(PAYLOAD)).toEqual(ADMIN);
+  it('resolves the Administrator and the session for a token whose session is still open', async () => {
+    expect(await buildStrategy(ADMIN).validate(PAYLOAD)).toEqual({
+      ...ADMIN,
+      sessionId: PAYLOAD.sid,
+    });
   });
 
   it('rejects a token whose session was closed or whose Administrator no longer exists', async () => {

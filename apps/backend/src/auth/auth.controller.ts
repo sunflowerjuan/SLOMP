@@ -8,9 +8,19 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
-import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { Request, Response } from 'express';
+import { AllowedBeforePasswordChange } from './allowed-before-password-change.decorator.js';
 import { AuthService } from './auth.service.js';
+import { ChangePasswordDto } from './change-password.dto.js';
+import { CurrentUser } from './current-user.decorator.js';
+import type { AuthenticatedUser } from './jwt.strategy.js';
 import { LoginDto } from './login.dto.js';
 import { Public } from './public.decorator.js';
 import {
@@ -28,6 +38,7 @@ const SESSION_EXAMPLE = {
   expiresIn: 900,
   idleTimeoutSeconds: 1800,
   sessionExpiresAt: '2026-10-13T22:00:00.000Z',
+  mustChangePassword: false,
 };
 
 @ApiTags('auth')
@@ -45,7 +56,7 @@ export class AuthController {
   @ApiResponse({
     status: 201,
     description:
-      'Credenciales válidas. Devuelve el JWT a usar como Bearer token en el resto de la API y los tiempos de la sesión.',
+      'Credenciales válidas. Devuelve el JWT a usar como Bearer token en el resto de la API y los tiempos de la sesión. Con mustChangePassword en true, el resto de la API responde 403 AUTH_PASSWORD_CHANGE_REQUIRED hasta cambiar la contraseña con POST /auth/password.',
     schema: { example: SESSION_EXAMPLE },
   })
   @ApiResponse({
@@ -137,6 +148,39 @@ export class AuthController {
     assertTrustedOrigin(request);
     await this.authService.logout(readRefreshCookie(request));
     clearRefreshCookie(response);
+  }
+
+  @AllowedBeforePasswordChange()
+  @Post('auth/password')
+  @HttpCode(204)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Cambia la contraseña del administrador autenticado. Es la única ruta disponible mientras mustChangePassword está en true.',
+  })
+  @ApiBody({ type: ChangePasswordDto })
+  @ApiResponse({
+    status: 204,
+    description:
+      'Contraseña cambiada. Se cierran las demás sesiones de la cuenta; la actual sigue abierta.',
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'AUTH_CURRENT_PASSWORD_INVALID si la contraseña actual no coincide (cuenta para el bloqueo de intentos del login), o AUTH_PASSWORD_POLICY_VIOLATION con details.violations (TOO_SHORT, TOO_LONG, COMMON, SAME_AS_CURRENT).',
+  })
+  @ApiResponse({ status: 401, description: 'Sin sesión válida.' })
+  async changePassword(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: ChangePasswordDto,
+    @Req() request: Request,
+  ): Promise<void> {
+    await this.authService.changePassword(
+      user,
+      body.currentPassword,
+      body.newPassword,
+      request.ip ?? 'unknown',
+    );
   }
 }
 

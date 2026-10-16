@@ -9,6 +9,9 @@ import { ErrorCode } from '../common/errors/error-codes.js';
 export interface AuthenticatedUser {
   id: number;
   email: string;
+  mustChangePassword: boolean;
+  // Session (refresh token family) the access token belongs to.
+  sessionId: string;
 }
 
 @Injectable()
@@ -39,6 +42,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         ),
       );
     }
-    return admin;
+    return { ...admin, sessionId: payload.sid };
   }
 }

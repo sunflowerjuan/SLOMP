@@ -7,6 +7,9 @@ export interface Session {
   sessionExpiresAt: number;
   refreshedAt: number;
   idleTimeoutMs: number;
+  // Someone else chose the password: the panel stays closed until the
+  // Administrator replaces it.
+  mustChangePassword: boolean;
 }
 
 // What the backend answers on login and on refresh.
@@ -15,6 +18,7 @@ export interface SessionResponse {
   expiresIn: number;
   idleTimeoutSeconds: number;
   sessionExpiresAt: string;
+  mustChangePassword: boolean;
 }
 
 let session: Session | null = null;
@@ -35,8 +39,13 @@ export function setSession(response: SessionResponse): Session {
     sessionExpiresAt: Date.parse(response.sessionExpiresAt),
     refreshedAt: now,
     idleTimeoutMs: response.idleTimeoutSeconds * 1000,
+    mustChangePassword: response.mustChangePassword === true,
   };
   return session;
+}
+
+export function markPasswordChanged(): void {
+  if (session) session = { ...session, mustChangePassword: false };
 }
 
 export function clearToken(): void {
