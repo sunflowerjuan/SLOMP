@@ -7,16 +7,12 @@ import {
   PrismaClient,
   SettlementStatus,
 } from "@prisma/client";
+import { resolveSeedAdminCredentials } from "../src/security/seed-admin-credentials.js";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter });
 
 const BCRYPT_SALT_ROUNDS = 10;
-// Dev-only fallback so `db:seed` works out of the box; override via env for
-// anything that isn't a local machine.
-const SEED_ADMIN_EMAIL =
-  process.env.SEED_ADMIN_EMAIL ?? "admin@paez-boyaca.gov.co";
-const SEED_ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? "changeme123";
 
 // Standard surcharges on top of the unified property tax, as billed in most
 // municipalities in Boyacá. Same 3 capital concepts the real tax-roll import
@@ -35,6 +31,10 @@ function round2(value: number): number {
 }
 
 async function main() {
+  // Resolved before anything is deleted: outside a local machine this throws
+  // unless explicit credentials that pass the password policy were given.
+  const seedAdmin = resolveSeedAdminCredentials(process.env);
+
   console.log("Cleaning up existing data...");
   await prisma.taxRollImport.deleteMany();
   await prisma.paymentOrder.deleteMany();
@@ -53,13 +53,17 @@ async function main() {
 
   await prisma.administrator.create({
     data: {
-      email: SEED_ADMIN_EMAIL,
-      passwordHash: await bcrypt.hash(SEED_ADMIN_PASSWORD, BCRYPT_SALT_ROUNDS),
+      email: seedAdmin.email,
+      passwordHash: await bcrypt.hash(seedAdmin.password, BCRYPT_SALT_ROUNDS),
       name: "Administrador SLOMP",
     },
   });
+  // The password is only echoed on a local machine; elsewhere it would end
+  // up in deployment logs.
   console.log(
-    `Seeded administrator: ${SEED_ADMIN_EMAIL} / ${SEED_ADMIN_PASSWORD}`,
+    seedAdmin.isLocal
+      ? `Seeded administrator: ${seedAdmin.email} / ${seedAdmin.password}`
+      : `Seeded administrator: ${seedAdmin.email}`,
   );
 
   const municipality = await prisma.municipality.create({
