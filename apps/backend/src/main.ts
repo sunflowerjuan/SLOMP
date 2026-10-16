@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule, ObserveInstrument } from './app.module.js';
 import { allowedOrigins } from './auth/refresh-cookie.js';
+import { assertDeploymentSecrets } from './common/deployment-secrets.js';
 import { validationExceptionFactory } from './common/errors/error-body.js';
 import { setupSecurityHeaders, setupSwagger } from './http-hardening.js';
 
@@ -14,6 +15,10 @@ const packageJson = createRequire(import.meta.url)('../package.json') as {
 };
 
 async function bootstrap() {
+  // Before anything listens: outside a local machine, refuse secrets that are
+  // published in the repository or too short (SL-115).
+  assertDeploymentSecrets(process.env);
+
   const app = (await NestFactory.create(AppModule, {
     instrument: ObserveInstrument,
   })) as NestExpressApplication;
