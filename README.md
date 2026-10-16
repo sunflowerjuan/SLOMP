@@ -132,7 +132,7 @@ Sigue la Política de seguridad (Confluence, secciones 2 y 4.3, hallazgo SEC-09)
 ### Qué se valida
 
 - **`JWT_SECRET` y `PDF_SERVICE_KEY`** (esta última solo si está definida): el backend no arranca con un valor publicado en el repositorio (`.env.example`, `docker-compose.yml`, CI, pruebas) ni con menos de 32 bytes. `PDF_SERVICE_KEY` debe ser la misma en el backend y en el servicio de PDF.
-- **`db:seed`:** borra los datos y carga datos de prueba, así que solo sirve para ambientes de desarrollo o demo. Fuera de local exige `SEED_ADMIN_EMAIL` y `SEED_ADMIN_PASSWORD` explícitos, aplica la política de contraseñas y no imprime la contraseña. Valida antes de borrar nada.
+- **`db:seed`:** borra los datos y carga datos de prueba, así que solo sirve para ambientes de desarrollo o demo. Fuera de local exige `SEED_ADMIN_EMAIL` y `SEED_ADMIN_PASSWORD` explícitos, aplica la política de contraseñas, no imprime la contraseña y obliga a cambiarla en el primer ingreso. Valida antes de borrar nada.
 - **Política de contraseñas del Administrador:** mínimo 12 caracteres, sin reglas de composición, y que no sea una contraseña común ni una palabra común rellenada con números o símbolos (`Password2026!`, `admin1234567`). Se aplica al seed fuera de local y a los comandos `admin:create` y `admin:rotate-password`.
 
 ### Dónde viven los secretos
@@ -160,7 +160,9 @@ pnpm --filter shared run admin:rotate-password --email persona@dominio.gov.co
 
 Se corren con el `DATABASE_URL` del ambiente (en `packages/shared/.env` o en la terminal). Generan una contraseña aleatoria y la muestran una sola vez; para fijar una propia se pasa en la variable `ADMIN_PASSWORD`, nunca como argumento, para que no quede en el historial de la terminal. Rotar una contraseña también cierra todas las sesiones abiertas de ese administrador.
 
-**Pendiente:** la política pide además el cambio obligatorio de la contraseña inicial en el primer ingreso. No está implementado: necesita un endpoint y una pantalla nuevos.
+### Cambio obligatorio de la contraseña inicial
+
+Una contraseña que eligió otra persona (`admin:create`, `admin:rotate-password` o el seed fuera de local) deja al administrador con `mustChangePassword`. Al iniciar sesión, el panel le muestra la pantalla "Cambia tu contraseña" en lugar del panel, y el backend responde `403 AUTH_PASSWORD_CHANGE_REQUIRED` en cualquier otra ruta hasta que la cambie con `POST /auth/password`. Ese endpoint pide la contraseña actual (los fallos cuentan para el bloqueo del login), aplica la política, rechaza repetir la misma y cierra las demás sesiones de la cuenta. En local el seed no activa la marca, para no estorbar el desarrollo ni los e2e.
 
 ## Flujo de trabajo
 
