@@ -4,20 +4,8 @@
   gap: var(--space-24);
 }
 
-.embed-page__snippet {
-  display: block;
-  width: 100%;
-  padding: var(--space-12);
-  border: 1px solid var(--semantic-border);
-  border-radius: var(--radius-default);
-  background-color: var(--semantic-surface-muted);
-  color: var(--semantic-text);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: var(--text-sm);
-  resize: vertical;
-}
-
 .embed-page__link {
-  margin: var(--space-12) 0 0;
-  font-size: var(--text-sm);
+  margin: 0;
+  font-size: var(--text-lg, 1.125rem);
+  font-weight: 600;
 }
