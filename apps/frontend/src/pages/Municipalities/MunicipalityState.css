@@ -1,0 +1,28 @@
+/* Same centered message as the empty states of Liquidaciones. */
+.municipality-state__box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-48) 0;
+  text-align: center;
+  animation: rise-in var(--duration-enter) var(--ease-out) backwards;
+}
+
+.municipality-state__title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.municipality-state__box p {
+  max-width: 44ch;
+  margin: 0 0 var(--space-8);
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+.municipality-state__box a.ui-button {
+  text-decoration: none;
+}

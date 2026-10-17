@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { ACTIVE_MUNICIPALITY_SLUG } from "../../api/municipality";
 import { getPublicMunicipality } from "../../api/publicConsultation";
 import { Card } from "../../components/ui/Card";
 import { PageHeader } from "../../components/ui/PageHeader";
@@ -13,8 +12,7 @@ function appUrl(): string {
 
 // Read-only: a link to the public consultation of the municipality the panel
 // works in. The Administrator cannot change the page it points to.
-export function EmbedPage() {
-  const slug = ACTIVE_MUNICIPALITY_SLUG;
+export function EmbedPage({ slug }: { slug: string }) {
   const url = consultationUrl(appUrl(), slug);
   const [name, setName] = useState<string | null>(null);
 
@@ -27,7 +25,7 @@ export function EmbedPage() {
   }, [slug]);
 
   return (
-    <div className="embed-page">
+    <div className="page embed-page">
       <PageHeader
         title="Consulta pública"
         subtitle="Enlace a la consulta de liquidaciones de este municipio."

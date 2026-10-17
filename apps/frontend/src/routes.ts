@@ -11,20 +11,26 @@ import { useMemo, useSyncExternalStore } from "react";
 // Each municipality has its own public consultation, `#/consulta/:slug`: it is
 // the page its website embeds in an iframe. Without a municipality
 // (`#/consulta`) there is nothing to show, and no municipality is ever listed.
+//
+// The panel carries its municipality in the URL too (`#/paez/cargas`), so each
+// tab works with the municipality of its own address (SL-122, section 7).
 const PUBLIC_CONSULTATION_PREFIX = "#/consulta";
-export const ADMIN_HREF = "#/";
 
-export type AdminSection = "cargas" | "liquidaciones" | "consulta-publica";
+export type AdminSection =
+  "cargas" | "liquidaciones" | "plantillas" | "consulta-publica";
 
-export const ADMIN_SECTION_HREF: Record<AdminSection, string> = {
-  cargas: "#/cargas",
-  liquidaciones: "#/liquidaciones",
-  "consulta-publica": "#/consulta-publica",
-};
+const ADMIN_SECTIONS: AdminSection[] = [
+  "cargas",
+  "liquidaciones",
+  "plantillas",
+  "consulta-publica",
+];
+
+const DEFAULT_ADMIN_SECTION: AdminSection = "cargas";
 
 // Same shape the backend accepts for a slug: lowercase words joined by single
 // hyphens (no overlapping groups, so it cannot backtrack badly).
-const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export function publicConsultationHref(slug: string): string {
   return `${PUBLIC_CONSULTATION_PREFIX}/${encodeURIComponent(slug)}`;
@@ -58,11 +64,40 @@ export function parsePublicConsultationRoute(
   return { slug: SLUG_PATTERN.test(slug) ? slug : null };
 }
 
-function adminSectionOf(hash: string): AdminSection {
-  if (hash === ADMIN_SECTION_HREF.liquidaciones) return "liquidaciones";
-  if (hash === ADMIN_SECTION_HREF["consulta-publica"])
-    return "consulta-publica";
-  return "cargas";
+export function adminHref(
+  slug: string,
+  section: AdminSection = DEFAULT_ADMIN_SECTION,
+): string {
+  return `#/${encodeURIComponent(slug)}/${section}`;
+}
+
+// `slug: null` when the address names no municipality (`#/`, or a link from
+// before SL-126 such as `#/cargas`); the panel then opens one. A slug that
+// isn't well formed is still returned, so the panel can say it doesn't exist
+// instead of quietly opening another municipality.
+export interface AdminRoute {
+  slug: string | null;
+  section: AdminSection;
+}
+
+function asSection(value: string | undefined): AdminSection | null {
+  return ADMIN_SECTIONS.find((section) => section === value) ?? null;
+}
+
+export function parseAdminRoute(hash: string): AdminRoute {
+  const [path] = hash.replace(/^#\/?/, "").split("?");
+  const [first = "", second] = path.split("/");
+  const legacySection = second === undefined ? asSection(first) : null;
+  if (first === "" || legacySection) {
+    return { slug: null, section: legacySection ?? DEFAULT_ADMIN_SECTION };
+  }
+  let slug: string;
+  try {
+    slug = decodeURIComponent(first);
+  } catch {
+    slug = first;
+  }
+  return { slug, section: asSection(second) ?? DEFAULT_ADMIN_SECTION };
 }
 
 function subscribe(onChange: () => void) {
@@ -77,6 +112,14 @@ export function usePublicConsultationRoute(): PublicConsultationRoute | null {
   return useMemo(() => parsePublicConsultationRoute(hash), [hash]);
 }
 
-export function useAdminSection(): AdminSection {
-  return adminSectionOf(useSyncExternalStore(subscribe, getHash));
+export function useAdminRoute(): AdminRoute {
+  const hash = useSyncExternalStore(subscribe, getHash);
+  const { slug, section } = parseAdminRoute(hash);
+  return useMemo(() => ({ slug, section }), [slug, section]);
+}
+
+// The municipality of this tab's address, for code outside React (the HTTP
+// client). Read on every call, never kept from before.
+export function currentAdminSlug(): string | null {
+  return parseAdminRoute(getHash()).slug;
 }

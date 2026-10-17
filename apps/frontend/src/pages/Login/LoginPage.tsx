@@ -6,8 +6,9 @@ import { AuthLayout } from "../../components/layout/AuthLayout";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { Notice } from "../../components/ui/Notice";
-import { ACTIVE_MUNICIPALITY_SLUG } from "../../api/municipality";
-import { publicConsultationHref } from "../../routes";
+import { readLastMunicipalitySlug } from "../../api/lastMunicipality";
+import { DEFAULT_PUBLIC_CONSULTATION_SLUG } from "../../api/municipality";
+import { currentAdminSlug, publicConsultationHref } from "../../routes";
 
 interface LoginFormErrors {
   email?: string;
@@ -64,7 +65,13 @@ export function LoginPage() {
       footer={
         <>
           ¿Eres contribuyente?{" "}
-          <a href={publicConsultationHref(ACTIVE_MUNICIPALITY_SLUG)}>
+          <a
+            href={publicConsultationHref(
+              currentAdminSlug() ??
+                readLastMunicipalitySlug() ??
+                DEFAULT_PUBLIC_CONSULTATION_SLUG,
+            )}
+          >
             Consulta tus liquidaciones sin iniciar sesión
           </a>
         </>

@@ -71,9 +71,15 @@
   }
 }
 
-.ui-input-error {
+.ui-input-error,
+.ui-input-hint {
   margin: 0;
   font-family: var(--font-sans);
   font-size: var(--text-sm);
   color: var(--semantic-danger-hover);
+}
+
+.ui-input-hint {
+  line-height: 1.4;
+  color: var(--semantic-text-muted);
 }
