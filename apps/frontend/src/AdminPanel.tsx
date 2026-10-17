@@ -20,6 +20,7 @@ import { useMunicipalities } from "./hooks/useMunicipalities";
 import { EmbedPage } from "./pages/ConsultaPublica/EmbedPage";
 import { AddMunicipalityDialog } from "./pages/Municipalities/AddMunicipalityDialog";
 import { MunicipalityState } from "./pages/Municipalities/MunicipalityState";
+import { PaymentOrdersPage } from "./pages/PaymentOrders/PaymentOrdersPage";
 import { SettlementsPage } from "./pages/Settlements/SettlementsPage";
 import { TaxRollUploadPage } from "./pages/TaxRollUpload/TaxRollUploadPage";
 import { TemplatesPage } from "./pages/Templates/TemplatesPage";
@@ -48,8 +49,20 @@ const NAV_ITEMS: (Omit<AdminNavItem, "href"> & { id: AdminSection })[] = [
     ),
   },
   {
+    id: "mandamientos",
+    label: "Mandamientos",
+    icon: (
+      <Icon box={24}>
+        <path d="M6 3h8l4 4v14H6z" />
+        <path d="M14 3v4h4M9 12h6M9 16h3" />
+        <path d="M14.5 15.5l1.5 1.5 3-3" />
+      </Icon>
+    ),
+  },
+  {
     id: "plantillas",
     label: "Plantillas",
+    inMenuOnPhone: true,
     icon: (
       <Icon box={24}>
         <path d="M6 3h8l4 4v14H6z" />
@@ -60,6 +73,7 @@ const NAV_ITEMS: (Omit<AdminNavItem, "href"> & { id: AdminSection })[] = [
   {
     id: "consulta-publica",
     label: "Consulta pública",
+    inMenuOnPhone: true,
     icon: (
       <Icon box={24}>
         <path d="M8 8l-4 4 4 4M16 8l4 4-4 4M14 5l-4 14" />
@@ -87,6 +101,8 @@ function sectionPage(section: AdminSection, municipality: Municipality) {
   switch (section) {
     case "liquidaciones":
       return <SettlementsPage />;
+    case "mandamientos":
+      return <PaymentOrdersPage />;
     case "plantillas":
       return <TemplatesPage />;
     case "consulta-publica":

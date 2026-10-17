@@ -1,0 +1,88 @@
+/* A long Excel scrolls inside the card instead of pushing the page. */
+.payment-order-candidates {
+  display: flex;
+  flex-direction: column;
+  max-height: 28rem;
+  margin: 0;
+  padding: 0 var(--space-8) 0 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+
+.payment-order-candidates li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-12) 0;
+  border-bottom: 1px solid var(--semantic-border);
+  animation: rise-in var(--duration-base) var(--ease-out) backwards;
+}
+
+.payment-order-candidates__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+
+.payment-order-candidates li:first-child {
+  padding-top: 0;
+}
+
+.payment-order-candidates li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.payment-order-candidates__info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Cadastral codes run up to 30 digits: split only if the row can't hold them. */
+.payment-order-candidates__code {
+  font-weight: 600;
+  color: var(--semantic-text);
+  overflow-wrap: anywhere;
+}
+
+/* The row's state and its action. */
+.payment-order-candidates__actions {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-8);
+}
+
+.payment-order-candidates__empty {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+/* Phone: the state and its action go on one line under the code. */
+@media (max-width: 520px) {
+  .payment-order-candidates__row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-8);
+  }
+
+  .payment-order-candidates__actions {
+    justify-content: space-between;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .payment-order-candidates li {
+    animation: fade-in var(--duration-fast) ease-out backwards;
+  }
+}

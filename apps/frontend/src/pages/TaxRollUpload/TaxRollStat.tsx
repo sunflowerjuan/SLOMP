@@ -1,3 +1,5 @@
+import "./TaxRollStat.css";
+
 export function TaxRollStat({
   value,
   label,

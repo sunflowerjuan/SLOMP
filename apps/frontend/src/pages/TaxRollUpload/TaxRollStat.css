@@ -1,0 +1,26 @@
+/* One figure of an upload result (tax roll and payment orders Excel). */
+.tax-roll-upload-page__stat {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--space-4);
+  padding: var(--space-12) var(--space-16);
+  background-color: var(--semantic-surface-muted);
+  border-radius: var(--radius-default);
+}
+
+.tax-roll-upload-page__stat dt {
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+.tax-roll-upload-page__stat dd {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--semantic-text);
+}
+
+.tax-roll-upload-page__stat[data-tone="danger"] dd {
+  color: var(--semantic-danger-hover);
+}

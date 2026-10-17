@@ -14,6 +14,9 @@ export interface AdminNavItem {
   label: string;
   href: string;
   icon: ReactNode;
+  // Setup sections: on a phone they open from the logo menu, so the bar keeps
+  // only the daily work and its labels fit.
+  inMenuOnPhone?: boolean;
 }
 
 // Account action (sign out, ...). On a phone they open from the logo; on
@@ -46,10 +49,18 @@ export function AdminLayout({
   const brandRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const isFirstRender = useRef(true);
-  const activeIndex = items.findIndex((item) => item.id === activeId);
+  const isCompact = useMediaQuery("(max-width: 900px)");
+  const barItems = isCompact
+    ? items.filter((item) => !item.inMenuOnPhone)
+    : items;
+  const menuSections = isCompact
+    ? items.filter((item) => item.inMenuOnPhone)
+    : [];
+  // -1 while a menu section is open on a phone: the bar marks none.
+  const activeIndex = barItems.findIndex((item) => item.id === activeId);
   const { containerRef, indicatorStyle, dragging, axis, bind } =
     useSlidingIndicator<HTMLElement>(activeIndex, (index) => {
-      window.location.hash = items[index].href;
+      window.location.hash = barItems[index].href;
     });
   const activeSlug = switcher?.activeSlug;
 
@@ -84,7 +95,6 @@ export function AdminLayout({
     };
   }, [menuOpen]);
 
-  const isCompact = useMediaQuery("(max-width: 900px)");
   const activeLabel = switcher?.activeLabel ?? null;
 
   const brand = (
@@ -182,8 +192,34 @@ export function AdminLayout({
                   />
                 </>
               )}
+              {menuSections.length > 0 && (
+                <>
+                  {menuSections.map((item, index) => (
+                    <a
+                      key={item.id}
+                      role="menuitem"
+                      className="admin-layout__menu-item"
+                      href={item.href}
+                      autoFocus={!switcher && index === 0}
+                      aria-current={item.id === activeId ? "page" : undefined}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      {item.icon}
+                      {item.label}
+                    </a>
+                  ))}
+                  <div
+                    role="separator"
+                    className="admin-layout__menu-separator"
+                  />
+                </>
+              )}
               {menuItems.map((item, index) =>
-                renderMenuItem(item, "menuitem", !switcher && index === 0),
+                renderMenuItem(
+                  item,
+                  "menuitem",
+                  !switcher && menuSections.length === 0 && index === 0,
+                ),
               )}
             </div>
           )}
@@ -204,7 +240,7 @@ export function AdminLayout({
               aria-hidden="true"
             />
           )}
-          {items.map((item) => (
+          {barItems.map((item) => (
             <a
               key={item.id}
               data-slide-item

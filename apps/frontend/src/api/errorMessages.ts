@@ -5,11 +5,17 @@
 //   2. What the user can do next, when there is something to do.
 //   Informal "tú", full sentences ending in a period.
 
+import { formatPeriods } from "../utils/formatPeriods";
+
 export type ErrorDetails = Record<string, unknown>;
 
 // Who is reading the message: the Administrator (panel) or the taxpayer
 // (public consultation), who cannot fix templates or data themselves.
 export type MessageAudience = "admin" | "public";
+
+// Which document a PDF, template or bulk job error is about: the codes are
+// shared by liquidations and payment orders, the wording isn't.
+export type MessageDocument = "LIQUIDACION" | "MANDAMIENTO";
 
 type MessageBuilder = (details: ErrorDetails) => string;
 type CatalogEntry = string | MessageBuilder;
@@ -301,6 +307,36 @@ const PUBLIC_OVERRIDES: Record<string, CatalogEntry> = {
     "No se pudo generar el documento. Intenta de nuevo en unos minutos.",
 };
 
+// The same codes when the document is a payment order (Mandamientos screen).
+const PAYMENT_ORDER_OVERRIDES: Record<string, CatalogEntry> = {
+  LIQUIDATION_DATA_INCOMPLETE: (details) => {
+    if (Array.isArray(details.documents)) {
+      const count = details.documents.length;
+      return count === 1
+        ? "No se puede generar el ZIP porque un mandamiento tiene datos incompletos. Completa su liquidación e intenta de nuevo."
+        : `No se puede generar el ZIP porque ${count} mandamientos tienen datos incompletos. Completa sus liquidaciones e intenta de nuevo.`;
+    }
+    const labels = missingLiquidationLabels(stringList(details.missing));
+    return labels.length > 0
+      ? `No se puede generar el PDF porque al mandamiento le ${labels.length > 1 ? "faltan" : "falta"} ${joinWithY(labels)}. Completa esos datos e intenta de nuevo.`
+      : "No se puede generar el PDF porque al mandamiento le faltan datos. Completa su liquidación e intenta de nuevo.";
+  },
+  PDF_TEMPLATE_UNAVAILABLE:
+    "Este municipio no tiene una plantilla de mandamiento activa. Súbela en Plantillas e intenta de nuevo.",
+  PDF_TEMPLATE_INVALID:
+    "La plantilla del mandamiento está dañada o no es válida. Reemplázala por una plantilla .docx válida e intenta de nuevo.",
+  PDF_CONVERSION_FAILED:
+    "No se pudo convertir el mandamiento a PDF y no se generó ningún archivo. Intenta de nuevo; si el problema continúa, contacta al equipo de soporte.",
+  TEMPLATE_RENDER_FAILED:
+    "No se pudo llenar la plantilla del mandamiento con estos datos. Contacta al equipo de soporte.",
+  BULK_JOB_STALLED:
+    "La generación masiva se detuvo y se canceló sin consumir números de mandamiento. Inicia una nueva; si se repite, contacta al equipo de soporte.",
+  BULK_ZIP_INCOMPLETE:
+    "No se pudo armar el ZIP completo y la generación se canceló sin consumir números de mandamiento. Intenta de nuevo.",
+  BULK_LIMIT_EXCEEDED: (details) =>
+    `Hay ${numberOr(details.count, "demasiados")} mandamientos por generar y el máximo por descarga masiva es ${numberOr(details.max, "10000")}. Carga un Excel con menos predios para generarlos por partes.`,
+};
+
 function resolve(entry: CatalogEntry, details: ErrorDetails): string {
   return typeof entry === "function" ? entry(details) : entry;
 }
@@ -311,9 +347,11 @@ export function messageForErrorCode(
   code: string,
   details: ErrorDetails = {},
   audience: MessageAudience = "admin",
+  document: MessageDocument = "LIQUIDACION",
 ): string | null {
   const entry =
     (audience === "public" ? PUBLIC_OVERRIDES[code] : undefined) ??
+    (document === "MANDAMIENTO" ? PAYMENT_ORDER_OVERRIDES[code] : undefined) ??
     ERROR_MESSAGES[code];
   return entry === undefined ? null : resolve(entry, details);
 }
@@ -364,4 +402,56 @@ export function messageForRowIssue(issue: RowIssue): string {
       ? "La fila tiene datos no válidos."
       : resolve(entry, issue.details ?? {});
   return `Fila ${issue.row}: ${text}`;
+}
+
+// Why a period of the payment orders Excel can't get a payment order now
+// (`reason` of the import preview and of `rejected` when generating).
+
+// The 60 days are counted on Colombia's calendar.
+const FIRM_DATE_FORMATTER = new Intl.DateTimeFormat("es-CO", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  timeZone: "America/Bogota",
+});
+
+const PAYMENT_ORDER_REJECTION_MESSAGES: Record<string, string> = {
+  SETTLEMENT_NOT_FOUND:
+    "No hay una liquidación vigente para este predio y periodo.",
+  SETTLEMENT_REPLACED:
+    "La liquidación fue reemplazada por una carga posterior.",
+  ALREADY_HAS_PAYMENT_ORDER: "Ya tiene mandamiento.",
+  NO_RESOLUTION: "Todavía no se ha generado su resolución.",
+  STATUS_NOT_ELIGIBLE:
+    "Está pagada, en acuerdo de pago o en pérdida temporal de competencia.",
+  NOT_YET_FIRM: "Todavía no está en firme.",
+};
+
+export function messageForPaymentOrderRejection(
+  reason: string,
+  firmOn?: string,
+): string {
+  if (reason === "NOT_YET_FIRM" && firmOn) {
+    return `Queda en firme el ${FIRM_DATE_FORMATTER.format(new Date(firmOn))}.`;
+  }
+  return (
+    PAYMENT_ORDER_REJECTION_MESSAGES[reason] ??
+    "No cumple las condiciones para generar su mandamiento."
+  );
+}
+
+// Generating one payment order when its periods stopped qualifying after the
+// Excel was reviewed: none of them (nothing issued) or only some.
+export const PAYMENT_ORDER_NOT_ISSUED_MESSAGE =
+  "Este predio ya no cumple las condiciones para generar su mandamiento y no se generó. Revisa el motivo en No elegibles.";
+
+export function paymentOrderLeftOutMessage(
+  number: string,
+  periods: number[],
+): string {
+  const leftOut =
+    periods.length === 1
+      ? `el periodo ${periods[0]}, que ya no cumplía`
+      : `los periodos ${formatPeriods(periods)}, que ya no cumplían`;
+  return `El mandamiento MP-${number} se generó sin ${leftOut} las condiciones.`;
 }

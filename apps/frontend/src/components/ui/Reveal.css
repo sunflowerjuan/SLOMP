@@ -1,0 +1,28 @@
+.ui-reveal {
+  display: grid;
+  animation: ui-reveal-in var(--duration-sheet) var(--ease-sheet-soft) both;
+}
+
+.ui-reveal > div {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@keyframes ui-reveal-in {
+  from {
+    grid-template-rows: 0fr;
+    margin-top: calc(var(--reveal-gap, var(--space-20)) * -1);
+    opacity: 0;
+  }
+  to {
+    grid-template-rows: 1fr;
+    margin-top: 0;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-reveal {
+    animation: fade-in var(--duration-fast) ease-out both;
+  }
+}

@@ -1,0 +1,20 @@
+.slompsim-button .ui-button__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.slompsim-button svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+.slompsim-button__soon {
+  padding: 2px var(--space-8);
+  border-radius: var(--radius-default);
+  background-color: var(--semantic-surface-muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--semantic-text-muted);
+}

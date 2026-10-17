@@ -68,7 +68,22 @@ export function startLiquidationsJob(
   });
 }
 
-// The municipality's job in PREPARING, RUNNING or ASSEMBLING, if any.
+// Issues and renders, in one job and all or nothing, a payment order per
+// property of the given settlements (the "eligible" ones of the Excel
+// preview). 400 PAYMENT_ORDER_INELIGIBLE when one of them stopped qualifying.
+export function startPaymentOrdersJob(
+  settlementIds: number[],
+  signal?: AbortSignal,
+): Promise<StartedPdfJob> {
+  return request(municipalityPath("/pdf-jobs"), {
+    method: "POST",
+    body: { documentType: "MANDAMIENTO", settlementIds },
+    signal,
+  });
+}
+
+// The municipality's job in PREPARING, RUNNING or ASSEMBLING, if any, of any
+// document type: a municipality runs one job at a time.
 export function getActivePdfJob(
   signal?: AbortSignal,
 ): Promise<{ job: PdfJob | null }> {

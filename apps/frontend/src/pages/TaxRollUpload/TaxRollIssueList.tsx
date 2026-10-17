@@ -1,5 +1,6 @@
 import { messageForRowIssue } from "../../api/errorMessages";
 import type { TaxRollImportResult } from "../../api/taxRoll";
+import "./TaxRollIssueList.css";
 
 // Collapsed by default; a long list scrolls inside instead of the page.
 export function TaxRollIssueList({
