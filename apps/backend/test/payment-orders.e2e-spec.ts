@@ -246,7 +246,7 @@ describe('Payment orders (e2e)', () => {
 
     expect(response.body.created).toHaveLength(1);
     expect(response.body.created[0]).toMatchObject({
-      settlementId: firmSettlementId,
+      settlementIds: [firmSettlementId],
       number: expect.stringMatching(/^\d{4}-\d{4,}$/),
     });
     expect(response.body.rejected).toEqual([
@@ -283,16 +283,15 @@ describe('Payment orders (e2e)', () => {
     expect(own.body).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          settlementId: firmSettlementId,
+          settlementIds: [firmSettlementId],
           cadastralCode,
-          period: 2019,
+          periods: [2019],
         }),
       ]),
     );
     expect(
-      other.body.some(
-        (order: { settlementId: number }) =>
-          order.settlementId === firmSettlementId,
+      other.body.some((order: { settlementIds: number[] }) =>
+        order.settlementIds.includes(firmSettlementId),
       ),
     ).toBe(false);
   });

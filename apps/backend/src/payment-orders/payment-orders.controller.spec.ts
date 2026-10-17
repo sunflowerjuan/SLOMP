@@ -14,6 +14,7 @@ import { validationExceptionFactory } from '../common/errors/error-body.js';
 import { ErrorCode } from '../common/errors/error-codes.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { MAX_PAYMENT_ORDERS_PER_REQUEST } from './generate-payment-orders.dto.js';
+import { GeneratePaymentOrderPdfService } from './generate-payment-order-pdf.service.js';
 import { PaymentOrdersController } from './payment-orders.controller.js';
 import { PaymentOrdersService } from './payment-orders.service.js';
 
@@ -33,6 +34,7 @@ describe('PaymentOrdersController', () => {
     generate: vi.fn(),
     list: vi.fn(),
   };
+  const pdfService = { generate: vi.fn() };
   const prisma = {
     municipality: {
       findUnique: vi.fn(async ({ where }: { where: { slug: string } }) =>
@@ -46,6 +48,7 @@ describe('PaymentOrdersController', () => {
       controllers: [PaymentOrdersController],
       providers: [
         { provide: PaymentOrdersService, useValue: service },
+        { provide: GeneratePaymentOrderPdfService, useValue: pdfService },
         { provide: PrismaService, useValue: prisma },
       ],
     }).compile();
@@ -75,6 +78,7 @@ describe('PaymentOrdersController', () => {
     service.previewImport.mockReset();
     service.generate.mockReset();
     service.list.mockReset();
+    pdfService.generate.mockReset();
   });
 
   describe('municipality of the route', () => {
@@ -89,6 +93,9 @@ describe('PaymentOrdersController', () => {
           .post('/municipalities/nope/payment-orders/import')
           .attach('file', Buffer.from('x'), 'm.xlsx'),
       ]);
+      responses.push(
+        await request(server).post('/municipalities/nope/payment-orders/1/pdf'),
+      );
 
       for (const response of responses) {
         expect(response.status).toBe(404);
@@ -99,6 +106,32 @@ describe('PaymentOrdersController', () => {
       expect(service.list).not.toHaveBeenCalled();
       expect(service.generate).not.toHaveBeenCalled();
       expect(service.previewImport).not.toHaveBeenCalled();
+      expect(pdfService.generate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /:id/pdf', () => {
+    it('downloads the PDF of the payment order of the URL municipality', async () => {
+      pdfService.generate.mockResolvedValue({
+        pdf: Buffer.from('%PDF-fake'),
+        number: '2026-0007',
+      });
+
+      const response = await request(app.getHttpServer())
+        .post(`${BASE}/5/pdf`)
+        .expect(201);
+
+      expect(pdfService.generate).toHaveBeenCalledWith(PAEZ.id, 5);
+      expect(response.headers['content-type']).toContain('application/pdf');
+      expect(response.headers['content-disposition']).toBe(
+        'attachment; filename="MP-2026-0007.pdf"',
+      );
+    });
+
+    it('rejects an id that is not a number', async () => {
+      await request(app.getHttpServer()).post(`${BASE}/abc/pdf`).expect(400);
+
+      expect(pdfService.generate).not.toHaveBeenCalled();
     });
   });
 

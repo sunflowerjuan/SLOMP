@@ -36,10 +36,11 @@ async function main() {
 
   console.log("Cleaning up existing data...");
   await prisma.taxRollImport.deleteMany();
+  await prisma.settlementDetail.deleteMany();
+  // Settlements point to their payment order (Restrict): they go first.
+  await prisma.settlement.deleteMany();
   await prisma.paymentOrder.deleteMany();
   await prisma.paymentOrderCounter.deleteMany();
-  await prisma.settlementDetail.deleteMany();
-  await prisma.settlement.deleteMany();
   // Resolutions hold an onDelete: Restrict FK to properties -- must go
   // before property.deleteMany(), same reason settlements go first above.
   await prisma.resolution.deleteMany();
@@ -290,7 +291,8 @@ async function main() {
             year,
             sequence,
             issuedAt,
-            settlementId,
+            propertyId: property.id,
+            settlements: { connect: { id: settlementId } },
           },
         });
       }

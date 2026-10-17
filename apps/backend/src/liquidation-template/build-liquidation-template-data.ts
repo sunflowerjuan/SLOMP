@@ -54,7 +54,7 @@ const moneyFormatter = new Intl.NumberFormat('es-CO', {
   maximumFractionDigits: 0,
 });
 
-function formatMoney(amount: number): string {
+export function formatMoney(amount: number): string {
   // Intl inserts a non-breaking space (U+00A0) between "$" and the digits;
   // normalize to a plain space so the output is predictable ASCII.
   return moneyFormatter.format(amount).replace(' ', ' ');
@@ -67,6 +67,24 @@ function detailAmount(
   return details.find((d) => d.concept === concept)?.amount ?? 0;
 }
 
+export function ownersOf(property: PropertyLike): string {
+  return property.owners
+    .map((po) => po.owner.name)
+    .filter((name) => name !== NO_OWNER_NAME_PLACEHOLDER)
+    .join(', ');
+}
+
+// Capital charged for one period: the sum of the 3 capital concepts, without
+// their interest rows.
+export function capitalOfSettlement(
+  settlement: SettlementWithDetailsLike,
+): number {
+  return CAPITAL_CONCEPTS.reduce(
+    (sum, { concept }) => sum + detailAmount(settlement.details, concept),
+    0,
+  );
+}
+
 export function buildLiquidationTemplateData(
   resolutionNumber: string,
   property: PropertyLike,
@@ -74,10 +92,7 @@ export function buildLiquidationTemplateData(
 ): LiquidationTemplateData {
   const periods = settlements.map((s) => s.period);
 
-  const owners = property.owners
-    .map((po) => po.owner.name)
-    .filter((name) => name !== NO_OWNER_NAME_PLACEHOLDER)
-    .join(', ');
+  const owners = ownersOf(property);
 
   let capitalTotal = 0;
   let interestTotal = 0;

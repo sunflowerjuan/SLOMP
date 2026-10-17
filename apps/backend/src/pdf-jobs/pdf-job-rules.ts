@@ -1,4 +1,4 @@
-import { PdfJobStatus, ResolutionKind } from '@prisma/client';
+import { PdfDocumentType, PdfJobStatus, ResolutionKind } from '@prisma/client';
 import type { PdfResult } from 'shared/pdf-contract';
 import { PRESCRIPTION_YEARS } from '../tax-roll/period-rules.js';
 
@@ -37,7 +37,22 @@ export function bulkFolder(kind: ResolutionKind, currentYear: number): string {
     : `Liquidaciones ${cutoff} en adelante`;
 }
 
-export function bulkZipFileName(kind: ResolutionKind | null): string {
+// Payment orders all go in one folder: they are not split by prescription risk.
+export const PAYMENT_ORDER_FOLDER = 'Mandamientos de pago';
+
+// "MP-" keeps a payment order apart from a liquidation with the same
+// <year>-<sequence>.
+export function paymentOrderFileName(number: string): string {
+  return `${PAYMENT_ORDER_FOLDER}/MP-${number}.pdf`;
+}
+
+export function bulkZipFileName(
+  documentType: PdfDocumentType,
+  kind: ResolutionKind | null,
+): string {
+  if (documentType === PdfDocumentType.MANDAMIENTO) {
+    return 'mandamientos-de-pago.zip';
+  }
   return kind === ResolutionKind.PRESCRIPTION_RISK
     ? 'liquidaciones-riesgo-prescripcion.zip'
     : 'liquidaciones-cobro-normal.zip';

@@ -2,7 +2,11 @@ import { createHash } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { ErrorCode } from '../common/errors/error-codes.js';
 import type { MunicipalityContext } from '../municipalities/municipality-context.js';
-import { buildDocx, LIQUIDATION_PARAGRAPHS } from './test-docx.js';
+import {
+  buildDocx,
+  LIQUIDATION_PARAGRAPHS,
+  PAYMENT_ORDER_PARAGRAPHS,
+} from './test-docx.js';
 import { TemplatesService } from './templates.service.js';
 
 const PAEZ: MunicipalityContext = {
@@ -290,17 +294,28 @@ describe('TemplatesService.upload', () => {
     });
   });
 
-  it('refuses MANDAMIENTO until its field catalog exists', async () => {
+  it('accepts a MANDAMIENTO template that uses the payment order fields', async () => {
+    const { service, storage } = build();
+
+    const view = await service.upload(
+      PAEZ,
+      'MANDAMIENTO',
+      file(buildDocx(PAYMENT_ORDER_PARAGRAPHS)),
+      ADMIN_ID,
+    );
+
+    expect(view).toMatchObject({ documentType: 'MANDAMIENTO', isActive: true });
+    expect(storage.upload).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses a MANDAMIENTO template that carries the liquidation fields', async () => {
     const { service, storage } = build();
 
     const error = await errorOf(
       service.upload(PAEZ, 'MANDAMIENTO', file(VALID_DOCX), ADMIN_ID),
     );
 
-    expect(error).toMatchObject({
-      status: 400,
-      code: ErrorCode.TEMPLATE_TYPE_UNSUPPORTED,
-    });
+    expect(error).toMatchObject({ status: 400 });
     expect(storage.upload).not.toHaveBeenCalled();
   });
 

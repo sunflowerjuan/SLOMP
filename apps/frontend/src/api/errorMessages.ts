@@ -46,6 +46,7 @@ const MISSING_LIQUIDATION_FIELD_LABELS: Record<string, string> = {
   SETTLEMENT_PERIODS: "los periodos liquidados",
   SETTLEMENT_DETAILS: "el detalle de conceptos",
   SETTLEMENT_VALUES: "valores válidos en los conceptos",
+  LIQUIDATION_NUMBER: "el número de la liquidación",
 };
 
 function missingLiquidationLabels(missing: string[]): string[] {
@@ -223,6 +224,10 @@ const ERROR_MESSAGES: Record<string, CatalogEntry> = {
   // Payment orders
   PAYMENT_ORDER_CONCURRENT_GENERATION:
     "Otra solicitud ya generó el mandamiento de una de estas liquidaciones. Actualiza la lista e intenta de nuevo.",
+  PAYMENT_ORDER_NOT_FOUND:
+    "No encontramos el mandamiento. Actualiza la lista e intenta de nuevo.",
+  PAYMENT_ORDER_INELIGIBLE:
+    "Algunas liquidaciones ya no cumplen las condiciones para generar su mandamiento. Vuelve a cargar el Excel y revisa cuáles se pueden generar.",
 
   // Public consultation
   PUBLIC_QUERY_CRITERIA_REQUIRED:

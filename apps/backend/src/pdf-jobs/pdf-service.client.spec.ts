@@ -28,6 +28,22 @@ describe('PdfServiceClient.liquidationTemplate', () => {
     });
   });
 
+  it('looks up the template of the requested document type', async () => {
+    const { client, prisma } = build({
+      blobPath: 'templates/paez/mandamiento/1.docx',
+      sha256: 'd'.repeat(64),
+    });
+
+    await expect(client.activeTemplate(1, 'MANDAMIENTO')).resolves.toEqual({
+      blob: 'templates/paez/mandamiento/1.docx',
+      sha256: 'd'.repeat(64),
+    });
+    expect(prisma.template.findFirst).toHaveBeenCalledWith({
+      where: { municipalityId: 1, documentType: 'MANDAMIENTO', isActive: true },
+      select: { blobPath: true, sha256: true },
+    });
+  });
+
   it('asks only for the template of the municipality it was called with', async () => {
     const { client, prisma } = build(null);
 

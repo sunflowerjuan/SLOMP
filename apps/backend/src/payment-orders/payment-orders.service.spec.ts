@@ -1,5 +1,4 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import ExcelJS from 'exceljs';
 import { describe, expect, it, vi } from 'vitest';
 import { ErrorCode } from '../common/errors/error-codes.js';
@@ -68,12 +67,15 @@ interface FakeSettlement {
   status?: string;
   replacedAt?: Date | null;
   cadastralCode: string;
+  propertyId?: number;
   resolution?: { number: string; issuedAt: Date } | null;
   hasPaymentOrder?: boolean;
 }
 
 const toRow = (s: FakeSettlement) => ({
   id: s.id,
+  // code('1') is property 1, code('2') property 2...
+  propertyId: s.propertyId ?? Number(s.cadastralCode.slice(5, 6)),
   period: s.period,
   status: s.status ?? 'VIGENTE',
   replacedAt: s.replacedAt ?? null,
@@ -87,6 +89,13 @@ const toRow = (s: FakeSettlement) => ({
 
 function buildPrisma(settlements: FakeSettlement[] = []) {
   const tx = {
+    // The linked count: one row per settlement id given.
+    $executeRaw: vi.fn(
+      async (_query: unknown, ...values: unknown[]) =>
+        (values[0] as number[]).length,
+    ),
+    $queryRaw: vi.fn(async () => [{ lastSequence: 0 }]),
+    pdfJob: { count: vi.fn(async () => 0) },
     paymentOrderCounter: {
       upsert: vi.fn(
         async ({ create }: { create: { lastSequence: number } }) => ({
@@ -97,13 +106,9 @@ function buildPrisma(settlements: FakeSettlement[] = []) {
     paymentOrder: {
       // Like the real call, returns only the selected fields.
       createManyAndReturn: vi.fn(
-        async ({
-          data,
-        }: {
-          data: { settlementId: number; number: string }[];
-        }) =>
-          data.map((d) => ({
-            settlementId: d.settlementId,
+        async ({ data }: { data: { number: string }[] }) =>
+          data.map((d, i) => ({
+            id: 100 + i,
             number: d.number,
             issuedAt: NOW,
           })),
@@ -359,7 +364,7 @@ describe('PaymentOrdersService.previewImport', () => {
 });
 
 describe('PaymentOrdersService.generate', () => {
-  it('generates a payment order for a firm settlement, numbered and dated now', async () => {
+  it('generates one payment order for a firm settlement, numbered and dated now', async () => {
     const { prisma, tx } = buildPrisma([
       { id: 1, period: 2023, cadastralCode: code('1') },
     ]);
@@ -369,23 +374,60 @@ describe('PaymentOrdersService.generate', () => {
 
     expect(result.rejected).toEqual([]);
     expect(result.created).toEqual([
-      { settlementId: 1, number: '2026-0001', issuedAt: NOW },
+      {
+        paymentOrderId: 100,
+        number: '2026-0001',
+        issuedAt: NOW,
+        propertyId: 1,
+        settlementIds: [1],
+      },
     ]);
     expect(tx.paymentOrder.createManyAndReturn).toHaveBeenCalledWith(
       expect.objectContaining({
         data: [
           {
             municipalityId: MUNICIPALITY.id,
-            settlementId: 1,
+            propertyId: 1,
             administratorId: 9,
             number: '2026-0001',
             year: 2026,
             sequence: 1,
             issuedAt: NOW,
+            pdfJobId: undefined,
           },
         ],
       }),
     );
+  });
+
+  it('puts all the eligible periods of a property in one payment order and gives each other property its own number', async () => {
+    const { prisma, tx } = buildPrisma([
+      { id: 1, period: 2021, cadastralCode: code('1') },
+      { id: 2, period: 2022, cadastralCode: code('1') },
+      { id: 3, period: 2023, cadastralCode: code('1') },
+      { id: 4, period: 2022, cadastralCode: code('2') },
+    ]);
+    const service = new PaymentOrdersService(prisma as never);
+
+    const result = await service.generate(
+      MUNICIPALITY.id,
+      9,
+      [4, 3, 2, 1],
+      NOW,
+    );
+
+    expect(
+      result.created.map((c) => [c.number, c.propertyId, c.settlementIds]),
+    ).toEqual([
+      ['2026-0001', 1, [1, 2, 3]],
+      ['2026-0002', 2, [4]],
+    ]);
+    // Each period is linked to the order of its property, in one statement
+    // (the call before it is the counter lock).
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(2);
+    const [, settlementIds, orderIds] = tx.$executeRaw.mock.calls.at(-1)!;
+    expect(settlementIds).toEqual([1, 2, 3, 4]);
+    expect(orderIds).toEqual([100, 100, 100, 101]);
   });
 
   it('cannot generate a payment order before 60 days from the resolution', async () => {
@@ -445,9 +487,8 @@ describe('PaymentOrdersService.generate', () => {
       NOW,
     );
 
-    expect(result.created.map((c) => [c.settlementId, c.number])).toEqual([
-      [1, '2026-0001'],
-      [3, '2026-0002'],
+    expect(result.created.map((c) => [c.number, c.settlementIds])).toEqual([
+      ['2026-0001', [1, 3]],
     ]);
     expect(result.rejected.map((r) => [r.settlementId, r.reason])).toEqual([
       [2, 'STATUS_NOT_ELIGIBLE'],
@@ -456,11 +497,11 @@ describe('PaymentOrdersService.generate', () => {
     ]);
   });
 
-  it('reserves all the numbers in one block, inside the same transaction as the orders', async () => {
+  it('reserves the numbers of all the properties in one block, inside the same transaction as the orders', async () => {
     const { prisma, tx } = buildPrisma([
       { id: 1, period: 2022, cadastralCode: code('1') },
-      { id: 2, period: 2023, cadastralCode: code('1') },
-      { id: 3, period: 2024, cadastralCode: code('1') },
+      { id: 2, period: 2023, cadastralCode: code('2') },
+      { id: 3, period: 2024, cadastralCode: code('3') },
     ]);
     const service = new PaymentOrdersService(prisma as never);
 
@@ -473,6 +514,7 @@ describe('PaymentOrdersService.generate', () => {
         where: {
           municipalityId_year: { municipalityId: MUNICIPALITY.id, year: 2026 },
         },
+        update: { lastSequence: { increment: 3 } },
       }),
     );
   });
@@ -528,16 +570,30 @@ describe('PaymentOrdersService.generate', () => {
     expect(tx.paymentOrder.createManyAndReturn).toHaveBeenCalledTimes(1);
   });
 
-  it('answers 409 when another request generated the same settlement first, saving nothing', async () => {
+  it('answers 409 when another request claimed one of the periods first, and the transaction aborts', async () => {
+    const { prisma, tx } = buildPrisma([
+      { id: 1, period: 2022, cadastralCode: code('1') },
+      { id: 2, period: 2023, cadastralCode: code('1') },
+    ]);
+    // The guarded UPDATE links one row less than asked.
+    tx.$executeRaw.mockResolvedValue(1);
+    const service = new PaymentOrdersService(prisma as never);
+
+    const error = await service
+      .generate(MUNICIPALITY.id, 9, [1, 2], NOW)
+      .catch((e) => e);
+
+    expect(error).toBeInstanceOf(ConflictException);
+    expect(error.getResponse().code).toBe(
+      ErrorCode.PAYMENT_ORDER_CONCURRENT_GENERATION,
+    );
+  });
+
+  it('answers 409 and reserves nothing while a bulk job is running for the municipality', async () => {
     const { prisma, tx } = buildPrisma([
       { id: 1, period: 2022, cadastralCode: code('1') },
     ]);
-    tx.paymentOrder.createManyAndReturn.mockRejectedValue(
-      new Prisma.PrismaClientKnownRequestError('unique', {
-        code: 'P2002',
-        clientVersion: 'test',
-      }),
-    );
+    tx.pdfJob.count.mockResolvedValue(1);
     const service = new PaymentOrdersService(prisma as never);
 
     const error = await service
@@ -546,8 +602,10 @@ describe('PaymentOrdersService.generate', () => {
 
     expect(error).toBeInstanceOf(ConflictException);
     expect(error.getResponse().code).toBe(
-      ErrorCode.PAYMENT_ORDER_CONCURRENT_GENERATION,
+      ErrorCode.BULK_GENERATION_IN_PROGRESS,
     );
+    expect(tx.paymentOrderCounter.upsert).not.toHaveBeenCalled();
+    expect(tx.paymentOrder.createManyAndReturn).not.toHaveBeenCalled();
   });
 
   it('lets any other error through', async () => {
@@ -564,15 +622,18 @@ describe('PaymentOrdersService.generate', () => {
 });
 
 describe('PaymentOrdersService.list', () => {
-  it('lists only the payment orders of the municipality', async () => {
+  it('lists only the payment orders of the municipality, with the periods each covers', async () => {
     const { prisma } = buildPrisma();
     prisma.paymentOrder.findMany.mockResolvedValue([
       {
         id: 3,
         number: '2026-0003',
         issuedAt: NOW,
-        settlementId: 11,
-        settlement: { period: 2023, property: { cadastralCode: code('1') } },
+        property: { cadastralCode: code('1') },
+        settlements: [
+          { id: 12, period: 2023 },
+          { id: 11, period: 2021 },
+        ],
       },
     ]);
     const service = new PaymentOrdersService(prisma as never);
@@ -587,9 +648,9 @@ describe('PaymentOrdersService.list', () => {
         id: 3,
         number: '2026-0003',
         issuedAt: NOW,
-        settlementId: 11,
-        period: 2023,
         cadastralCode: code('1'),
+        settlementIds: [12, 11],
+        periods: [2021, 2023],
       },
     ]);
   });

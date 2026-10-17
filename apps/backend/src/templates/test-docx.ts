@@ -42,3 +42,12 @@ export const LIQUIDATION_PARAGRAPHS: string[] = [
   'vigencias {startYear} a {endYear} total {totalAmount} capital {capitalAmount} interes {interestAmount}',
   '{#rows}{year} {concept} {interest} {capital} {/rows}',
 ];
+
+// Every marker of the payment order catalog, as the Páez template uses them
+// (the liquidations it refers to are an inline loop).
+export const PAYMENT_ORDER_PARAGRAPHS: string[] = [
+  'RESOLUCION N° MP 15514{paymentOrderNumber} {issueDate}',
+  'liquidaciones {#liquidations}LOIP 15514{number}{separator}{/liquidations}',
+  'numero {cadastralCode} en {propertyName}{#owners} a nombre de {owners}{/owners}.',
+  'vigencias {startYear} a {endYear} capital {capitalAmount}',
+];

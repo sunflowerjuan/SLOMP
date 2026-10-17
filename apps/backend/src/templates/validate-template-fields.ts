@@ -28,6 +28,28 @@ export const LIQUIDATION_FIELDS: FieldCatalog = {
   required: ['resolutionNumber', 'cadastralCode', 'totalAmount', 'rows'],
 };
 
+// Mirrors PaymentOrderTemplateData (payment-orders/payment-order-template-data.ts).
+// The payment order charges capital only, so there is no interest or table.
+export const PAYMENT_ORDER_FIELDS: FieldCatalog = {
+  scalars: [
+    'paymentOrderNumber',
+    'issueDate',
+    'cadastralCode',
+    'propertyName',
+    'owners',
+    'startYear',
+    'endYear',
+    'capitalAmount',
+  ],
+  loops: { liquidations: ['number', 'separator'] },
+  required: [
+    'paymentOrderNumber',
+    'cadastralCode',
+    'capitalAmount',
+    'liquidations',
+  ],
+};
+
 export interface FieldValidation {
   /** Required fields the template does not use. */
   missing: string[];
@@ -35,10 +57,9 @@ export interface FieldValidation {
   unknown: string[];
 }
 
-// shortcut: MANDAMIENTO has no catalog until SL-129 defines the payment
-// order fields (after SL-127 validates the design); upload is refused until then.
 export const CATALOGS: Partial<Record<PdfDocumentType, FieldCatalog>> = {
   LIQUIDACION: LIQUIDATION_FIELDS,
+  MANDAMIENTO: PAYMENT_ORDER_FIELDS,
 };
 
 export function validateTemplateFields(

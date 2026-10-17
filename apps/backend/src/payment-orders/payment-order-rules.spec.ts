@@ -4,6 +4,7 @@ import {
   evaluatePaymentOrderEligibility,
   FIRM_AFTER_DAYS,
   firmOn,
+  groupSettlementsByProperty,
   isFirm,
   PRESCRIPTION_YEARS_AFTER_PAYMENT_ORDER,
   prescriptionAvailableOn,
@@ -247,5 +248,25 @@ describe('prescription from "En firme": 5 years after the payment order', () => 
     expect(
       canPrescribeFromFirm(leapDay, new Date('2033-02-28T10:00:00.000Z')),
     ).toBe(false);
+  });
+});
+
+describe('groupSettlementsByProperty', () => {
+  it('puts the periods of a property together and sorts by property and id', () => {
+    expect(
+      groupSettlementsByProperty([
+        { id: 9, propertyId: 2 },
+        { id: 5, propertyId: 1 },
+        { id: 3, propertyId: 2 },
+        { id: 1, propertyId: 1 },
+      ]),
+    ).toEqual([
+      { propertyId: 1, settlementIds: [1, 5] },
+      { propertyId: 2, settlementIds: [3, 9] },
+    ]);
+  });
+
+  it('gives nothing for no settlements', () => {
+    expect(groupSettlementsByProperty([])).toEqual([]);
   });
 });

@@ -117,3 +117,26 @@ export function canPrescribeFromFirm(
     now.getTime() >= prescriptionAvailableOn(paymentOrderIssuedAt).getTime()
   );
 }
+
+export interface PaymentOrderGroup {
+  propertyId: number;
+  settlementIds: number[];
+}
+
+// One payment order per property: the periods of a request that belong to the
+// same property go together. Ordered by property and, inside it, by id, so
+// the numbers a request gets do not depend on the order it listed them in.
+export function groupSettlementsByProperty(
+  settlements: { id: number; propertyId: number }[],
+): PaymentOrderGroup[] {
+  const byProperty = new Map<number, number[]>();
+  for (const { id, propertyId } of settlements) {
+    byProperty.set(propertyId, [...(byProperty.get(propertyId) ?? []), id]);
+  }
+  return [...byProperty]
+    .sort(([a], [b]) => a - b)
+    .map(([propertyId, ids]) => ({
+      propertyId,
+      settlementIds: ids.sort((a, b) => a - b),
+    }));
+}
