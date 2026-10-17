@@ -1,8 +1,10 @@
-import { ResolutionKind } from '@prisma/client';
+import { PdfDocumentType, ResolutionKind } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
 import {
   bulkFolder,
+  bulkZipFileName,
   counterAfterRevert,
+  paymentOrderFileName,
   parsePdfResult,
   splitIntoBatches,
 } from './pdf-job-rules.js';
@@ -20,6 +22,27 @@ describe('pdf job rules', () => {
     expect(bulkFolder(ResolutionKind.NORMAL, 2026)).toBe(
       'Liquidaciones 2022 en adelante',
     );
+  });
+
+  it('puts every payment order in one folder, named with the MP prefix', () => {
+    expect(paymentOrderFileName('2026-0007')).toBe(
+      'Mandamientos de pago/MP-2026-0007.pdf',
+    );
+  });
+
+  it('names the ZIP after the document type, and the liquidations ZIP after the kind', () => {
+    expect(bulkZipFileName(PdfDocumentType.MANDAMIENTO, null)).toBe(
+      'mandamientos-de-pago.zip',
+    );
+    expect(
+      bulkZipFileName(
+        PdfDocumentType.LIQUIDACION,
+        ResolutionKind.PRESCRIPTION_RISK,
+      ),
+    ).toBe('liquidaciones-riesgo-prescripcion.zip');
+    expect(
+      bulkZipFileName(PdfDocumentType.LIQUIDACION, ResolutionKind.NORMAL),
+    ).toBe('liquidaciones-cobro-normal.zip');
   });
 
   it('hands the range back only while nobody took numbers after the job', () => {

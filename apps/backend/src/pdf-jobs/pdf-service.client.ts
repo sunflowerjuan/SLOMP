@@ -4,6 +4,7 @@ import {
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import type { PdfDocumentType } from '@prisma/client';
 import type { RenderRequest, TemplateRef } from 'shared/pdf-contract';
 import { errorBody } from '../common/errors/error-body.js';
 import { ErrorCode } from '../common/errors/error-codes.js';
@@ -85,21 +86,28 @@ export class PdfServiceClient {
     return this.connected;
   }
 
-  // The municipality's active liquidation template: its Blob path and hash
-  // travel in every queue message and every POST /render. Templates are
+  // The municipality's active template of a document type: its Blob path and
+  // hash travel in every queue message and every POST /render. Templates are
   // uploaded and validated by TemplatesService.
-  async liquidationTemplate(municipalityId: number): Promise<TemplateRef> {
+  async activeTemplate(
+    municipalityId: number,
+    documentType: PdfDocumentType,
+  ): Promise<TemplateRef> {
     const active = await this.prisma.template.findFirst({
-      where: { municipalityId, documentType: 'LIQUIDACION', isActive: true },
+      where: { municipalityId, documentType, isActive: true },
       select: { blobPath: true, sha256: true },
     });
     if (!active) {
       throw unavailable(
         ErrorCode.PDF_TEMPLATE_UNAVAILABLE,
-        'This municipality has no active liquidation template.',
+        `This municipality has no active ${documentType === 'MANDAMIENTO' ? 'payment order' : 'liquidation'} template.`,
       );
     }
     return { blob: active.blobPath, sha256: active.sha256 };
+  }
+
+  liquidationTemplate(municipalityId: number): Promise<TemplateRef> {
+    return this.activeTemplate(municipalityId, 'LIQUIDACION');
   }
 
   async render(request: RenderRequest): Promise<Buffer> {

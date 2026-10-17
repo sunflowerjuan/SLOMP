@@ -1,5 +1,5 @@
 import { ConflictException, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { errorBody } from '../common/errors/error-body.js';
 import { ErrorCode } from '../common/errors/error-codes.js';
 import type { MunicipalityContext } from '../municipalities/municipality-context.js';
@@ -8,9 +8,15 @@ import { assertCadastralCodesBelongToMunicipality } from '../tax-roll/assert-mun
 import { parseTaxRollUpload } from '../tax-roll/parse-tax-roll-upload.js';
 import { currentYearInColombia } from '../tax-roll/period-rules.js';
 import type { TaxRollRowIssue } from '../tax-roll/tax-roll-row.dto.js';
-import { reservePaymentOrderNumbers } from './payment-order-number.js';
+import { lockCounter } from '../pdf-jobs/counter-lock.js';
+import { ACTIVE_JOB_STATUSES } from '../pdf-jobs/pdf-job-rules.js';
+import {
+  issuePaymentOrders,
+  type IssuedPaymentOrder,
+} from './issue-payment-orders.js';
 import {
   evaluatePaymentOrderEligibility,
+  groupSettlementsByProperty,
   type PaymentOrderIneligibleReason,
 } from './payment-order-rules.js';
 
@@ -20,6 +26,7 @@ const CODES_PER_QUERY = 5000;
 
 const SETTLEMENT_SELECT = {
   id: true,
+  propertyId: true,
   period: true,
   status: true,
   replacedAt: true,
@@ -58,7 +65,8 @@ export interface PaymentOrderImportPreview {
 }
 
 export interface GeneratePaymentOrdersResult {
-  created: { settlementId: number; number: string; issuedAt: Date }[];
+  // One per property of the request, covering all its eligible periods.
+  created: IssuedPaymentOrder[];
   rejected: {
     settlementId: number;
     reason: PaymentOrderRejectionReason;
@@ -190,7 +198,7 @@ export class PaymentOrdersService {
     const settlementById = new Map(settlements.map((s) => [s.id, s]));
 
     const result: GeneratePaymentOrdersResult = { created: [], rejected: [] };
-    const toCreate: number[] = [];
+    const toCreate: SettlementForOrder[] = [];
     for (const id of ids) {
       const settlement = settlementById.get(id);
       if (!settlement) {
@@ -205,7 +213,7 @@ export class PaymentOrdersService {
         now,
       );
       if (eligibility.eligible) {
-        toCreate.push(id);
+        toCreate.push(settlement);
       } else {
         result.rejected.push({
           settlementId: id,
@@ -217,43 +225,31 @@ export class PaymentOrdersService {
     if (toCreate.length === 0) return result;
 
     const year = currentYearInColombia(now);
-    try {
-      result.created = await this.prisma.$transaction(async (tx) => {
-        const numbers = await reservePaymentOrderNumbers(
-          tx,
-          municipalityId,
-          year,
-          toCreate.length,
-        );
-        return tx.paymentOrder.createManyAndReturn({
-          data: toCreate.map((settlementId, index) => ({
-            municipalityId,
-            settlementId,
-            administratorId,
-            number: numbers[index]!.number,
-            year,
-            sequence: numbers[index]!.sequence,
-            issuedAt: now,
-          })),
-          select: { settlementId: true, number: true, issuedAt: true },
-        });
+    const groups = groupSettlementsByProperty(toCreate);
+    const issued = await this.prisma.$transaction(async (tx) => {
+      // Same lock as the bulk job: while the municipality has one running,
+      // its range of numbers must stay contiguous so it can be reverted.
+      await lockCounter(tx, municipalityId, year, 'paymentOrder');
+      const activeJobs = await tx.pdfJob.count({
+        where: { municipalityId, status: { in: ACTIVE_JOB_STATUSES } },
       });
-    } catch (error) {
-      // The unique index on settlementId decides when two requests race for
-      // the same settlement; nothing was saved.
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
+      if (activeJobs > 0) {
         throw new ConflictException(
           errorBody(
-            ErrorCode.PAYMENT_ORDER_CONCURRENT_GENERATION,
-            'Another request already generated a payment order for one of these settlements. Try again.',
+            ErrorCode.BULK_GENERATION_IN_PROGRESS,
+            'A bulk generation job is running for this municipality. Try again when it finishes.',
           ),
         );
       }
-      throw error;
-    }
+      return issuePaymentOrders(tx, {
+        municipalityId,
+        administratorId,
+        year,
+        now,
+        groups,
+      });
+    });
+    result.created = issued;
     return result;
   }
 
@@ -268,22 +264,17 @@ export class PaymentOrdersService {
         id: true,
         number: true,
         issuedAt: true,
-        settlementId: true,
-        settlement: {
-          select: {
-            period: true,
-            property: { select: { cadastralCode: true } },
-          },
-        },
+        property: { select: { cadastralCode: true } },
+        settlements: { select: { id: true, period: true } },
       },
     });
     return orders.map((order) => ({
       id: order.id,
       number: order.number,
       issuedAt: order.issuedAt,
-      settlementId: order.settlementId,
-      period: order.settlement.period,
-      cadastralCode: order.settlement.property.cadastralCode,
+      cadastralCode: order.property.cadastralCode,
+      settlementIds: order.settlements.map((s) => s.id),
+      periods: order.settlements.map((s) => s.period).sort((a, b) => a - b),
     }));
   }
 }

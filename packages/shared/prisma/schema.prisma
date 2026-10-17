@@ -108,8 +108,9 @@ model Property {
   // N:N relationship with Owner (co-ownership) via join table
   owners PropertyOwner[]
 
-  settlements Settlement[]
-  resolutions Resolution[]
+  settlements   Settlement[]
+  resolutions   Resolution[]
+  paymentOrders PaymentOrder[]
 
   @@index([municipalityId])
   @@map("properties")
@@ -183,11 +184,16 @@ model Settlement {
   resolutionId Int?
   resolution   Resolution? @relation(fields: [resolutionId], references: [id], onDelete: Restrict)
 
-  details      SettlementDetail[]
-  paymentOrder PaymentOrder?
+  // The payment order that charges this period; null until one is generated.
+  // A payment order covers several periods of one property.
+  paymentOrderId Int?
+  paymentOrder   PaymentOrder? @relation(fields: [paymentOrderId], references: [id], onDelete: Restrict)
+
+  details SettlementDetail[]
 
   @@index([propertyId, period])
   @@index([resolutionId])
+  @@index([paymentOrderId])
   @@map("settlements")
 }
 
@@ -256,13 +262,15 @@ model SettlementDetail {
 
 // ----------------------------------------------------------------------------
 // PaymentOrder (mandamiento de pago)
-// At most one per settlement, and only for a settlement that is "En firme"
-// (60 days after its resolution was generated). `issuedAt` is the generation
-// date: from it run the 5 years after which the settlement may become
-// PRESCRITA. The number restarts every year, per municipality.
+// Covers the periods of one property that came in the same generation, and
+// only settlements that are "En firme" (60 days after their resolution was
+// generated); a period belongs to at most one payment order, a property can
+// have several. `issuedAt` is the generation date: from it run the 5 years
+// after which a settlement may become PRESCRITA. The number restarts every
+// year, per municipality.
 //
-// The relation to the settlement stays restrictive (onDelete: Restrict): a
-// payment order is never lost or reassigned when its settlement changes.
+// Settlements point to their payment order with onDelete: Restrict: a payment
+// order is never lost while a settlement still charges through it.
 // ----------------------------------------------------------------------------
 model PaymentOrder {
   id        Int      @id @default(autoincrement())
@@ -273,8 +281,10 @@ model PaymentOrder {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  settlementId Int        @unique
-  settlement   Settlement @relation(fields: [settlementId], references: [id], onDelete: Restrict)
+  settlements Settlement[]
+
+  propertyId Int
+  property   Property @relation(fields: [propertyId], references: [id])
 
   municipalityId Int
   municipality   Municipality @relation(fields: [municipalityId], references: [id])
@@ -283,9 +293,15 @@ model PaymentOrder {
   administratorId Int?
   administrator   Administrator? @relation(fields: [administratorId], references: [id], onDelete: SetNull)
 
+  // Bulk job that issued it; reverting a failed job deletes exactly these.
+  pdfJobId String?
+  pdfJob   PdfJob? @relation(fields: [pdfJobId], references: [id], onDelete: SetNull)
+
   @@unique([municipalityId, number])
   @@unique([municipalityId, year, sequence])
   @@index([municipalityId, issuedAt])
+  @@index([propertyId])
+  @@index([pdfJobId])
   @@map("payment_orders")
 }
 
@@ -430,8 +446,8 @@ model PdfJob {
   templateBlob       String
   templateSha256     String
   year               Int
-  // Consecutive range reserved for new resolutions; null when the job only
-  // re-renders resolutions issued before.
+  // Consecutive range reserved for new resolutions (or payment orders); null
+  // when the job only re-renders resolutions issued before.
   firstSequence      Int?
   lastSequence       Int?
   errorCode          String?
@@ -448,8 +464,9 @@ model PdfJob {
   createdById Int?
   createdBy   Administrator? @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
-  batches     PdfJobBatch[]
-  resolutions Resolution[]
+  batches       PdfJobBatch[]
+  resolutions   Resolution[]
+  paymentOrders PaymentOrder[]
 
   @@index([municipalityId, createdAt])
   @@index([status])

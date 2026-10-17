@@ -343,7 +343,7 @@ describe('SettlementsService', () => {
         SettlementStatus.PRESCRITA,
       );
       expect(allowed.paymentOrder.findFirst).toHaveBeenCalledWith({
-        where: { settlementId: { in: [1] } },
+        where: { settlements: { some: { id: { in: [1] } } } },
         orderBy: { issuedAt: 'asc' },
         select: { issuedAt: true },
       });

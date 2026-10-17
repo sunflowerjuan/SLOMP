@@ -44,7 +44,13 @@ export class PdfJobsController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: CreatePdfJobDto,
   ) {
-    return this.jobs.create(municipality.id, user.id, body.kind);
+    return body.documentType === 'MANDAMIENTO'
+      ? this.jobs.createPaymentOrders(
+          municipality.id,
+          user.id,
+          body.settlementIds,
+        )
+      : this.jobs.create(municipality.id, user.id, body.kind);
   }
 
   @Get('active')

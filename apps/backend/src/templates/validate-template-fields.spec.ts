@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { buildLiquidationTemplateData } from '../liquidation-template/build-liquidation-template-data.js';
+import { buildPaymentOrderTemplateData } from '../payment-orders/build-payment-order-template-data.js';
 import {
   LIQUIDATION_FIELDS,
+  PAYMENT_ORDER_FIELDS,
   validateTemplateFields,
 } from './validate-template-fields.js';
 
@@ -105,9 +107,56 @@ describe('the LIQUIDACION catalog', () => {
 });
 
 describe('validateTemplateFields (MANDAMIENTO)', () => {
-  it('has no catalog yet: SL-129 defines it', () => {
-    expect(() => validateTemplateFields('MANDAMIENTO', [])).toThrow(
-      /no field catalog/i,
+  const ALL = [
+    ...PAYMENT_ORDER_FIELDS.scalars,
+    'liquidations',
+    'liquidations.number',
+    'liquidations.separator',
+  ];
+
+  it('accepts a template that uses every catalog field', () => {
+    expect(validateTemplateFields('MANDAMIENTO', ALL)).toEqual({
+      missing: [],
+      unknown: [],
+    });
+  });
+
+  it('reports the required fields it lacks and the markers it does not know', () => {
+    const result = validateTemplateFields('MANDAMIENTO', [
+      'cadastralCode',
+      'totalAmount',
+    ]);
+    expect(result.missing).toEqual([
+      'paymentOrderNumber',
+      'capitalAmount',
+      'liquidations',
+    ]);
+    expect(result.unknown).toEqual(['totalAmount']);
+  });
+
+  it('covers exactly the data the backend builds for a payment order', () => {
+    const { liquidations, ...scalars } = buildPaymentOrderTemplateData(
+      '2026-0001',
+      new Date(),
+      {
+        cadastralCode: '155140001000000010001',
+        address: 'LA ESPERANZA',
+        owners: [{ owner: { name: 'JUAN PEREZ' } }],
+      },
+      [
+        {
+          period: 2024,
+          resolutionNumber: '2026-0002',
+          details: [{ concept: 'Impuesto Predial', amount: 10 }],
+        },
+      ],
+    );
+
+    expect(Object.keys(scalars).sort()).toEqual(
+      [...PAYMENT_ORDER_FIELDS.scalars].sort(),
+    );
+    expect(Object.keys(liquidations[0]!).sort()).toEqual(
+      [...PAYMENT_ORDER_FIELDS.loops.liquidations!].sort(),
     );
   });
 });

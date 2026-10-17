@@ -245,7 +245,7 @@ export class SettlementsService {
     const settlementIds = members.map((member) => member.id);
 
     const firstPaymentOrder = await this.prisma.paymentOrder.findFirst({
-      where: { settlementId: { in: settlementIds } },
+      where: { settlements: { some: { id: { in: settlementIds } } } },
       orderBy: { issuedAt: 'asc' },
       select: { issuedAt: true },
     });

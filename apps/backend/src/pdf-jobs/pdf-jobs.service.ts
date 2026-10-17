@@ -33,6 +33,17 @@ import {
   type PropertyLike,
   type SettlementWithDetailsLike,
 } from '../liquidation-template/build-liquidation-template-data.js';
+import {
+  buildPaymentOrderTemplateData,
+  missingPaymentOrderData,
+  templateSettlementsOf,
+} from '../payment-orders/build-payment-order-template-data.js';
+import { issuePaymentOrders } from '../payment-orders/issue-payment-orders.js';
+import {
+  evaluatePaymentOrderEligibility,
+  groupSettlementsByProperty,
+  type PaymentOrderGroup,
+} from '../payment-orders/payment-order-rules.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { formatResolutionNumber } from '../resolutions/reserve-resolution-number.js';
 import { selectGenerationTriggers } from '../resolutions/select-generation-triggers.js';
@@ -49,27 +60,54 @@ import {
   counterAfterRevert,
   minutesAfter,
   minutesBefore,
+  paymentOrderFileName,
   splitIntoBatches,
 } from './pdf-job-rules.js';
 import { PdfServiceClient } from './pdf-service.client.js';
 
-// One document of a bulk job: a pending group that gets a new resolution, or
-// a resolution issued before that is only rendered again (same number).
-interface BulkDocument {
-  property: PropertyLike;
-  settlements: SettlementWithDetailsLike[];
+// What a bulk job keeps in memory about each document while it plans, checks
+// and enqueues: ids only. The heavy data (details, owners) is read a chunk at
+// a time, so memory depends on the chunk and not on the size of the job.
+interface PlannedDocument {
   /** Pending group: the settlements the new resolution covers. */
   propertyId?: number;
   settlementIds?: number[];
-  /** Issued before: its number, untouched by the job. */
+  /** Issued before: its id, rendered again under the same number. */
+  resolutionId?: number;
+  /** Set by reserve() for a pending group; the existing one otherwise. */
   resolutionNumber?: string;
 }
 
-// Blobs uploaded / messages sent at once while enqueuing a job.
+// A planned document with the data its template needs.
+interface BulkDocument {
+  property: PropertyLike;
+  settlements: SettlementWithDetailsLike[];
+  resolutionNumber?: string;
+}
+
+// One file of a bulk job: where it goes in the ZIP and what its template gets.
+interface BulkFile {
+  fileName: string;
+  data: Record<string, unknown>;
+}
+
+// Blobs uploaded / messages sent at once while enqueuing a job. A chunk is
+// this many batches, so the data in memory is at most that many batches.
 const DISPATCH_PARALLELISM = 16;
-const propertyWithOwners = {
-  include: { owners: { include: { owner: true } } },
+// Only what the templates use: no timestamps, ids or other columns.
+const SETTLEMENT_DATA = {
+  period: true,
+  details: { select: { concept: true, amount: true } },
 } as const;
+const PROPERTY_DATA = {
+  select: {
+    cadastralCode: true,
+    address: true,
+    owners: { select: { owner: { select: { name: true } } } },
+  },
+} as const;
+// Ids per query of a plan, well under PostgreSQL's limit on bind parameters.
+const IDS_PER_QUERY = 5000;
 
 function jobNotFound(): NotFoundException {
   return new NotFoundException(
@@ -146,21 +184,26 @@ export class PdfJobsService {
     };
   }
 
-  private async collect(
+  // The documents of a job as ids only: one per property with pending
+  // periods of the kind (a new resolution each) and one per resolution of the
+  // kind issued before (rendered again).
+  private async plan(
     municipalityId: number,
     kind: ResolutionKind,
     currentYear: number,
-  ): Promise<BulkDocument[]> {
+  ): Promise<PlannedDocument[]> {
+    // ponytail: the kind is decided here and not in the query so the rule
+    // lives only in isPrescriptionRisk; the rows are three integers each.
     const pending = await this.prisma.settlement.findMany({
       where: {
         replacedAt: null,
         resolutionId: null,
         property: { municipalityId },
       },
-      include: { details: true, property: propertyWithOwners },
+      select: { id: true, propertyId: true, period: true },
       orderBy: [{ propertyId: 'asc' }, { period: 'asc' }],
     });
-    const groups = new Map<number, typeof pending>();
+    const groups = new Map<number, number[]>();
     for (const settlement of pending) {
       const settlementKind = isPrescriptionRisk(settlement.period, currentYear)
         ? ResolutionKind.PRESCRIPTION_RISK
@@ -168,7 +211,7 @@ export class PdfJobsService {
       if (settlementKind !== kind) continue;
       groups.set(settlement.propertyId, [
         ...(groups.get(settlement.propertyId) ?? []),
-        settlement,
+        settlement.id,
       ]);
     }
 
@@ -178,26 +221,83 @@ export class PdfJobsService {
         kind,
         settlements: { some: { replacedAt: null } },
       },
-      include: {
-        property: propertyWithOwners,
-        settlements: { include: { details: true }, orderBy: { period: 'asc' } },
-      },
+      select: { id: true, number: true },
       orderBy: [{ year: 'asc' }, { sequence: 'asc' }],
     });
 
     return [
-      ...[...groups.values()].map((members) => ({
-        property: members[0]!.property,
-        settlements: toTemplateSettlements(members),
-        propertyId: members[0]!.propertyId,
-        settlementIds: members.map((s) => s.id),
+      ...[...groups].map(([propertyId, settlementIds]) => ({
+        propertyId,
+        settlementIds,
       })),
       ...issued.map((resolution) => ({
-        property: resolution.property,
-        settlements: toTemplateSettlements(resolution.settlements),
+        resolutionId: resolution.id,
         resolutionNumber: resolution.number,
       })),
     ];
+  }
+
+  // Reads the data of a chunk of planned documents, in the same order.
+  private async load(
+    municipalityId: number,
+    chunk: PlannedDocument[],
+  ): Promise<BulkDocument[]> {
+    const settlementIds = chunk.flatMap((entry) => entry.settlementIds ?? []);
+    const resolutionIds = chunk.flatMap((entry) =>
+      entry.resolutionId === undefined ? [] : [entry.resolutionId],
+    );
+    const settlements =
+      settlementIds.length === 0
+        ? []
+        : await this.prisma.settlement.findMany({
+            where: {
+              id: { in: settlementIds },
+              property: { municipalityId },
+            },
+            select: { id: true, property: PROPERTY_DATA, ...SETTLEMENT_DATA },
+            orderBy: { period: 'asc' },
+          });
+    const resolutions =
+      resolutionIds.length === 0
+        ? []
+        : await this.prisma.resolution.findMany({
+            where: { id: { in: resolutionIds }, municipalityId },
+            select: {
+              id: true,
+              property: PROPERTY_DATA,
+              settlements: {
+                select: SETTLEMENT_DATA,
+                orderBy: { period: 'asc' },
+              },
+            },
+          });
+    const settlementById = new Map(settlements.map((s) => [s.id, s]));
+    const resolutionById = new Map(resolutions.map((r) => [r.id, r]));
+
+    return chunk.map((entry) => {
+      if (entry.settlementIds) {
+        const members = entry.settlementIds.map((id) =>
+          settlementById.get(id)!,
+        );
+        return {
+          property: members[0]!.property,
+          settlements: toTemplateSettlements(members),
+          resolutionNumber: entry.resolutionNumber,
+        };
+      }
+      const resolution = resolutionById.get(entry.resolutionId!)!;
+      return {
+        property: resolution.property,
+        settlements: toTemplateSettlements(resolution.settlements),
+        resolutionNumber: entry.resolutionNumber,
+      };
+    });
+  }
+
+  // Documents per chunk: whole batches, so a chunk's batch indexes follow the
+  // previous chunk's.
+  private get chunkSize(): number {
+    return DISPATCH_PARALLELISM * this.pdf.config.batchSize;
   }
 
   async create(
@@ -211,7 +311,7 @@ export class PdfJobsService {
     const year = currentYearInColombia();
 
     if (await this.activeJob(municipalityId)) throw inProgress();
-    const documents = await this.collect(municipalityId, kind, year);
+    const documents = await this.plan(municipalityId, kind, year);
     if (documents.length === 0) {
       throw new NotFoundException(
         errorBody(
@@ -229,22 +329,24 @@ export class PdfJobsService {
         ),
       );
     }
-    // All or nothing: every document is checked before anything is reserved.
-    const incomplete = documents.flatMap((document) => {
-      const missing = missingLiquidationData(
-        document.property,
-        document.settlements,
-      );
-      return missing.length === 0
-        ? []
-        : [
-            {
-              cadastralCode: document.property.cadastralCode,
-              periods: document.settlements.map((s) => s.period),
-              missing,
-            },
-          ];
-    });
+    // All or nothing: every document is checked before anything is reserved,
+    // a chunk at a time.
+    const incomplete: Record<string, unknown>[] = [];
+    for (const chunk of splitIntoBatches(documents, this.chunkSize)) {
+      for (const document of await this.load(municipalityId, chunk)) {
+        const missing = missingLiquidationData(
+          document.property,
+          document.settlements,
+        );
+        if (missing.length > 0) {
+          incomplete.push({
+            cadastralCode: document.property.cadastralCode,
+            periods: document.settlements.map((s) => s.period),
+            missing,
+          });
+        }
+      }
+    }
     if (incomplete.length > 0) {
       throw new BadRequestException(
         errorBody(
@@ -263,8 +365,18 @@ export class PdfJobsService {
       template,
       documents,
     );
+    const folder = bulkFolder(kind, year);
     try {
-      await this.dispatch(job, template, documents);
+      await this.dispatch(job, template, documents, async (chunk) =>
+        (await this.load(municipalityId, chunk)).map((document) => ({
+          fileName: `${folder}/${document.resolutionNumber}.pdf`,
+          data: buildLiquidationTemplateData(
+            document.resolutionNumber!,
+            document.property,
+            document.settlements,
+          ) as unknown as Record<string, unknown>,
+        })),
+      );
     } catch (error) {
       this.logger.error(
         `job ${job.id}: enqueuing failed: ${(error as Error).message}`,
@@ -294,7 +406,7 @@ export class PdfJobsService {
     kind: ResolutionKind,
     year: number,
     template: TemplateRef,
-    documents: BulkDocument[],
+    documents: PlannedDocument[],
   ): Promise<PdfJob> {
     const pending = documents.filter((d) => d.settlementIds);
     return this.prisma.$transaction(
@@ -375,40 +487,38 @@ export class PdfJobsService {
   }
 
   // Writes input/batch-NNN.json, one batch row and one render-batch message
-  // per batch, then marks the job RUNNING.
-  private async dispatch(
+  // per batch, then marks the job RUNNING. The data of the documents is read
+  // and written a chunk at a time (`toFiles` turns a chunk of the plan into its
+  // files), so at most one chunk is in memory.
+  private async dispatch<T>(
     job: PdfJob,
     template: TemplateRef,
-    documents: BulkDocument[],
+    plan: T[],
+    toFiles: (chunk: T[]) => Promise<BulkFile[]>,
   ): Promise<void> {
     const storage = this.pdf.storage();
-    const folder = bulkFolder(job.kind!, job.year);
-    const batches = splitIntoBatches(
-      documents.map((document) => ({
-        fileName: `${folder}/${document.resolutionNumber}.pdf`,
-        data: buildLiquidationTemplateData(
-          document.resolutionNumber!,
-          document.property,
-          document.settlements,
-        ) as unknown as Record<string, unknown>,
-      })),
-      this.pdf.config.batchSize,
-    );
+    const { batchSize } = this.pdf.config;
+    const totalBatches = Math.ceil(plan.length / batchSize);
     await this.prisma.pdfJobBatch.createMany({
-      data: batches.map((batch, batchIndex) => ({
+      data: Array.from({ length: totalBatches }, (_, batchIndex) => ({
         jobId: job.id,
         batchIndex,
-        documentCount: batch.length,
+        documentCount: Math.min(
+          batchSize,
+          plan.length - batchIndex * batchSize,
+        ),
       })),
     });
     await this.prisma.pdfJob.update({
       where: { id: job.id },
-      data: { totalBatches: batches.length, startedAt: new Date() },
+      data: { totalBatches, startedAt: new Date() },
     });
-    for (let i = 0; i < batches.length; i += DISPATCH_PARALLELISM) {
+    const chunks = splitIntoBatches(plan, this.chunkSize);
+    for (const [chunkIndex, chunk] of chunks.entries()) {
+      const batches = splitIntoBatches(await toFiles(chunk), batchSize);
       await Promise.all(
-        batches.slice(i, i + DISPATCH_PARALLELISM).map(async (batch, j) => {
-          const batchIndex = i + j;
+        batches.map(async (batch, j) => {
+          const batchIndex = chunkIndex * DISPATCH_PARALLELISM + j;
           const inputBlob = this.jobsPath(
             job.id,
             `input/batch-${String(batchIndex).padStart(3, '0')}.json`,
@@ -439,6 +549,254 @@ export class PdfJobsService {
       where: { id: job.id, status: PdfJobStatus.PREPARING },
       data: { status: PdfJobStatus.RUNNING },
     });
+  }
+
+  // Payment orders of a bulk job: one per property with the listed
+  // settlements (the "eligible" ones of the Excel preview). The numbers come
+  // from the payment order counter, with the same rules as liquidations: held
+  // under its lock and handed back by revert() if the job fails. The listed
+  // settlements are checked again here, all or nothing.
+  async createPaymentOrders(
+    municipalityId: number,
+    administratorId: number | null,
+    settlementIds: number[],
+    now = new Date(),
+  ) {
+    this.pdf.storage(); // 503 before any work when Storage isn't configured
+    const template = await this.pdf.activeTemplate(
+      municipalityId,
+      PdfDocumentType.MANDAMIENTO,
+    );
+    const year = currentYearInColombia(now);
+
+    if (await this.activeJob(municipalityId)) throw inProgress();
+    const ids = [...new Set(settlementIds)].sort((a, b) => a - b);
+    // Only what the eligibility rules read; the data of the documents is read
+    // later, a chunk at a time.
+    const found = (
+      await Promise.all(
+        splitIntoBatches(ids, IDS_PER_QUERY).map((idsChunk) =>
+          this.prisma.settlement.findMany({
+            where: { id: { in: idsChunk }, property: { municipalityId } },
+            select: {
+              id: true,
+              propertyId: true,
+              status: true,
+              replacedAt: true,
+              resolution: { select: { issuedAt: true } },
+              paymentOrder: { select: { id: true } },
+            },
+          }),
+        ),
+      )
+    ).flat();
+    const byId = new Map(
+      found.map((settlement) => [settlement.id, settlement]),
+    );
+    const ineligible = ids.flatMap((id) => {
+      const settlement = byId.get(id);
+      if (!settlement) {
+        return [{ settlementId: id, reason: 'SETTLEMENT_NOT_FOUND' }];
+      }
+      const result = evaluatePaymentOrderEligibility(
+        {
+          status: settlement.status,
+          replacedAt: settlement.replacedAt,
+          resolutionIssuedAt: settlement.resolution?.issuedAt ?? null,
+          hasPaymentOrder: settlement.paymentOrder !== null,
+        },
+        now,
+      );
+      return result.eligible
+        ? []
+        : [
+            {
+              settlementId: id,
+              reason: result.reason,
+              ...(result.firmOn && { firmOn: result.firmOn }),
+            },
+          ];
+    });
+    if (ineligible.length > 0) {
+      throw new BadRequestException(
+        errorBody(
+          ErrorCode.PAYMENT_ORDER_INELIGIBLE,
+          `${ineligible.length} settlements cannot get a payment order now. Reload the Excel and try again.`,
+          { settlements: ineligible },
+        ),
+      );
+    }
+
+    const groups = groupSettlementsByProperty(found);
+    const { maxBulkDocuments } = this.pdf.config;
+    if (groups.length > maxBulkDocuments) {
+      throw new BadRequestException(
+        errorBody(
+          ErrorCode.BULK_LIMIT_EXCEEDED,
+          `There are ${groups.length} payment orders to generate, over the ${maxBulkDocuments} limit.`,
+          { count: groups.length, max: maxBulkDocuments },
+        ),
+      );
+    }
+    // All or nothing: every document is checked before anything is reserved,
+    // a chunk at a time.
+    const incomplete: Record<string, unknown>[] = [];
+    for (const chunk of splitIntoBatches(groups, this.chunkSize)) {
+      for (const document of await this.loadPaymentOrders(
+        municipalityId,
+        chunk,
+      )) {
+        const missing = missingPaymentOrderData(
+          document.property,
+          document.settlements,
+        );
+        if (missing.length > 0) {
+          incomplete.push({
+            cadastralCode: document.property.cadastralCode,
+            periods: document.settlements.map((s) => s.period),
+            missing,
+          });
+        }
+      }
+    }
+    if (incomplete.length > 0) {
+      throw new BadRequestException(
+        errorBody(
+          ErrorCode.LIQUIDATION_DATA_INCOMPLETE,
+          `${incomplete.length} payment orders are missing required data. Complete them and try again.`,
+          { documents: incomplete },
+        ),
+      );
+    }
+
+    const { job, issued } = await this.reservePaymentOrders(
+      municipalityId,
+      administratorId,
+      year,
+      now,
+      template,
+      groups,
+    );
+    try {
+      await this.dispatch(
+        job,
+        template,
+        groups.map((group, i) => ({ group, order: issued[i]! })),
+        async (chunk) => {
+          const documents = await this.loadPaymentOrders(
+            municipalityId,
+            chunk.map((entry) => entry.group),
+          );
+          return documents.map((document, i) => ({
+            fileName: paymentOrderFileName(chunk[i]!.order.number),
+            data: buildPaymentOrderTemplateData(
+              chunk[i]!.order.number,
+              chunk[i]!.order.issuedAt,
+              document.property,
+              document.settlements,
+            ) as unknown as Record<string, unknown>,
+          }));
+        },
+      );
+    } catch (error) {
+      this.logger.error(
+        `job ${job.id}: enqueuing failed: ${(error as Error).message}`,
+      );
+      await this.revert(job.id, ErrorCode.PDF_STORAGE_UNAVAILABLE);
+      throw new ServiceUnavailableException(
+        errorBody(
+          ErrorCode.PDF_STORAGE_UNAVAILABLE,
+          'Could not enqueue the bulk generation job. Try again later.',
+        ),
+        { cause: error },
+      );
+    }
+    return {
+      jobId: job.id,
+      status: PdfJobStatus.RUNNING,
+      totalDocuments: job.totalDocuments,
+    };
+  }
+
+  // The data of a chunk of payment order groups, in the same order.
+  private async loadPaymentOrders(
+    municipalityId: number,
+    groups: PaymentOrderGroup[],
+  ) {
+    const settlements = await this.prisma.settlement.findMany({
+      where: {
+        id: { in: groups.flatMap((group) => group.settlementIds) },
+        property: { municipalityId },
+      },
+      select: {
+        id: true,
+        property: PROPERTY_DATA,
+        resolution: { select: { number: true } },
+        ...SETTLEMENT_DATA,
+      },
+    });
+    const byId = new Map(settlements.map((s) => [s.id, s]));
+    return groups.map((group) => {
+      const members = group.settlementIds.map((id) => byId.get(id)!);
+      return {
+        property: members[0]!.property,
+        settlements: templateSettlementsOf(members),
+      };
+    });
+  }
+
+  // One transaction under the payment order counter lock: insert the job (the
+  // partial unique index refuses a second active one), reserve the range and
+  // issue the payment orders linked to the job.
+  private reservePaymentOrders(
+    municipalityId: number,
+    administratorId: number | null,
+    year: number,
+    now: Date,
+    template: TemplateRef,
+    groups: PaymentOrderGroup[],
+  ) {
+    return this.prisma.$transaction(
+      async (tx) => {
+        const counter = await lockCounter(
+          tx,
+          municipalityId,
+          year,
+          'paymentOrder',
+        );
+        let job: PdfJob;
+        try {
+          job = await tx.pdfJob.create({
+            data: {
+              municipalityId,
+              createdById: administratorId,
+              documentType: PdfDocumentType.MANDAMIENTO,
+              totalDocuments: groups.length,
+              templateBlob: template.blob,
+              templateSha256: template.sha256,
+              year,
+              firstSequence: counter + 1,
+              lastSequence: counter + groups.length,
+            },
+          });
+        } catch (error) {
+          if ((error as { code?: unknown }).code === 'P2002') {
+            throw inProgress();
+          }
+          throw error;
+        }
+        const issued = await issuePaymentOrders(tx, {
+          municipalityId,
+          administratorId,
+          year,
+          now,
+          groups,
+          pdfJobId: job.id,
+        });
+        return { job, issued };
+      },
+      { timeout: 120_000, maxWait: 10_000 },
+    );
   }
 
   activeJob(municipalityId: number): Promise<PdfJob | null> {
@@ -489,7 +847,7 @@ export class PdfJobsService {
       .storage()
       .openRead(this.jobsPath(job.id, 'result.zip'));
     if (!stream) throw expired;
-    return { stream, fileName: bulkZipFileName(job.kind) };
+    return { stream, fileName: bulkZipFileName(job.documentType, job.kind) };
   }
 
   // Applies one pdf-results message. Idempotent: a repeated or late result
@@ -582,8 +940,8 @@ export class PdfJobsService {
   }
 
   // All or nothing: hands the consecutive range back (no gaps), deletes the
-  // resolutions the job issued (re-rendered ones aren't linked to it, so
-  // they stay), marks it FAILED and deletes its blobs.
+  // resolutions or payment orders the job issued (re-rendered resolutions
+  // aren't linked to it, so they stay), marks it FAILED and deletes its blobs.
   async revert(
     jobId: string,
     errorCode: string,
@@ -595,7 +953,16 @@ export class PdfJobsService {
         const job = await this.lockJob(tx, jobId);
         if (!job || !fromStatuses.includes(job.status)) return false;
         if (job.firstSequence !== null && job.lastSequence !== null) {
-          const counter = await lockCounter(tx, job.municipalityId, job.year);
+          const counterKind =
+            job.documentType === PdfDocumentType.MANDAMIENTO
+              ? 'paymentOrder'
+              : 'resolution';
+          const counter = await lockCounter(
+            tx,
+            job.municipalityId,
+            job.year,
+            counterKind,
+          );
           const target = counterAfterRevert(
             counter,
             job.firstSequence,
@@ -606,7 +973,7 @@ export class PdfJobsService {
               `job ${jobId}: counter moved to ${counter} after the job; left as is`,
             );
           } else {
-            await tx.resolutionCounter.update({
+            const counterUpdate = {
               where: {
                 municipalityId_year: {
                   municipalityId: job.municipalityId,
@@ -614,7 +981,10 @@ export class PdfJobsService {
                 },
               },
               data: { lastSequence: target },
-            });
+            };
+            await (counterKind === 'paymentOrder'
+              ? tx.paymentOrderCounter.update(counterUpdate)
+              : tx.resolutionCounter.update(counterUpdate));
           }
         }
         await tx.settlement.updateMany({
@@ -622,6 +992,11 @@ export class PdfJobsService {
           data: { resolutionId: null },
         });
         await tx.resolution.deleteMany({ where: { pdfJobId: jobId } });
+        await tx.settlement.updateMany({
+          where: { paymentOrder: { is: { pdfJobId: jobId } } },
+          data: { paymentOrderId: null },
+        });
+        await tx.paymentOrder.deleteMany({ where: { pdfJobId: jobId } });
         await tx.pdfJobBatch.deleteMany({ where: { jobId } });
         await tx.pdfJob.update({
           where: { id: jobId },
