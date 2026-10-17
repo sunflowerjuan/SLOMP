@@ -359,9 +359,14 @@
     overscroll-behavior: contain;
   }
 
+  /* Keeps its natural height; only a long list of incomplete liquidations
+     can outgrow the column, and then the panel scrolls inside it. */
   .bulk-zip-panel {
     order: 0;
     flex: none;
+    max-height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   /* The card scrolls inside this column: a fade at the foot shows there is
