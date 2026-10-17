@@ -48,6 +48,18 @@ const MISSING_LIQUIDATION_FIELD_LABELS: Record<string, string> = {
   SETTLEMENT_VALUES: "valores válidos en los conceptos",
 };
 
+function missingLiquidationLabels(missing: string[]): string[] {
+  return missing.map((key) => MISSING_LIQUIDATION_FIELD_LABELS[key] ?? key);
+}
+
+// One line of the bulk LIQUIDATION_DATA_INCOMPLETE list, e.g. "Falta la
+// dirección del predio."
+export function missingLiquidationDataText(missing: string[]): string {
+  const labels = missingLiquidationLabels(missing);
+  if (labels.length === 0) return "Faltan datos.";
+  return `${labels.length > 1 ? "Faltan" : "Falta"} ${joinWithY(labels)}.`;
+}
+
 // What the new password still needs, per violation the backend reports
 // (security policy, 4.3). COMMON gets its own sentence below.
 const PASSWORD_RULE_LABELS: Record<string, string> = {
@@ -218,9 +230,15 @@ const ERROR_MESSAGES: Record<string, CatalogEntry> = {
 
   // Liquidation PDF / bulk ZIP
   LIQUIDATION_DATA_INCOMPLETE: (details) => {
-    const labels = stringList(details.missing).map(
-      (key) => MISSING_LIQUIDATION_FIELD_LABELS[key] ?? key,
-    );
+    // Bulk generation: the whole list of incomplete liquidations comes in
+    // details.documents and the screen lists them below this text.
+    if (Array.isArray(details.documents)) {
+      const count = details.documents.length;
+      return count === 1
+        ? "No se puede generar el ZIP porque una liquidación tiene datos incompletos. Complétala e intenta de nuevo."
+        : `No se puede generar el ZIP porque ${count} liquidaciones tienen datos incompletos. Complétalas e intenta de nuevo.`;
+    }
+    const labels = missingLiquidationLabels(stringList(details.missing));
     return labels.length > 0
       ? `No se puede generar el PDF porque a la liquidación le ${labels.length > 1 ? "faltan" : "falta"} ${joinWithY(labels)}. Completa esos datos e intenta de nuevo.`
       : "No se puede generar el PDF porque a la liquidación le faltan datos. Completa la liquidación e intenta de nuevo.";
@@ -235,13 +253,26 @@ const ERROR_MESSAGES: Record<string, CatalogEntry> = {
     "La generación del PDF tardó demasiado y se canceló. Intenta de nuevo; si el problema continúa, contacta al equipo de soporte.",
   PDF_CONVERSION_FAILED:
     "No se pudo convertir la liquidación a PDF y no se generó ningún archivo. Intenta de nuevo; si el problema continúa, contacta al equipo de soporte.",
+  TEMPLATE_RENDER_FAILED:
+    "No se pudo llenar la plantilla de la liquidación con estos datos. Contacta al equipo de soporte.",
+  PDF_STORAGE_UNAVAILABLE:
+    "El almacenamiento de documentos no responde. Intenta de nuevo en unos minutos.",
+  PDF_SERVICE_NOT_CONFIGURED:
+    "La generación de documentos no está disponible en este momento. Contacta al equipo de soporte.",
   NO_PENDING_LIQUIDATIONS: "No hay liquidaciones de este tipo para generar.",
   BULK_GENERATION_IN_PROGRESS:
-    "Ya hay una generación masiva en curso. Espera a que termine para iniciar otra.",
+    "Hay una generación masiva en curso en este municipio. Espera a que termine e intenta de nuevo.",
   BULK_JOB_NOT_FOUND:
-    "No encontramos la generación solicitada. Pudo haber caducado; inicia una nueva.",
+    "No encontramos la generación solicitada. Inicia una nueva.",
   BULK_JOB_NOT_READY:
     "La generación todavía no termina. Espera unos segundos e intenta de nuevo.",
+  BULK_JOB_EXPIRED:
+    "El ZIP de esta generación ya venció. Inicia una nueva generación para descargarlo.",
+  // Job states (errorCode of a FAILED job), not HTTP responses.
+  BULK_JOB_STALLED:
+    "La generación masiva se detuvo y se canceló sin consumir números de resolución. Inicia una nueva; si se repite, contacta al equipo de soporte.",
+  BULK_ZIP_INCOMPLETE:
+    "No se pudo armar el ZIP completo y la generación se canceló sin consumir números de resolución. Intenta de nuevo.",
   BULK_LIMIT_EXCEEDED: (details) =>
     `Hay ${numberOr(details.count, "demasiadas")} liquidaciones pendientes y el máximo por descarga masiva es ${numberOr(details.max, "10000")}. Contacta al equipo de soporte para generarlas por partes.`,
 };
@@ -256,6 +287,9 @@ const PUBLIC_OVERRIDES: Record<string, CatalogEntry> = {
     "El documento se está generando en este momento. Intenta de nuevo en unos segundos.",
   PDF_TEMPLATE_UNAVAILABLE: `No es posible generar este documento en este momento. ${PUBLIC_CONTACT}`,
   PDF_TEMPLATE_INVALID: `No es posible generar este documento en este momento. ${PUBLIC_CONTACT}`,
+  TEMPLATE_RENDER_FAILED: `No es posible generar este documento en este momento. ${PUBLIC_CONTACT}`,
+  PDF_STORAGE_UNAVAILABLE: `No es posible generar este documento en este momento. ${PUBLIC_CONTACT}`,
+  PDF_SERVICE_NOT_CONFIGURED: `No es posible generar este documento en este momento. ${PUBLIC_CONTACT}`,
   PDF_CONVERSION_TIMEOUT:
     "La generación del documento tardó demasiado. Intenta de nuevo en unos minutos.",
   PDF_CONVERSION_FAILED:
