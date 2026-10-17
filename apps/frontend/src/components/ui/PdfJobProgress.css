@@ -1,0 +1,91 @@
+.ui-pdf-job__status {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+.ui-pdf-job__status strong {
+  color: var(--semantic-text);
+}
+
+.ui-pdf-job__status p {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-pdf-job__progress {
+  height: 6px;
+  overflow: hidden;
+  background: var(--semantic-border);
+  border-radius: var(--radius-default);
+}
+
+.ui-pdf-job__progress span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--semantic-primary);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+/* Finished ZIP: green surface plus the "ZIP listo" text, never color alone.
+   The button drops below the text when the column is narrow. */
+.ui-pdf-job__ready {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  padding: var(--space-12) var(--space-16);
+  font-size: var(--text-sm);
+  color: var(--semantic-text);
+  background-color: var(--semantic-success-bg);
+  border-radius: var(--radius-default);
+}
+
+.ui-pdf-job__ready > div {
+  display: flex;
+  flex: 1 1 12rem;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Folds the progress block away (and back) instead of popping it. The margin
+   cancels the container's gap while it is closed. */
+.ui-pdf-job__collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-top: calc(var(--reveal-gap, var(--space-20)) * -1);
+  opacity: 0;
+  transition:
+    grid-template-rows var(--duration-sheet) var(--ease-sheet-soft),
+    margin-top var(--duration-sheet) var(--ease-sheet-soft),
+    opacity var(--duration-base) ease;
+}
+
+.ui-pdf-job__collapse[data-open="true"] {
+  grid-template-rows: 1fr;
+  margin-top: 0;
+  opacity: 1;
+}
+
+.ui-pdf-job__collapse-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-pdf-job__progress span {
+    transition: none;
+  }
+
+  .ui-pdf-job__collapse {
+    transition-duration: 0.01ms;
+  }
+}

@@ -1,9 +1,9 @@
 .bulk-zip-panel {
-  gap: var(--space-20);
+  --reveal-gap: var(--space-20);
+  gap: var(--reveal-gap);
 }
 
-.bulk-zip-panel__rows,
-.bulk-zip-panel__status {
+.bulk-zip-panel__rows {
   display: flex;
   flex-direction: column;
   gap: var(--space-12);
@@ -37,93 +37,8 @@
   gap: var(--space-4);
 }
 
-.bulk-zip-panel__row strong,
-.bulk-zip-panel__status strong {
+.bulk-zip-panel__row strong {
   color: var(--semantic-text);
-}
-
-.bulk-zip-panel__status p {
-  margin: 0;
-  font-variant-numeric: tabular-nums;
-}
-
-.bulk-zip-panel__progress {
-  height: 6px;
-  overflow: hidden;
-  background: var(--semantic-border);
-  border-radius: var(--radius-default);
-}
-
-.bulk-zip-panel__progress span {
-  display: block;
-  width: 100%;
-  height: 100%;
-  background: var(--semantic-primary);
-  transform: scaleX(0);
-  transform-origin: left center;
-  transition: transform var(--duration-base) var(--ease-out);
-}
-
-/* Finished ZIP: green surface plus the "ZIP listo" text, never color alone.
-   The button drops below the text when the column is narrow. */
-.bulk-zip-panel__ready {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-12);
-  padding: var(--space-12) var(--space-16);
-  font-size: var(--text-sm);
-  color: var(--semantic-text);
-  background-color: var(--semantic-success-bg);
-  border-radius: var(--radius-default);
-}
-
-.bulk-zip-panel__ready > div {
-  display: flex;
-  flex: 1 1 12rem;
-  flex-direction: column;
-  gap: var(--space-4);
-  min-width: 0;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Liquidations that keep the ZIP from starting: a long list scrolls inside
-   instead of pushing the page. */
-.bulk-zip-panel__incomplete {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-  max-height: 12rem;
-  margin: var(--space-12) 0 0;
-  padding: 0 var(--space-8) 0 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  list-style: none;
-  font-size: var(--text-sm);
-  color: var(--semantic-text-muted);
-}
-
-.bulk-zip-panel__incomplete li {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding-bottom: var(--space-8);
-  border-bottom: 1px solid var(--semantic-border);
-}
-
-.bulk-zip-panel__incomplete li:last-child {
-  padding-bottom: 0;
-  border-bottom: 0;
-}
-
-/* Cadastral codes run up to 30 digits: their own line, split only if the
-   column can't hold them. */
-.bulk-zip-panel__incomplete-code {
-  font-weight: 500;
-  color: var(--semantic-text);
-  font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
 }
 
 /* Placeholder rows while the counts load: same box as the real rows. */
@@ -161,54 +76,6 @@
   }
 }
 
-/* Folds the progress block away (and back) instead of popping it. The margin
-   cancels the panel's flex gap while it is closed. */
-.bulk-zip-panel__collapse {
-  display: grid;
-  grid-template-rows: 0fr;
-  margin-top: calc(var(--space-20) * -1);
-  opacity: 0;
-  transition:
-    grid-template-rows var(--duration-sheet) var(--ease-sheet-soft),
-    margin-top var(--duration-sheet) var(--ease-sheet-soft),
-    opacity var(--duration-base) ease;
-}
-
-.bulk-zip-panel__collapse[data-open="true"] {
-  grid-template-rows: 1fr;
-  margin-top: 0;
-  opacity: 1;
-}
-
-.bulk-zip-panel__collapse-inner {
-  min-height: 0;
-  overflow: hidden;
-}
-
-/* A notice grows into place rather than shoving what is below it. */
-.bulk-zip-panel__reveal {
-  display: grid;
-  animation: bulk-zip-reveal var(--duration-sheet) var(--ease-sheet-soft) both;
-}
-
-.bulk-zip-panel__reveal > * {
-  min-height: 0;
-  overflow: hidden;
-}
-
-@keyframes bulk-zip-reveal {
-  from {
-    grid-template-rows: 0fr;
-    margin-top: calc(var(--space-20) * -1);
-    opacity: 0;
-  }
-  to {
-    grid-template-rows: 1fr;
-    margin-top: 0;
-    opacity: 1;
-  }
-}
-
 .bulk-zip-panel__enter {
   animation: bulk-zip-enter var(--duration-base) var(--ease-out) both;
 }
@@ -226,27 +93,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .bulk-zip-panel__enter {
-    animation: bulk-zip-fade var(--duration-fast) ease-out both;
-  }
-
-  .bulk-zip-panel__progress span {
-    transition: none;
-  }
-
-  .bulk-zip-panel__collapse {
-    transition-duration: 0.01ms;
-  }
-
-  .bulk-zip-panel__reveal {
-    animation: bulk-zip-fade var(--duration-fast) ease-out both;
-  }
-}
-
-@keyframes bulk-zip-fade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
+    animation: fade-in var(--duration-fast) ease-out both;
   }
 }

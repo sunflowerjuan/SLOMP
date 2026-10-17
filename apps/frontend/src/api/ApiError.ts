@@ -1,5 +1,9 @@
 import { GENERIC_ERROR_MESSAGES, messageForErrorCode } from "./errorMessages";
-import type { ErrorDetails, MessageAudience } from "./errorMessages";
+import type {
+  ErrorDetails,
+  MessageAudience,
+  MessageDocument,
+} from "./errorMessages";
 
 // status === 0 means the request never got a response (network down,
 // backend off, CORS).
@@ -62,6 +66,8 @@ interface ErrorMessageOptions {
   // Taxpayer-facing screens get messages that don't ask them to fix things
   // only the Administrator can fix.
   audience?: MessageAudience;
+  // The Mandamientos screen words PDF and template errors for payment orders.
+  document?: MessageDocument;
   // Used only for a 401 that arrives without a code.
   unauthorizedMessage?: string;
 }
@@ -92,7 +98,11 @@ function messageForStatus(
 // backend's English `message` is never shown.
 export function getErrorMessage(
   error: unknown,
-  { audience = "admin", unauthorizedMessage }: ErrorMessageOptions = {},
+  {
+    audience = "admin",
+    document = "LIQUIDACION",
+    unauthorizedMessage,
+  }: ErrorMessageOptions = {},
 ): string {
   if (!(error instanceof ApiError)) {
     return GENERIC_ERROR_MESSAGES.unexpected;
@@ -105,6 +115,7 @@ export function getErrorMessage(
       error.code,
       error.details,
       audience,
+      document,
     );
     if (fromCatalog) return fromCatalog;
   }

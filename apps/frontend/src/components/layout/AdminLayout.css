@@ -202,7 +202,8 @@ button.admin-layout__brand-button:active {
   line-height: 1.3;
 }
 
-.admin-layout__option[aria-checked="true"] {
+.admin-layout__option[aria-checked="true"],
+.admin-layout__menu-item[aria-current="page"] {
   font-weight: 600;
 }
 
@@ -449,9 +450,9 @@ button.admin-layout__brand-button:active {
   }
 }
 
-/* Four sections and the brand only fit side by side from 769px: below, the
-   brand stays for screen readers and the labels wrap (long words included,
-   hyphenated where the browser can). */
+/* The bar's sections and the brand only fit side by side from 769px: below,
+   the brand stays for screen readers and the labels wrap (long words
+   included, hyphenated where the browser can). */
 @media (max-width: 768px) {
   .admin-layout__brand-text {
     position: absolute;
@@ -475,6 +476,23 @@ button.admin-layout__brand-button:active {
     white-space: normal;
     overflow-wrap: anywhere;
     hyphens: auto;
+  }
+}
+
+/* Phones: the bar hands its padding to the labels, so "Liquidaciones" and
+   "Mandamientos" fit whole from 375px wide. */
+@media (max-width: 480px) {
+  .admin-layout__side {
+    gap: var(--space-4);
+    padding: var(--space-4);
+  }
+
+  .admin-layout__brandbar {
+    padding-inline: 0;
+  }
+
+  .admin-layout__link {
+    padding: 0;
   }
 }
 

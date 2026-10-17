@@ -17,11 +17,16 @@ import { useMemo, useSyncExternalStore } from "react";
 const PUBLIC_CONSULTATION_PREFIX = "#/consulta";
 
 export type AdminSection =
-  "cargas" | "liquidaciones" | "plantillas" | "consulta-publica";
+  | "cargas"
+  | "liquidaciones"
+  | "mandamientos"
+  | "plantillas"
+  | "consulta-publica";
 
 const ADMIN_SECTIONS: AdminSection[] = [
   "cargas",
   "liquidaciones",
+  "mandamientos",
   "plantillas",
   "consulta-publica",
 ];

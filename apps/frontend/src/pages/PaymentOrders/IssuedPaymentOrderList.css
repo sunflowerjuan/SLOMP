@@ -1,0 +1,118 @@
+.issued-payment-orders {
+  gap: var(--space-16);
+}
+
+.issued-payment-orders__retry {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-12);
+}
+
+.issued-payment-orders__muted {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+/* A long history scrolls inside the card instead of pushing the page. */
+.issued-payment-orders__list {
+  display: flex;
+  flex-direction: column;
+  max-height: 32rem;
+  margin: 0;
+  padding: 0 var(--space-8) 0 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+
+.issued-payment-orders__list > li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-12) 0;
+  border-bottom: 1px solid var(--semantic-border);
+  animation: rise-in var(--duration-base) var(--ease-out) backwards;
+}
+
+.issued-payment-orders__list > li:first-child {
+  padding-top: 0;
+}
+
+.issued-payment-orders__list > li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.issued-payment-orders__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+
+.issued-payment-orders__info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.issued-payment-orders__info strong {
+  font-size: var(--text-md);
+  color: var(--semantic-text);
+}
+
+/* Cadastral codes run up to 30 digits: split only if the row can't hold them. */
+.issued-payment-orders__code {
+  color: var(--semantic-text);
+  overflow-wrap: anywhere;
+}
+
+/* Placeholder rows while the list loads: same box as the real rows. */
+.issued-payment-orders__skeleton i {
+  display: block;
+  width: 7rem;
+  height: 21px;
+  padding-block: 3px;
+  box-sizing: border-box;
+  background-color: var(--semantic-surface-muted);
+  background-clip: content-box;
+  border-radius: var(--radius-default);
+  animation: issued-payment-orders-pulse 1.2s ease-in-out infinite;
+}
+
+.issued-payment-orders__skeleton i + i {
+  width: 12rem;
+}
+
+@keyframes issued-payment-orders-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@media (max-width: 520px) {
+  .issued-payment-orders__row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .issued-payment-orders__row .ui-button {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .issued-payment-orders__list > li {
+    animation: fade-in var(--duration-fast) ease-out backwards;
+  }
+
+  .issued-payment-orders__skeleton i {
+    animation: none;
+  }
+}
