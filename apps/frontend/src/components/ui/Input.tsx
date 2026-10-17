@@ -5,12 +5,15 @@ import "./Input.css";
 interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "id"> {
   label: string;
   error?: string;
+  // Short help under the field; the error takes its place when there is one.
+  hint?: string;
   id?: string;
 }
 
 export function Input({
   label,
   error,
+  hint,
   type,
   className,
   id,
@@ -19,6 +22,7 @@ export function Input({
   const generatedId = useId();
   const inputId = id ?? generatedId;
   const errorId = `${inputId}-error`;
+  const hintId = `${inputId}-hint`;
   const [showPassword, setShowPassword] = useState(false);
   const isPassword = type === "password";
   const resolvedType = isPassword && showPassword ? "text" : type;
@@ -44,7 +48,9 @@ export function Input({
           className={classes}
           {...rest}
           aria-invalid={Boolean(error)}
-          aria-describedby={error ? errorId : rest["aria-describedby"]}
+          aria-describedby={
+            error ? errorId : hint ? hintId : rest["aria-describedby"]
+          }
         />
         {isPassword && (
           <button
@@ -59,10 +65,16 @@ export function Input({
           </button>
         )}
       </div>
-      {error && (
+      {error ? (
         <p className="ui-input-error" id={errorId} role="alert">
           {error}
         </p>
+      ) : (
+        hint && (
+          <p className="ui-input-hint" id={hintId}>
+            {hint}
+          </p>
+        )
       )}
     </div>
   );

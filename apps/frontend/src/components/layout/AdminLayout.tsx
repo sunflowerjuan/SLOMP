@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Icon } from "../ui/Icon";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { useSlidingIndicator } from "../../hooks/useSlidingIndicator";
+import { moveMenuFocus } from "./menuFocus";
+import { MunicipalityOptions } from "./MunicipalityOptions";
+import type { MunicipalitySwitch } from "./MunicipalityOptions";
+import { MunicipalitySwitcher } from "./MunicipalitySwitcher";
 import "./AdminLayout.css";
 
 export interface AdminNavItem {
@@ -25,6 +29,9 @@ interface AdminLayoutProps {
   items: AdminNavItem[];
   activeId: string;
   menuItems: AdminMenuItem[];
+  // Active municipality and how to change it: under SLOMP on desktop, in the
+  // logo menu on a phone.
+  switcher?: MunicipalitySwitch;
   children: ReactNode;
 }
 
@@ -32,6 +39,7 @@ export function AdminLayout({
   items,
   activeId,
   menuItems,
+  switcher,
   children,
 }: AdminLayoutProps) {
   const mainRef = useRef<HTMLElement>(null);
@@ -43,15 +51,17 @@ export function AdminLayout({
     useSlidingIndicator<HTMLElement>(activeIndex, (index) => {
       window.location.hash = items[index].href;
     });
+  const activeSlug = switcher?.activeSlug;
 
-  // Moving to another section is a new "page": start reading from its content.
+  // Moving to another section or municipality is a new "page": start reading
+  // from its content.
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
     mainRef.current?.focus({ preventScroll: true });
-  }, [activeId]);
+  }, [activeId, activeSlug]);
 
   // The logo opens the account menu; Escape or a tap elsewhere closes it.
   useEffect(() => {
@@ -75,6 +85,7 @@ export function AdminLayout({
   }, [menuOpen]);
 
   const isCompact = useMediaQuery("(max-width: 900px)");
+  const activeLabel = switcher?.activeLabel ?? null;
 
   const brand = (
     <>
@@ -86,7 +97,13 @@ export function AdminLayout({
           <path d="M10.6 16.4L10 20l2-1 2 1-.6-3.6" />
         </Icon>
       </span>
-      <span className="admin-layout__brand">SLOMP</span>
+      <span className="admin-layout__brand-text">
+        <span className="admin-layout__brand">SLOMP</span>
+        {/* Phone only: on desktop the selector below shows it. */}
+        {activeLabel && (
+          <span className="admin-layout__brand-context">{activeLabel}</span>
+        )}
+      </span>
     </>
   );
 
@@ -113,18 +130,6 @@ export function AdminLayout({
     );
   }
 
-  // Arrow keys walk the menu items (wrapping), as role="menu" promises.
-  function moveFocus(event: ReactKeyboardEvent<HTMLDivElement>) {
-    const step = { ArrowDown: 1, ArrowUp: -1 }[event.key];
-    if (!step) return;
-    event.preventDefault();
-    const entries = [
-      ...event.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]'),
-    ];
-    const next = entries.indexOf(document.activeElement as HTMLElement) + step;
-    entries.at(next % entries.length)?.focus();
-  }
-
   return (
     <div className="admin-layout">
       <button
@@ -134,7 +139,10 @@ export function AdminLayout({
       >
         Saltar al contenido
       </button>
-      <aside className="admin-layout__side">
+      <aside
+        className="admin-layout__side"
+        data-switcher={switcher ? "" : undefined}
+      >
         <div ref={brandRef} className="admin-layout__brandbar">
           {isCompact ? (
             <button
@@ -142,7 +150,9 @@ export function AdminLayout({
               className="admin-layout__brand-button"
               aria-haspopup="menu"
               aria-expanded={menuOpen}
-              aria-label="Menú de cuenta"
+              aria-label={
+                activeLabel ? `Menú. Municipio: ${activeLabel}` : "Menú"
+              }
               onClick={() => setMenuOpen((open) => !open)}
             >
               {brand}
@@ -154,15 +164,31 @@ export function AdminLayout({
             <div
               className="admin-layout__menu"
               role="menu"
-              aria-label="Cuenta"
-              onKeyDown={moveFocus}
+              aria-label="Menú"
+              onKeyDown={moveMenuFocus}
             >
+              {switcher && (
+                <>
+                  <p className="admin-layout__menu-heading" aria-hidden="true">
+                    Municipio
+                  </p>
+                  <MunicipalityOptions
+                    switcher={switcher}
+                    onDone={() => setMenuOpen(false)}
+                  />
+                  <div
+                    role="separator"
+                    className="admin-layout__menu-separator"
+                  />
+                </>
+              )}
               {menuItems.map((item, index) =>
-                renderMenuItem(item, "menuitem", index === 0),
+                renderMenuItem(item, "menuitem", !switcher && index === 0),
               )}
             </div>
           )}
         </div>
+        {!isCompact && switcher && <MunicipalitySwitcher switcher={switcher} />}
         <nav
           ref={containerRef}
           className="admin-layout__nav"

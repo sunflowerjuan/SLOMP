@@ -6,6 +6,8 @@ interface DropzoneProps {
   file: File | null;
   error?: string;
   accept?: string;
+  // Only shown as a hint; the backend enforces the limit.
+  maxSizeMb?: number;
   onFileSelect: (file: File) => void;
   onClear: () => void;
 }
@@ -24,6 +26,7 @@ export function Dropzone({
   file,
   error,
   accept = ".xlsx",
+  maxSizeMb = 10,
   onFileSelect,
   onClear,
 }: DropzoneProps) {
@@ -68,7 +71,7 @@ export function Dropzone({
     event.target.value = "";
   }
 
-  const hint = `${accept.split(",").join(" o ")} — máximo 10 MB`;
+  const hint = `${accept.split(",").join(" o ")} — máximo ${maxSizeMb} MB`;
 
   return (
     <div

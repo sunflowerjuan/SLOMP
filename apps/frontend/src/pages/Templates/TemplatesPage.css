@@ -1,0 +1,165 @@
+/* Narrow: one column, upload first. Wide: the versions sit on the right, like
+   the ZIP panel of Carga de Excel. */
+.templates-page__layout {
+  display: grid;
+  gap: var(--space-24);
+  align-items: start;
+}
+
+@media (min-width: 1100px) {
+  .templates-page__layout {
+    grid-template-columns: minmax(0, 1fr) 380px;
+  }
+}
+
+.templates-page__upload,
+.templates-page__versions {
+  gap: var(--space-16);
+}
+
+.templates-page__active {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+.templates-page__active p {
+  margin: 0;
+}
+
+.templates-page__active strong {
+  color: var(--semantic-text);
+}
+
+.templates-page__file {
+  overflow-wrap: anywhere;
+}
+
+/* Detected markers: closed until asked for; a long list scrolls inside. */
+.templates-page__fields summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  width: fit-content;
+  min-height: var(--tap-size);
+  font-weight: 600;
+  color: var(--semantic-text);
+  cursor: pointer;
+}
+
+/* Same chevron as the collapsible cards: it turns while open. */
+.templates-page__fields summary svg {
+  width: 16px;
+  height: 16px;
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.templates-page__fields[open] summary svg {
+  transform: rotate(180deg);
+}
+
+.templates-page__fields ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  max-height: 12rem;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
+
+.templates-page__fields code {
+  display: inline-block;
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--radius-default);
+  background-color: var(--semantic-surface-muted);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  color: var(--semantic-text);
+}
+
+.templates-page__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.templates-page__retry {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-12);
+}
+
+.templates-page__muted {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+.templates-page__list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.templates-page__version {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  padding: var(--space-16) 0;
+  border-bottom: 1px solid var(--semantic-border);
+  animation: rise-in var(--duration-base) var(--ease-out) backwards;
+}
+
+.templates-page__version:first-child {
+  padding-top: 0;
+}
+
+.templates-page__version:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.templates-page__version > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.templates-page__version strong {
+  color: var(--semantic-text);
+}
+
+/* Placeholder rows while the versions load: same box as the real rows. */
+.templates-page__version--skeleton i {
+  display: block;
+  width: 7rem;
+  height: 21px;
+  padding-block: 3px;
+  box-sizing: border-box;
+  background-color: var(--semantic-surface-muted);
+  background-clip: content-box;
+  border-radius: var(--radius-default);
+  animation: templates-page-pulse 1.2s ease-in-out infinite;
+}
+
+.templates-page__version--skeleton i + i {
+  width: 11rem;
+}
+
+@keyframes templates-page-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
