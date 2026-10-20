@@ -23,6 +23,13 @@
   animation: status-cell-in var(--duration-fast) var(--ease-out);
 }
 
+/* Class selector beats the global touch rule in index.css; iOS zooms under 16px. */
+@media (pointer: coarse) {
+  .status-cell__select {
+    font-size: 16px;
+  }
+}
+
 .status-cell__select:disabled {
   opacity: 0.6;
   cursor: not-allowed;
