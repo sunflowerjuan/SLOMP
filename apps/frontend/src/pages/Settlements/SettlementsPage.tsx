@@ -13,6 +13,7 @@ import { GeneratePdfDialog } from "../../components/ui/GeneratePdfDialog";
 import { Notice } from "../../components/ui/Notice";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Toast } from "../../components/ui/Toast";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { triggerBrowserDownload } from "../../utils/downloadBlob";
 import { SettlementDetailSheet } from "./SettlementDetailSheet";
 import { SettlementList } from "./SettlementList";
@@ -44,6 +45,11 @@ export function SettlementsPage() {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+
+  // Below 1440px the open sheet covers the list behind a scrim: keep it out of
+  // the tab order and the accessibility tree meanwhile.
+  const wide = useMediaQuery("(min-width: 1440px)");
+  const covered = selectedId !== null && !wide;
 
   const sheetEntry =
     results.find((entry) => entry.settlementId === sheetEntryId) ?? null;
@@ -176,41 +182,43 @@ export function SettlementsPage() {
       className="page settlements-page"
       data-sheet={selectedId !== null ? "open" : "closed"}
     >
-      <PageHeader
-        title="Liquidaciones"
-        subtitle="Consulta las liquidaciones oficiales por predio y genera su PDF."
-      />
-
-      <SettlementSearchBar
-        field={field}
-        query={query}
-        isSearching={listState === "loading"}
-        onFieldChange={handleFieldChange}
-        onQueryChange={setQuery}
-        onSubmit={handleSearch}
-      />
-
-      {searchError && <Notice>{searchError}</Notice>}
-      {statusChangeError && <Notice>{statusChangeError}</Notice>}
-
-      <p className="settlements-page__count" aria-live="polite">
-        {countText}
-      </p>
-
-      <div className="settlements-page__scroll">
-        <SettlementList
-          state={listState}
-          results={results}
-          selectedId={selectedId}
-          editingId={editing?.where === "row" ? editing.id : null}
-          editLocked={editing !== null}
-          statusChangeId={statusChangeId}
-          detailId={DETAIL_ID}
-          onToggle={handleToggle}
-          onEdit={(id) => setEditing({ id, where: "row" })}
-          onSave={handleStatusChange}
-          onCancel={() => setEditing(null)}
+      <div className="settlements-page__body" inert={covered}>
+        <PageHeader
+          title="Liquidaciones"
+          subtitle="Consulta las liquidaciones oficiales por predio y genera su PDF."
         />
+
+        <SettlementSearchBar
+          field={field}
+          query={query}
+          isSearching={listState === "loading"}
+          onFieldChange={handleFieldChange}
+          onQueryChange={setQuery}
+          onSubmit={handleSearch}
+        />
+
+        {searchError && <Notice>{searchError}</Notice>}
+        {statusChangeError && <Notice>{statusChangeError}</Notice>}
+
+        <p className="settlements-page__count" aria-live="polite">
+          {countText}
+        </p>
+
+        <div className="settlements-page__scroll">
+          <SettlementList
+            state={listState}
+            results={results}
+            selectedId={selectedId}
+            editingId={editing?.where === "row" ? editing.id : null}
+            editLocked={editing !== null}
+            statusChangeId={statusChangeId}
+            detailId={DETAIL_ID}
+            onToggle={handleToggle}
+            onEdit={(id) => setEditing({ id, where: "row" })}
+            onSave={handleStatusChange}
+            onCancel={() => setEditing(null)}
+          />
+        </div>
       </div>
 
       <SettlementDetailSheet
