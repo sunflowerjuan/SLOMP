@@ -7,6 +7,11 @@
   transition: margin-right var(--duration-sheet) var(--ease-sheet);
 }
 
+/* Only groups the covered content so it can be made inert as a whole. */
+.settlements-page__body {
+  display: contents;
+}
+
 .settlements-page__scroll {
   flex: 1;
   min-height: 0;

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import type { SettlementSearchResult } from "../../api/settlements";
 import type { SettlementStatus } from "../../domain/settlementStatus";
 import { Button } from "../../components/ui/Button";
@@ -49,6 +50,10 @@ export function SettlementDetailSheet({
     axis: "y",
     media: "(max-width: 900px)",
   });
+  // Opening moves focus into the panel; closing hands it back (see the page).
+  useEffect(() => {
+    if (open) ref.current?.focus({ preventScroll: true });
+  }, [open, ref]);
   const periods = entry ? formatPeriods(entry.periods) : "";
   const total = entry ? formatCop(entry.totalAmount) : "";
 
@@ -67,6 +72,7 @@ export function SettlementDetailSheet({
         id={id}
         className="settlement-sheet"
         data-open={open}
+        tabIndex={-1}
         aria-label="Detalle de la liquidación"
         inert={!open}
       >

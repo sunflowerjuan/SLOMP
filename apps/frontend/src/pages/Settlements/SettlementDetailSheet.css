@@ -26,6 +26,11 @@
     visibility 0s;
 }
 
+/* Focus lands on the panel itself when it opens; it is not a control. */
+.settlement-sheet:focus-visible {
+  outline: none;
+}
+
 .settlement-sheet__scrim {
   position: fixed;
   inset: 0;
