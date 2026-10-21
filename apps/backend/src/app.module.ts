@@ -5,6 +5,7 @@ import { createObserveModule } from '@nestjs/observe';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { AuthModule } from './auth/auth.module.js';
+import { HealthModule } from './health/health.module.js';
 import { ApiExceptionFilter } from './common/errors/api-exception.filter.js';
 import { JwtAuthGuard } from './auth/jwt-auth.guard.js';
 import { MunicipalitiesModule } from './municipalities/municipalities.module.js';
@@ -26,6 +27,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       serviceId: 'backend',
     }),
     PrismaModule,
+    HealthModule,
     AuthModule,
     MunicipalitiesModule,
     TaxRollModule,
