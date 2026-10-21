@@ -14,7 +14,10 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY apps/backend/package.json apps/backend/
 COPY apps/frontend/package.json apps/frontend/
 COPY packages/shared/package.json packages/shared/
-RUN pnpm install --frozen-lockfile --filter backend --filter shared
+# Lifecycle scripts stay off (Sonar S6505); the two that matter run explicitly:
+# bcrypt's native build here, and Prisma's engine download in `rebuild`.
+RUN pnpm install --frozen-lockfile --ignore-scripts --filter backend --filter shared \
+ && pnpm rebuild bcrypt @prisma/engines prisma
 
 COPY packages/shared packages/shared
 COPY apps/backend apps/backend

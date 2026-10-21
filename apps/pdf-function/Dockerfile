@@ -14,7 +14,7 @@ COPY apps/backend/package.json apps/backend/
 COPY apps/frontend/package.json apps/frontend/
 COPY apps/pdf-function/package.json apps/pdf-function/
 COPY packages/shared/package.json packages/shared/
-RUN pnpm install --frozen-lockfile --filter pdf-function
+RUN pnpm install --frozen-lockfile --ignore-scripts --filter pdf-function
 
 COPY apps/pdf-function apps/pdf-function
 RUN pnpm --filter pdf-function --prod --legacy deploy /out/pdf-function

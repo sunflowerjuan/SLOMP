@@ -15,7 +15,7 @@ jobs:
             # set at actual deploy time.
             PSQL_ADMIN_PASSWORD: ci-placeholder-password
         steps:
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
             - name: Build .bicep and check compiled JSON is in sync
               run: |
                   set -e
