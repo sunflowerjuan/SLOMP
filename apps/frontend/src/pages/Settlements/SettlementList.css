@@ -2,7 +2,7 @@
   display: grid;
   grid-template-columns:
     minmax(280px, 1.4fr) minmax(0, 1.5fr) minmax(110px, 0.7fr)
-    minmax(110px, 0.6fr) minmax(240px, 1fr);
+    minmax(160px, 0.7fr) minmax(240px, 1fr);
   align-items: center;
   column-gap: var(--space-12);
 }
@@ -95,6 +95,7 @@
 .settlement-list__num {
   text-align: right;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .settlement-list__periods {
