@@ -18,6 +18,7 @@ import { PageHeader } from "../../components/ui/PageHeader";
 import { Table } from "../../components/ui/Table";
 import { TableRow } from "../../components/ui/TableRow";
 import { triggerBrowserDownload } from "../../utils/downloadBlob";
+import { formatCop } from "../../utils/formatCop";
 import { formatPeriods } from "../../utils/formatPeriods";
 import { PdfButton } from "./PdfButton";
 import type { PdfDownloadState } from "./PdfButton";
@@ -61,31 +62,6 @@ function toCriteria(values: FormValues) {
   if (ownerName) criteria.ownerName = ownerName;
   if (address) criteria.address = address;
   return criteria;
-}
-
-// Whole pesos without decimals ($ 1.284.500); with cents, always two
-// ($ 1.376.200,50) -- never a single decimal.
-const currencyFormatter = new Intl.NumberFormat("es-CO", {
-  style: "currency",
-  currency: "COP",
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
-});
-
-const currencyWithCentsFormatter = new Intl.NumberFormat("es-CO", {
-  style: "currency",
-  currency: "COP",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-function formatAmount(amount: number): string {
-  if (!Number.isFinite(amount)) {
-    return String(amount);
-  }
-  return Number.isInteger(amount)
-    ? currencyFormatter.format(amount)
-    : currencyWithCentsFormatter.format(amount);
 }
 
 interface PublicConsultationPageProps {
@@ -352,7 +328,7 @@ export function PublicConsultationPage({
                       key={settlement.settlementId}
                       cells={[
                         formatPeriods(settlement.periods),
-                        formatAmount(settlement.totalAmount),
+                        formatCop(settlement.totalAmount),
                         <PublicStatusCell
                           key="estado"
                           status={settlement.status}
@@ -384,7 +360,7 @@ export function PublicConsultationPage({
                     <dl className="public-consultation__item-data">
                       <div>
                         <dt>Valor total</dt>
-                        <dd>{formatAmount(settlement.totalAmount)}</dd>
+                        <dd>{formatCop(settlement.totalAmount)}</dd>
                       </div>
                     </dl>
                     <PdfButton

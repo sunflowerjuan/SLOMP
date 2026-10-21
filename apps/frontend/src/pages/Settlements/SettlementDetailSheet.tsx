@@ -5,7 +5,7 @@ import { Button } from "../../components/ui/Button";
 import { CloseIcon } from "../../components/ui/CloseIcon";
 import { useSwipeToDismiss } from "../../hooks/useSwipeToDismiss";
 import { formatPeriods } from "../../utils/formatPeriods";
-import { formatCop } from "./formatCop";
+import { formatCop } from "../../utils/formatCop";
 import { primaryMark } from "../../domain/settlementMarks";
 import { SettlementMarks } from "./SettlementMarks";
 import { SettlementStatusCell } from "./SettlementStatusCell";

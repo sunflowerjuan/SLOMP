@@ -3,7 +3,7 @@ import type { CSSProperties, KeyboardEvent, MouseEvent } from "react";
 import type { SettlementSearchResult } from "../../api/settlements";
 import type { SettlementStatus } from "../../domain/settlementStatus";
 import { formatPeriods } from "../../utils/formatPeriods";
-import { formatCop } from "./formatCop";
+import { formatCop } from "../../utils/formatCop";
 import { primaryMark } from "../../domain/settlementMarks";
 import { SettlementMarks } from "./SettlementMarks";
 import { SettlementStatusCell } from "./SettlementStatusCell";
