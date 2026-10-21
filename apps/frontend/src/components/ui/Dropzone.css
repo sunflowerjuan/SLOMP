@@ -123,3 +123,15 @@
   font-weight: 500;
   color: var(--semantic-danger-hover);
 }
+
+/* Phone: the upload zone stays fixed under the title, so it is kept short. */
+@media (max-width: 900px) {
+  .ui-dropzone {
+    min-height: 96px;
+    padding: var(--space-12);
+  }
+
+  .ui-dropzone__icon {
+    display: none;
+  }
+}

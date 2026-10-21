@@ -47,8 +47,26 @@
   color: var(--semantic-text-muted);
 }
 
+/* Phone: the button sits beside the field; the criterion goes under both. */
 @media (max-width: 900px) {
+  .settlement-search {
+    flex-wrap: wrap;
+    gap: var(--space-8);
+  }
+
+  .settlement-search__field {
+    order: 1;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
   .settlement-search .ui-button {
+    order: 2;
+    flex: none;
+  }
+
+  .settlement-search .ui-segmented {
+    order: 3;
     flex: 1 1 100%;
   }
 }

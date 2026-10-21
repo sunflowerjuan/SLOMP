@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { TemplateDocumentType } from "../../api/templates";
-import { PageHeader } from "../../components/ui/PageHeader";
+import { Screen } from "../../components/ui/Screen";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { DocumentTemplates } from "./DocumentTemplates";
 import "./TemplatesPage.css";
@@ -17,19 +17,23 @@ export function TemplatesPage() {
     useState<TemplateDocumentType>("LIQUIDACION");
 
   return (
-    <div className="page templates-page">
-      <PageHeader title="Plantillas" />
-      {/* The wrapper keeps the control at its own width in the page column. */}
-      <div>
-        <SegmentedControl
-          label="Tipo de documento"
-          name="template-document-type"
-          options={DOCUMENT_OPTIONS}
-          value={documentType}
-          onChange={setDocumentType}
-        />
-      </div>
+    <Screen
+      className="templates-page"
+      title="Plantillas"
+      input={
+        // The wrapper keeps the control at its own width in the page column.
+        <div>
+          <SegmentedControl
+            label="Tipo de documento"
+            name="template-document-type"
+            options={DOCUMENT_OPTIONS}
+            value={documentType}
+            onChange={setDocumentType}
+          />
+        </div>
+      }
+    >
       <DocumentTemplates key={documentType} documentType={documentType} />
-    </div>
+    </Screen>
   );
 }

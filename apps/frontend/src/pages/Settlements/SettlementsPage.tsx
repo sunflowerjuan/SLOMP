@@ -11,7 +11,7 @@ import { SETTLEMENT_STATUS_LABEL } from "../../domain/settlementStatus";
 import type { SettlementStatus } from "../../domain/settlementStatus";
 import { GeneratePdfDialog } from "../../components/ui/GeneratePdfDialog";
 import { Notice } from "../../components/ui/Notice";
-import { PageHeader } from "../../components/ui/PageHeader";
+import { Screen } from "../../components/ui/Screen";
 import { Toast } from "../../components/ui/Toast";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { triggerBrowserDownload } from "../../utils/downloadBlob";
@@ -178,88 +178,88 @@ export function SettlementsPage() {
       : "";
 
   return (
-    <div
-      className="page settlements-page"
+    <Screen
+      className="settlements-page"
       data-sheet={selectedId !== null ? "open" : "closed"}
-    >
-      <div className="settlements-page__body" inert={covered}>
-        <PageHeader
-          title="Liquidaciones"
-          subtitle="Consulta las liquidaciones oficiales por predio y genera su PDF."
-        />
-
-        <SettlementSearchBar
-          field={field}
-          query={query}
-          isSearching={listState === "loading"}
-          onFieldChange={handleFieldChange}
-          onQueryChange={setQuery}
-          onSubmit={handleSearch}
-        />
-
-        {searchError && <Notice>{searchError}</Notice>}
-        {statusChangeError && <Notice>{statusChangeError}</Notice>}
-
-        <p className="settlements-page__count" aria-live="polite">
-          {countText}
-        </p>
-
-        <div className="settlements-page__scroll">
-          <SettlementList
-            state={listState}
-            results={results}
-            selectedId={selectedId}
-            editingId={editing?.where === "row" ? editing.id : null}
-            editLocked={editing !== null}
-            statusChangeId={statusChangeId}
-            detailId={DETAIL_ID}
-            onToggle={handleToggle}
-            onEdit={(id) => setEditing({ id, where: "row" })}
-            onSave={handleStatusChange}
-            onCancel={() => setEditing(null)}
+      title="Liquidaciones"
+      covered={covered}
+      subtitle="Consulta las liquidaciones oficiales por predio y genera su PDF."
+      input={
+        <>
+          <SettlementSearchBar
+            field={field}
+            query={query}
+            isSearching={listState === "loading"}
+            onFieldChange={handleFieldChange}
+            onQueryChange={setQuery}
+            onSubmit={handleSearch}
           />
-        </div>
-      </div>
 
-      <SettlementDetailSheet
-        id={DETAIL_ID}
-        open={selectedId !== null}
-        entry={sheetEntry}
-        editing={editing?.where === "sheet"}
+          {searchError && <Notice>{searchError}</Notice>}
+          {statusChangeError && <Notice>{statusChangeError}</Notice>}
+
+          <p className="settlements-page__count" aria-live="polite">
+            {countText}
+          </p>
+        </>
+      }
+      overlay={
+        <>
+          <SettlementDetailSheet
+            id={DETAIL_ID}
+            open={selectedId !== null}
+            entry={sheetEntry}
+            editing={editing?.where === "sheet"}
+            editLocked={editing !== null}
+            saving={statusChangeId === sheetEntryId}
+            onEdit={() =>
+              sheetEntryId !== null &&
+              setEditing({ id: sheetEntryId, where: "sheet" })
+            }
+            onSave={(status) =>
+              sheetEntry && handleStatusChange(sheetEntry, status)
+            }
+            onCancel={() => setEditing(null)}
+            onClose={closeSheet}
+            onGenerate={() => {
+              setPdfError(null);
+              setIsPdfDialogOpen(true);
+            }}
+          />
+
+          <GeneratePdfDialog
+            open={isPdfDialogOpen}
+            liquidacion={
+              sheetEntry
+                ? {
+                    cedulaCatastral: sheetEntry.cadastralCode,
+                    propietario: sheetEntry.ownerName,
+                  }
+                : null
+            }
+            isGenerating={isGeneratingPdf}
+            error={pdfError}
+            onCancel={() => setIsPdfDialogOpen(false)}
+            onGenerate={handleGeneratePdf}
+          />
+
+          <Toast message={toast} />
+        </>
+      }
+    >
+      <SettlementList
+        state={listState}
+        results={results}
+        selectedId={selectedId}
+        editingId={editing?.where === "row" ? editing.id : null}
         editLocked={editing !== null}
-        saving={statusChangeId === sheetEntryId}
-        onEdit={() =>
-          sheetEntryId !== null &&
-          setEditing({ id: sheetEntryId, where: "sheet" })
-        }
-        onSave={(status) =>
-          sheetEntry && handleStatusChange(sheetEntry, status)
-        }
+        statusChangeId={statusChangeId}
+        detailId={DETAIL_ID}
+        onToggle={handleToggle}
+        onEdit={(id) => setEditing({ id, where: "row" })}
+        onSave={handleStatusChange}
         onCancel={() => setEditing(null)}
-        onClose={closeSheet}
-        onGenerate={() => {
-          setPdfError(null);
-          setIsPdfDialogOpen(true);
-        }}
       />
-
-      <GeneratePdfDialog
-        open={isPdfDialogOpen}
-        liquidacion={
-          sheetEntry
-            ? {
-                cedulaCatastral: sheetEntry.cadastralCode,
-                propietario: sheetEntry.ownerName,
-              }
-            : null
-        }
-        isGenerating={isGeneratingPdf}
-        error={pdfError}
-        onCancel={() => setIsPdfDialogOpen(false)}
-        onGenerate={handleGeneratePdf}
-      />
-
-      <Toast message={toast} />
-    </div>
+    </Screen>
   );
 }

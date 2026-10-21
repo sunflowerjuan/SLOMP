@@ -1,12 +1,8 @@
-/* A long Excel scrolls inside the card instead of pushing the page. */
 .payment-order-candidates {
   display: flex;
   flex-direction: column;
-  max-height: 28rem;
   margin: 0;
-  padding: 0 var(--space-8) 0 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  padding: 0;
   list-style: none;
 }
 
