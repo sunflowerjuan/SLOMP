@@ -171,6 +171,18 @@ Una contraseña que eligió otra persona (`admin:create` o `admin:rotate-passwor
 - Pull Requests: uno por tarea, siempre hacia `develop` (salvo la promoción a `main`), con la plantilla que se autocompleta al abrirlos.
 - El CI (lint + build + test) corre en cada PR y debe pasar antes de mergear.
 
+### Acciones de CI fijadas por hash
+
+Cada `uses:` de terceros en `.github/workflows` apunta al hash completo (40 caracteres) del commit de una versión, con la versión en un comentario (`# v5`), porque una etiqueta se puede mover y un hash no. Para subir de versión:
+
+1. Obtén el commit de la etiqueta: `gh api repos/<dueño>/<acción>/git/ref/tags/<versión> --jq .object`. Si `type` es `tag` (etiqueta anotada), resuélvela con `gh api repos/<dueño>/<acción>/git/tags/<sha> --jq .object.sha`.
+2. Verifica que ese commit aparezca en la página de la acción en GitHub.
+3. Reemplaza el hash y el comentario de versión en todos los workflows. Un workflow nuevo sigue la misma regla.
+
+### Imágenes de contenedor
+
+Los Dockerfiles instalan con `pnpm install --ignore-scripts` y ejecutan solo lo necesario: `pnpm rebuild bcrypt @prisma/engines prisma` (binario nativo de `bcrypt` y motores de Prisma) en el backend. Si una dependencia nueva necesita un script de instalación, hay que agregarlo a ese `rebuild`; el servicio de PDF no necesita ninguno.
+
 La documentación completa de arquitectura, reglas de negocio, convenciones y despliegue vive en la wiki del proyecto: **[SLOMP en Confluence](https://trabajodecampo.atlassian.net/wiki/spaces/SLO/overview)**.
 
 ## Gestión del proyecto
