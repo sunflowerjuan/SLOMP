@@ -1,44 +1,15 @@
-/* Slompsim sits beside the title and drops under it when there is no room. */
-.payment-orders-page__header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-16);
-}
-
-/* Narrow: one column, with the ZIP panel right after the result. Wide: the
-   panel moves to a fixed column on the right, as in Carga de Excel. */
-.payment-orders-page__layout {
+.payment-orders-page__upload {
   display: flex;
   flex-direction: column;
-  gap: var(--space-24);
-}
-
-.payment-orders-page__main,
-.payment-orders-page__side {
-  display: contents;
-}
-
-.payment-orders-page__upload {
-  order: 1;
+  gap: var(--space-12);
 }
 
 .payment-orders-page__result {
-  order: 2;
   animation: rise-in var(--duration-enter) var(--ease-sheet) backwards;
 }
 
 .payment-orders-page__result:focus {
   outline: none;
-}
-
-.payment-order-zip-panel {
-  order: 3;
-}
-
-.issued-payment-orders {
-  order: 4;
 }
 
 .payment-orders-page__actions {
@@ -63,32 +34,6 @@
 @media (max-width: 768px) {
   .payment-orders-page__actions .ui-button {
     width: 100%;
-  }
-}
-
-@media (min-width: 1100px) {
-  .payment-orders-page__layout {
-    flex-direction: row;
-    align-items: flex-start;
-  }
-
-  .payment-orders-page__main,
-  .payment-orders-page__side {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-24);
-    min-width: 0;
-  }
-
-  .payment-orders-page__main {
-    flex: 1;
-  }
-
-  /* Stays in view while the list on the left scrolls. */
-  .payment-orders-page__side {
-    position: sticky;
-    top: var(--space-32);
-    flex: 0 0 380px;
   }
 }
 

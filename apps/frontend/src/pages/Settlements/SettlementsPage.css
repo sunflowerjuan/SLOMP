@@ -1,23 +1,9 @@
 .settlements-page {
-  /* The heading and the search stay put; only the list scrolls. */
-  height: 100vh;
-  height: 100dvh;
-  padding-bottom: 0;
-  overflow: hidden;
   transition: margin-right var(--duration-sheet) var(--ease-sheet);
 }
 
-/* Only groups the covered content so it can be made inert as a whole. */
-.settlements-page__body {
-  display: contents;
-}
-
-.settlements-page__scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding-bottom: var(--space-48);
+.settlements-page.ui-screen {
+  gap: var(--space-24);
 }
 
 .settlements-page__count {
@@ -32,18 +18,6 @@
 @media (min-width: 1440px) {
   .settlements-page[data-sheet="open"] {
     margin-right: 384px;
-  }
-}
-
-/* On narrow screens the nav is a fixed bar at the bottom; the main area keeps
-   room for it (same sum as .admin-layout__main's bottom padding), so this
-   page is exactly one screen tall and the document does not scroll. */
-@media (max-width: 900px) {
-  .settlements-page {
-    height: calc(
-      100dvh - 68px - var(--space-16) -
-        max(var(--space-8), env(safe-area-inset-bottom, 0px))
-    );
   }
 }
 

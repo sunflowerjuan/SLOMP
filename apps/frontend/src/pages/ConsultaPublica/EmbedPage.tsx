@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getPublicMunicipality } from "../../api/publicConsultation";
 import { Card } from "../../components/ui/Card";
-import { PageHeader } from "../../components/ui/PageHeader";
+import { Screen } from "../../components/ui/Screen";
 import { consultationUrl } from "../../utils/consultationUrl";
 import "./EmbedPage.css";
 
@@ -25,12 +25,11 @@ export function EmbedPage({ slug }: { slug: string }) {
   }, [slug]);
 
   return (
-    <div className="page embed-page">
-      <PageHeader
-        title="Consulta pública"
-        subtitle="Enlace a la consulta de liquidaciones de este municipio."
-      />
-
+    <Screen
+      className="embed-page"
+      title="Consulta pública"
+      subtitle="Enlace a la consulta de liquidaciones de este municipio."
+    >
       <Card title="Municipio">
         <p className="embed-page__link">
           <a href={url} target="_blank" rel="noreferrer">
@@ -38,6 +37,6 @@ export function EmbedPage({ slug }: { slug: string }) {
           </a>
         </p>
       </Card>
-    </div>
+    </Screen>
   );
 }

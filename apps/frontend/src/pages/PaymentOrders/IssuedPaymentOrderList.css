@@ -15,15 +15,11 @@
   color: var(--semantic-text-muted);
 }
 
-/* A long history scrolls inside the card instead of pushing the page. */
 .issued-payment-orders__list {
   display: flex;
   flex-direction: column;
-  max-height: 32rem;
   margin: 0;
-  padding: 0 var(--space-8) 0 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  padding: 0;
   list-style: none;
 }
 

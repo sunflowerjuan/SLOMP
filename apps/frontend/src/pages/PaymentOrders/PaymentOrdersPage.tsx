@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { ApiError, getErrorMessage } from "../../api/ApiError";
 import {
   PAYMENT_ORDER_NOT_ISSUED_MESSAGE,
@@ -18,7 +19,7 @@ import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Dropzone } from "../../components/ui/Dropzone";
 import { Notice } from "../../components/ui/Notice";
-import { PageHeader } from "../../components/ui/PageHeader";
+import { Screen } from "../../components/ui/Screen";
 import {
   groupEligibleByProperty,
   newestFirst,
@@ -47,6 +48,7 @@ interface PageNotice {
 // collect; reviewing it saves nothing. The properties whose periods are "En
 // firme" can then get their payment order, one at a time or all in a ZIP.
 export function PaymentOrdersPage() {
+  const isWide = useMediaQuery("(min-width: 1100px)");
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -175,19 +177,27 @@ export function PaymentOrdersPage() {
   // The municipality issues one batch of numbers at a time.
   const jobHoldsNumbers = pdfJob.active || pdfJob.otherJob !== null;
 
-  return (
-    <div className="page payment-orders-page">
-      <div className="payment-orders-page__header">
-        <PageHeader title="Mandamientos" />
-        <SlompsimButton />
-      </div>
+  // Beside the upload when there is room; after the result otherwise.
+  const zipPanel = (
+    <PaymentOrderZipPanel
+      pdfJob={pdfJob}
+      settlementIds={
+        preview ? pending.flatMap((candidate) => candidate.settlementIds) : null
+      }
+      count={pending.length}
+      locked={generating}
+      onStale={() => file && void review(file)}
+    />
+  );
 
-      <div className="payment-orders-page__layout">
-        <div className="payment-orders-page__main">
-          <Card
-            title="Excel de mandamientos"
-            className="payment-orders-page__upload"
-          >
+  return (
+    <Screen
+      className="payment-orders-page"
+      title="Mandamientos"
+      action={<SlompsimButton />}
+      input={
+        <div className="ui-screen__input-row">
+          <div className="payment-orders-page__upload">
             <Dropzone
               file={file}
               onFileSelect={(selected) => {
@@ -200,8 +210,6 @@ export function PaymentOrdersPage() {
               }}
             />
 
-            {error && <Notice>{error}</Notice>}
-
             <div className="payment-orders-page__actions">
               <Button
                 type="button"
@@ -212,117 +220,103 @@ export function PaymentOrdersPage() {
                 Procesar archivo
               </Button>
             </div>
+          </div>
+          {isWide && zipPanel}
+        </div>
+      }
+      overlay={
+        <GeneratePaymentOrderDialog
+          candidate={toGenerate}
+          isGenerating={generating}
+          error={generateError}
+          onCancel={() => setToGenerate(null)}
+          onGenerate={() => void handleGenerate()}
+        />
+      }
+    >
+      {error && <Notice>{error}</Notice>}
+
+      {preview && (
+        <div
+          ref={resultRef}
+          className="payment-orders-page__result"
+          role="region"
+          aria-label="Resultado de la carga"
+          tabIndex={-1}
+        >
+          <Card title="Resultado de la carga" subtitle={preview.fileName}>
+            <dl className="payment-orders-page__stats">
+              <TaxRollStat
+                value={candidates.length}
+                label="mandamientos por generar"
+              />
+              <TaxRollStat
+                value={preview.eligible.length}
+                label="periodos en firme"
+              />
+              <TaxRollStat
+                value={preview.ineligible.length}
+                label="periodos no elegibles"
+              />
+              <TaxRollStat
+                value={preview.invalidRows.length}
+                label="filas inválidas omitidas"
+                tone={preview.invalidRows.length > 0 ? "danger" : undefined}
+              />
+              <TaxRollStat
+                value={preview.warnings.length}
+                label="con advertencias"
+                tone={preview.warnings.length > 0 ? "warning" : undefined}
+              />
+            </dl>
+
+            {notice && <Notice variant={notice.variant}>{notice.text}</Notice>}
+
+            <h3 className="payment-orders-page__subheading">
+              Listos para generar
+            </h3>
+            <PaymentOrderCandidateList
+              candidates={candidates}
+              issued={issued}
+              locked={jobHoldsNumbers || generating}
+              downloadingId={pdf.downloadingId}
+              downloadError={
+                pdf.error?.source === "candidates" ? pdf.error : null
+              }
+              onGenerate={(candidate) => {
+                setGenerateError(null);
+                setToGenerate(candidate);
+              }}
+              onDownload={(order) =>
+                void pdf.download(
+                  order.paymentOrderId,
+                  order.number,
+                  "candidates",
+                )
+              }
+            />
+
+            <IneligiblePaymentOrderList rows={preview.ineligible} />
+            <TaxRollIssueList
+              title="Filas inválidas"
+              issues={preview.invalidRows}
+            />
+            <TaxRollIssueList title="Advertencias" issues={preview.warnings} />
           </Card>
-
-          {preview && (
-            <div
-              ref={resultRef}
-              className="payment-orders-page__result"
-              role="region"
-              aria-label="Resultado de la carga"
-              tabIndex={-1}
-            >
-              <Card title="Resultado de la carga" subtitle={preview.fileName}>
-                <dl className="payment-orders-page__stats">
-                  <TaxRollStat
-                    value={candidates.length}
-                    label="mandamientos por generar"
-                  />
-                  <TaxRollStat
-                    value={preview.eligible.length}
-                    label="periodos en firme"
-                  />
-                  <TaxRollStat
-                    value={preview.ineligible.length}
-                    label="periodos no elegibles"
-                  />
-                  <TaxRollStat
-                    value={preview.invalidRows.length}
-                    label="filas inválidas omitidas"
-                    tone={preview.invalidRows.length > 0 ? "danger" : undefined}
-                  />
-                  <TaxRollStat
-                    value={preview.warnings.length}
-                    label="con advertencias"
-                    tone={preview.warnings.length > 0 ? "warning" : undefined}
-                  />
-                </dl>
-
-                {notice && (
-                  <Notice variant={notice.variant}>{notice.text}</Notice>
-                )}
-
-                <h3 className="payment-orders-page__subheading">
-                  Listos para generar
-                </h3>
-                <PaymentOrderCandidateList
-                  candidates={candidates}
-                  issued={issued}
-                  locked={jobHoldsNumbers || generating}
-                  downloadingId={pdf.downloadingId}
-                  downloadError={
-                    pdf.error?.source === "candidates" ? pdf.error : null
-                  }
-                  onGenerate={(candidate) => {
-                    setGenerateError(null);
-                    setToGenerate(candidate);
-                  }}
-                  onDownload={(order) =>
-                    void pdf.download(
-                      order.paymentOrderId,
-                      order.number,
-                      "candidates",
-                    )
-                  }
-                />
-
-                <IneligiblePaymentOrderList rows={preview.ineligible} />
-                <TaxRollIssueList
-                  title="Filas inválidas"
-                  issues={preview.invalidRows}
-                />
-                <TaxRollIssueList
-                  title="Advertencias"
-                  issues={preview.warnings}
-                />
-              </Card>
-            </div>
-          )}
-
-          <IssuedPaymentOrderList
-            orders={orders}
-            error={ordersError}
-            onRetry={() => void loadOrders()}
-            downloadingId={pdf.downloadingId}
-            downloadError={pdf.error?.source === "issued" ? pdf.error : null}
-            onDownload={(order) =>
-              void pdf.download(order.id, order.number, "issued")
-            }
-          />
         </div>
+      )}
 
-        <div className="payment-orders-page__side">
-          <PaymentOrderZipPanel
-            pdfJob={pdfJob}
-            settlementIds={
-              preview
-                ? pending.flatMap((candidate) => candidate.settlementIds)
-                : null
-            }
-            count={pending.length}
-            locked={generating}
-            onStale={() => file && void review(file)}
-          />
-        </div>
-      </div>
-
-      <GeneratePaymentOrderDialog
-        candidate={toGenerate}
-        isGenerating={generating}
-        error={generateError}
-        onCancel={() => setToGenerate(null)}
-        onGenerate={() => void handleGenerate()}
+      {!isWide && zipPanel}
+      <IssuedPaymentOrderList
+        orders={orders}
+        error={ordersError}
+        onRetry={() => void loadOrders()}
+        downloadingId={pdf.downloadingId}
+        downloadError={pdf.error?.source === "issued" ? pdf.error : null}
+        onDownload={(order) =>
+          void pdf.download(order.id, order.number, "issued")
+        }
       />
-    </div>
+    </Screen>
   );
 }

@@ -15,7 +15,7 @@ import { Dropzone } from "../../components/ui/Dropzone";
 import { Notice } from "../../components/ui/Notice";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { useSwipeToDismiss } from "../../hooks/useSwipeToDismiss";
-import { PageHeader } from "../../components/ui/PageHeader";
+import { Screen } from "../../components/ui/Screen";
 import { ReplaceConfirmDialog } from "../../components/ui/ReplaceConfirmDialog";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { Table } from "../../components/ui/Table";
@@ -56,7 +56,9 @@ export function TaxRollUploadPage() {
   // The history only collapses below the wide layout, where it is closed
   // until asked for; the wide layout always shows it.
   const isWide = useMediaQuery("(min-width: 1100px)");
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  // Until the Administrator toggles it, the history is open when there is room.
+  const [historyChoice, setHistoryChoice] = useState<boolean | null>(null);
+  const isHistoryOpen = historyChoice ?? isWide;
 
   // isHistoryLoading starts true (useState above) for the first fetch; it's
   // not set back to true on later refreshes (after an import) so the table
@@ -152,13 +154,16 @@ export function TaxRollUploadPage() {
   const conflictCount = result?.persisted.conflicts.length ?? 0;
   const lockedCount = result?.persisted.locked.length ?? 0;
 
-  return (
-    <div className="page tax-roll-upload-page">
-      <PageHeader title="Carga de Excel" />
+  // Beside the upload when there is room; after the result otherwise.
+  const zipPanel = <BulkZipPanel refreshKey={result?.importId} />;
 
-      <div className="tax-roll-upload-page__layout">
-        <div className="tax-roll-upload-page__main">
-          <Card title="Nueva carga" className="tax-roll-upload-page__upload">
+  return (
+    <Screen
+      className="tax-roll-upload-page"
+      title="Carga de Excel"
+      input={
+        <div className="ui-screen__input-row">
+          <div className="tax-roll-upload-page__upload">
             <Dropzone
               file={file}
               onFileSelect={(selected) => {
@@ -170,9 +175,6 @@ export function TaxRollUploadPage() {
                 resetOutcome();
               }}
             />
-
-            {error && <Notice>{error}</Notice>}
-
             <div className="tax-roll-upload-page__actions">
               <Button
                 type="button"
@@ -183,148 +185,145 @@ export function TaxRollUploadPage() {
                 Procesar archivo
               </Button>
             </div>
-          </Card>
+          </div>
+          {isWide && zipPanel}
+        </div>
+      }
+      overlay={
+        <ReplaceConfirmDialog
+          open={isReplaceDialogOpen}
+          isConfirming={isConfirmingReplace}
+          onCancel={() => setIsReplaceDialogOpen(false)}
+          onConfirm={handleConfirmReplace}
+        />
+      }
+    >
+      {error && <Notice>{error}</Notice>}
 
+      {result && (
+        <div
+          ref={resultRef}
+          className="tax-roll-upload-page__result-reveal"
+          data-leaving={leaving === null ? undefined : String(leaving)}
+          onAnimationEnd={(event) => {
+            if (event.animationName.startsWith("tax-roll-result-leave")) {
+              resetOutcome();
+            }
+          }}
+          {...swipeBind}
+          role="region"
+          aria-label="Resultado de la carga"
+          tabIndex={-1}
+        >
           <Card
-            title="Historial de cargas"
-            subtitle="Últimos archivos procesados por el sistema."
-            className="tax-roll-upload-page__history"
-            open={isWide || isHistoryOpen}
-            onToggle={isWide ? undefined : () => setIsHistoryOpen((o) => !o)}
-          >
-            {historyError && <Notice>{historyError}</Notice>}
-
-            {isHistoryLoading && (
-              <p className="tax-roll-upload-page__muted" role="status">
-                Cargando historial…
-              </p>
-            )}
-
-            {!historyError && !isHistoryLoading && history.length === 0 && (
-              <p className="tax-roll-upload-page__muted">
-                Todavía no se ha procesado ningún archivo.
-              </p>
-            )}
-
-            {history.length > 0 && (
-              <Table
-                columns={["Archivo", "Fecha de carga", "Registros", "Estado"]}
+            title="Resultado de la carga"
+            className="tax-roll-upload-page__result"
+            action={
+              <button
+                type="button"
+                className="tax-roll-upload-page__close"
+                aria-label="Cerrar resultado de la carga"
+                onClick={() => setLeaving("fade")}
               >
-                {history.map((entry) => {
-                  const status = historyEntryStatus(entry);
-                  return (
-                    <TableRow
-                      key={entry.id}
-                      cells={[
-                        entry.fileName,
-                        DATE_FORMATTER.format(new Date(entry.importedAt)),
-                        entry.validRows + entry.invalidRows,
-                        <StatusBadge key="estado" variant={status.variant}>
-                          {status.label}
-                        </StatusBadge>,
-                      ]}
-                    />
-                  );
-                })}
-              </Table>
+                <CloseIcon />
+              </button>
+            }
+          >
+            <dl className="tax-roll-upload-page__stats">
+              <TaxRollStat
+                value={result.persisted.settlements}
+                label="liquidaciones generadas"
+              />
+              <TaxRollStat
+                value={result.persisted.properties}
+                label="predios procesados"
+              />
+              <TaxRollStat
+                value={result.persisted.owners}
+                label="propietarios procesados"
+              />
+              <TaxRollStat
+                value={result.invalidRows.length}
+                label="filas inválidas omitidas"
+                tone={result.invalidRows.length > 0 ? "danger" : undefined}
+              />
+              <TaxRollStat
+                value={result.warnings.length}
+                label="con advertencias"
+                tone={result.warnings.length > 0 ? "warning" : undefined}
+              />
+            </dl>
+            {conflictCount > 0 && (
+              <Notice variant="info">
+                {conflictCount} predios y periodos ya tenían una liquidación y
+                no se modificaron.{" "}
+                {!isReplaceDialogOpen && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => setIsReplaceDialogOpen(true)}
+                  >
+                    Reemplazar
+                  </Button>
+                )}
+              </Notice>
             )}
+            {lockedCount > 0 && (
+              <Notice variant="info">
+                {lockedCount} predios y periodos tienen su liquidación en firme
+                y no se reemplazaron.
+              </Notice>
+            )}
+            <TaxRollIssueList
+              title="Filas inválidas"
+              issues={result.invalidRows}
+            />
+            <TaxRollIssueList title="Advertencias" issues={result.warnings} />
           </Card>
         </div>
-        <div className="tax-roll-upload-page__side">
-          {result && (
-            <div
-              ref={resultRef}
-              className="tax-roll-upload-page__result-reveal"
-              data-leaving={leaving === null ? undefined : String(leaving)}
-              onAnimationEnd={(event) => {
-                if (event.animationName.startsWith("tax-roll-result-leave")) {
-                  resetOutcome();
-                }
-              }}
-              {...swipeBind}
-              role="region"
-              aria-label="Resultado de la carga"
-              tabIndex={-1}
-            >
-              <Card
-                title="Resultado de la carga"
-                className="tax-roll-upload-page__result"
-                action={
-                  <button
-                    type="button"
-                    className="tax-roll-upload-page__close"
-                    aria-label="Cerrar resultado de la carga"
-                    onClick={() => setLeaving("fade")}
-                  >
-                    <CloseIcon />
-                  </button>
-                }
-              >
-                <dl className="tax-roll-upload-page__stats">
-                  <TaxRollStat
-                    value={result.persisted.settlements}
-                    label="liquidaciones generadas"
-                  />
-                  <TaxRollStat
-                    value={result.persisted.properties}
-                    label="predios procesados"
-                  />
-                  <TaxRollStat
-                    value={result.persisted.owners}
-                    label="propietarios procesados"
-                  />
-                  <TaxRollStat
-                    value={result.invalidRows.length}
-                    label="filas inválidas omitidas"
-                    tone={result.invalidRows.length > 0 ? "danger" : undefined}
-                  />
-                  <TaxRollStat
-                    value={result.warnings.length}
-                    label="con advertencias"
-                    tone={result.warnings.length > 0 ? "warning" : undefined}
-                  />
-                </dl>
-                {conflictCount > 0 && (
-                  <Notice variant="info">
-                    {conflictCount} predios y periodos ya tenían una liquidación
-                    y no se modificaron.{" "}
-                    {!isReplaceDialogOpen && (
-                      <Button
-                        variant="secondary"
-                        onClick={() => setIsReplaceDialogOpen(true)}
-                      >
-                        Reemplazar
-                      </Button>
-                    )}
-                  </Notice>
-                )}
-                {lockedCount > 0 && (
-                  <Notice variant="info">
-                    {lockedCount} predios y periodos tienen su liquidación en
-                    firme y no se reemplazaron.
-                  </Notice>
-                )}
-                <TaxRollIssueList
-                  title="Filas inválidas"
-                  issues={result.invalidRows}
-                />
-                <TaxRollIssueList
-                  title="Advertencias"
-                  issues={result.warnings}
-                />
-              </Card>
-            </div>
-          )}
-          <BulkZipPanel refreshKey={result?.importId} />
-        </div>
-      </div>
+      )}
+      {!isWide && zipPanel}
 
-      <ReplaceConfirmDialog
-        open={isReplaceDialogOpen}
-        isConfirming={isConfirmingReplace}
-        onCancel={() => setIsReplaceDialogOpen(false)}
-        onConfirm={handleConfirmReplace}
-      />
-    </div>
+      <Card
+        title="Historial de cargas"
+        className="tax-roll-upload-page__history"
+        open={isHistoryOpen}
+        onToggle={() => setHistoryChoice(!isHistoryOpen)}
+      >
+        {historyError && <Notice>{historyError}</Notice>}
+
+        {isHistoryLoading && (
+          <p className="tax-roll-upload-page__muted" role="status">
+            Cargando historial…
+          </p>
+        )}
+
+        {!historyError && !isHistoryLoading && history.length === 0 && (
+          <p className="tax-roll-upload-page__muted">
+            Todavía no se ha procesado ningún archivo.
+          </p>
+        )}
+
+        {history.length > 0 && (
+          <Table columns={["Archivo", "Fecha de carga", "Registros", "Estado"]}>
+            {history.map((entry) => {
+              const status = historyEntryStatus(entry);
+              return (
+                <TableRow
+                  key={entry.id}
+                  cells={[
+                    entry.fileName,
+                    DATE_FORMATTER.format(new Date(entry.importedAt)),
+                    entry.validRows + entry.invalidRows,
+                    <StatusBadge key="estado" variant={status.variant}>
+                      {status.label}
+                    </StatusBadge>,
+                  ]}
+                />
+              );
+            })}
+          </Table>
+        )}
+      </Card>
+    </Screen>
   );
 }

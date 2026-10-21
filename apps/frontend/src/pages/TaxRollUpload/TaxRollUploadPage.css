@@ -1,27 +1,15 @@
-/* Narrow: one column, with the ZIP panel right after the result. Wide: the
-   panel moves to a fixed column on the right. */
-.tax-roll-upload-page__layout {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-24);
-}
-
-.tax-roll-upload-page__main,
-.tax-roll-upload-page__side {
-  display: contents;
-}
-
 .tax-roll-upload-page {
   /* The swipe-out carries the result card past the screen edge. */
   overflow-x: clip;
 }
 
 .tax-roll-upload-page__upload {
-  order: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
 }
 
 .tax-roll-upload-page__result-reveal {
-  order: 2;
   display: grid;
   grid-template-rows: 1fr;
   min-height: 0;
@@ -91,14 +79,6 @@
 
 .tax-roll-upload-page__result-reveal:focus {
   outline: none;
-}
-
-.bulk-zip-panel {
-  order: 3;
-}
-
-.tax-roll-upload-page__history {
-  order: 4;
 }
 
 @keyframes tax-roll-result-enter {
@@ -204,7 +184,7 @@
 /* History: four columns don't fit a phone, nor the narrow column beside the
    result on a small laptop, so each row becomes a small card -- file name and
    status on top, date and count underneath. */
-@media (max-width: 768px), (min-width: 1100px) and (max-width: 1365px) {
+@media (max-width: 768px) {
   .tax-roll-upload-page__history .ui-table__head {
     display: none;
   }
@@ -249,132 +229,6 @@
   }
 }
 
-/* Phone: the title stays put while the page scrolls under it. It reaches
-   out over the page padding (top, with the notch inset, and sides) so
-   nothing shows around it. */
-@media (max-width: 900px) {
-  .tax-roll-upload-page .ui-page-header {
-    position: sticky;
-    top: 0;
-    z-index: 4;
-    margin: calc(var(--space-16) * -1 - env(safe-area-inset-top, 0px))
-      calc(var(--space-16) * -1) calc(var(--space-8) * -1);
-    padding: calc(var(--space-16) + env(safe-area-inset-top, 0px))
-      var(--space-16) var(--space-8);
-    background-color: var(--semantic-surface);
-  }
-}
-
-/* Wide: the whole screen fits without page scroll. Upload and history on the
-   left (history scrolls inside), ZIP panel and the result on the right. */
-@media (min-width: 1100px) {
-  .tax-roll-upload-page {
-    height: 100vh;
-    height: 100dvh;
-    padding-bottom: var(--space-32);
-    overflow: hidden;
-  }
-
-  .tax-roll-upload-page__layout {
-    flex: 1;
-    flex-direction: row;
-    align-items: stretch;
-    min-height: 0;
-  }
-
-  .tax-roll-upload-page__main,
-  .tax-roll-upload-page__side {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-24);
-    min-height: 0;
-  }
-
-  .tax-roll-upload-page__main {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .tax-roll-upload-page__side {
-    flex: 0 0 380px;
-  }
-
-  .tax-roll-upload-page__history {
-    flex: 1;
-    min-height: 0;
-  }
-
-  .tax-roll-upload-page__history .ui-table__wrapper {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
-    overscroll-behavior: contain;
-  }
-
-  /* Keeps its natural height; only a long list of incomplete liquidations
-     can outgrow the column, and then the panel scrolls inside it. */
-  .bulk-zip-panel {
-    order: 0;
-    flex: none;
-    max-height: 100%;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
-
-  /* The card scrolls inside this column: a fade at the foot shows there is
-     more. The extra bottom padding (cancelled by the margin) keeps the end of
-     the content out of the fade. */
-  .tax-roll-upload-page__result-reveal {
-    min-height: 0;
-    margin-bottom: -26px;
-    padding-bottom: 26px;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent);
-  }
-
-  /* Narrow column: one line per figure, label left and number right. */
-  .tax-roll-upload-page__result .tax-roll-upload-page__stats {
-    grid-template-columns: 1fr;
-    gap: var(--space-4);
-  }
-
-  .tax-roll-upload-page__result .tax-roll-upload-page__stat {
-    flex-direction: row-reverse;
-    align-items: baseline;
-    justify-content: space-between;
-    padding: var(--space-4) var(--space-12);
-  }
-
-  .tax-roll-upload-page__result .tax-roll-upload-page__stat dd {
-    font-size: var(--text-lg);
-  }
-
-  .tax-roll-upload-page__result {
-    gap: var(--space-12);
-    padding: var(--space-20) var(--space-24);
-  }
-
-  .tax-roll-upload-page__result .tax-roll-upload-page__issues summary {
-    min-height: 36px;
-  }
-}
-
-/* Table layout (from 1366px): tighter cells so date and count stay on one
-   line beside the result. */
-@media (min-width: 1366px) {
-  .tax-roll-upload-page__history .ui-table__header-cell,
-  .tax-roll-upload-page__history .ui-table__cell {
-    padding-inline: var(--space-8);
-  }
-
-  .tax-roll-upload-page__history .ui-table__header-cell,
-  .tax-roll-upload-page__history .ui-table__cell:nth-child(2),
-  .tax-roll-upload-page__history .ui-table__cell:nth-child(3) {
-    white-space: nowrap;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .tax-roll-upload-page__result-reveal {
     animation: tax-roll-result-fade var(--duration-fast) ease-out backwards;
@@ -394,5 +248,36 @@
     to {
       opacity: 0;
     }
+  }
+}
+
+/* Desktop: a result with the history closed fits the screen without scrolling,
+   so the result card is tighter and the history is a slim bar. */
+@media (min-width: 1100px) {
+  .tax-roll-upload-page .ui-screen__body {
+    gap: var(--space-16);
+    padding-bottom: var(--space-8);
+  }
+
+  .tax-roll-upload-page__result {
+    gap: var(--space-8);
+    padding: var(--space-12) var(--space-24);
+  }
+
+  .tax-roll-upload-page__result .tax-roll-upload-page__stat {
+    padding: var(--space-8) var(--space-12);
+  }
+
+  .tax-roll-upload-page__result .tax-roll-upload-page__issues summary {
+    min-height: 36px;
+  }
+
+  .tax-roll-upload-page__result .ui-notice {
+    padding-block: var(--space-8);
+  }
+
+  /* Same padding open and closed, so the header stays put while it folds. */
+  .tax-roll-upload-page__history {
+    padding-block: var(--space-12);
   }
 }
