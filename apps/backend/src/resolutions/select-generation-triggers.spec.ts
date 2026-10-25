@@ -50,7 +50,9 @@ describe('selectGenerationTriggers', () => {
       CURRENT_YEAR,
     );
 
-    expect(triggers.map((t) => t.propertyId).sort()).toEqual([10, 20]);
+    expect(triggers.map((t) => t.propertyId).sort((a, b) => a - b)).toEqual([
+      10, 20,
+    ]);
   });
 
   it('returns an empty list for an empty portfolio', () => {

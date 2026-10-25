@@ -16,12 +16,20 @@ function positiveInt(name: string, fallback: number): number {
   return Number.isInteger(value) && value > 0 ? value : fallback;
 }
 
+// A loop instead of /\/+$/, which backtracks quadratically on a run of slashes.
+function withoutTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === '/') end -= 1;
+  return value.slice(0, end);
+}
+
 // Configuration of the PDF service integration (Confluence SL-118, section 13).
 export function pdfConfig() {
+  const serviceUrl = process.env.PDF_SERVICE_URL;
   return {
     storageConnectionString:
       process.env.AZURE_STORAGE_CONNECTION_STRING || undefined,
-    serviceUrl: process.env.PDF_SERVICE_URL?.replace(/\/+$/, '') || undefined,
+    serviceUrl: (serviceUrl && withoutTrailingSlashes(serviceUrl)) || undefined,
     serviceKey: process.env.PDF_SERVICE_KEY || undefined,
     workQueue: process.env.PDF_WORK_QUEUE || 'pdf-work',
     resultsQueue: process.env.PDF_RESULTS_QUEUE || 'pdf-results',

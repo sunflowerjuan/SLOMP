@@ -357,9 +357,9 @@ describe('PdfJobsService', () => {
       ]);
       const batchPath = (i: number) =>
         `pdf-jobs/${JOB_ID}/input/batch-${String(i).padStart(3, '0')}.json`;
-      expect(storage.uploads.map((u) => u.path).sort()).toEqual(
-        Array.from({ length: 36 }, (_, i) => batchPath(i)),
-      );
+      expect(
+        storage.uploads.map((u) => u.path).sort((a, b) => a.localeCompare(b)),
+      ).toEqual(Array.from({ length: 36 }, (_, i) => batchPath(i)));
       expect(
         storage.sent.map((m) => m.batchIndex as number).sort((a, b) => a - b),
       ).toEqual(Array.from({ length: 36 }, (_, i) => i));

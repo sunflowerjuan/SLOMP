@@ -16,7 +16,9 @@ if (!slug || !documentType || !file) {
   process.exit(2);
 }
 
-const api = (process.env.API_URL ?? 'http://localhost:3000').replace(/\/+$/, '');
+// Drops trailing slashes with a loop: /\/+$/ backtracks on a run of them.
+let api = process.env.API_URL ?? 'http://localhost:3000';
+while (api.endsWith('/')) api = api.slice(0, -1);
 
 async function call(path, init) {
   const response = await fetch(`${api}${path}`, init);

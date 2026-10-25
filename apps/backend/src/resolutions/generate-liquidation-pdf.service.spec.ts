@@ -410,8 +410,12 @@ describe('GenerateLiquidationPdfService', () => {
     );
 
     expect(normal.resolutionNumber).not.toBe(prescriptionRisk.resolutionNumber);
-    expect(prisma.resolutions.map((r) => r.kind).sort()).toEqual(
-      [ResolutionKind.NORMAL, ResolutionKind.PRESCRIPTION_RISK].sort(),
+    expect(
+      prisma.resolutions.map((r) => r.kind).sort((a, b) => a.localeCompare(b)),
+    ).toEqual(
+      [ResolutionKind.NORMAL, ResolutionKind.PRESCRIPTION_RISK].sort((a, b) =>
+        a.localeCompare(b),
+      ),
     );
   });
 });

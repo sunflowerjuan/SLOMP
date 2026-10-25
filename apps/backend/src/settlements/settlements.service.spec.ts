@@ -418,14 +418,16 @@ describe('SettlementsService', () => {
 
 describe('SettlementStatus', () => {
   it('has exactly the five real settlement lifecycle states', () => {
-    expect(Object.values(SettlementStatus).sort()).toEqual(
+    expect(
+      Object.values(SettlementStatus).sort((a, b) => a.localeCompare(b)),
+    ).toEqual(
       [
         SettlementStatus.VIGENTE,
         SettlementStatus.EN_FIRME,
         SettlementStatus.PAGADA,
         SettlementStatus.ACUERDO_DE_PAGO,
         SettlementStatus.PRESCRITA,
-      ].sort(),
+      ].sort((a, b) => a.localeCompare(b)),
     );
   });
 });

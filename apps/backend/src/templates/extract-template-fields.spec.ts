@@ -29,7 +29,7 @@ describe('extractTemplateFields', () => {
       buildDocx(LIQUIDATION_PARAGRAPHS),
       LOOPS,
     );
-    expect([...fields].sort()).toEqual(
+    expect([...fields].sort((a, b) => a.localeCompare(b))).toEqual(
       [
         'resolutionNumber',
         'cadastralCode',
@@ -45,7 +45,7 @@ describe('extractTemplateFields', () => {
         'rows.concept',
         'rows.interest',
         'rows.capital',
-      ].sort(),
+      ].sort((a, b) => a.localeCompare(b)),
     );
   });
 

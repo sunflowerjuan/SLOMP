@@ -119,7 +119,10 @@ async function assembleZip(
   message: AssembleZipMessage,
 ): Promise<ZipResult> {
   const { blobs } = deps.storage;
-  const files = (await blobs.list(message.sourcePrefix)).sort();
+  // Code-unit order, the same as a bare sort(), so the ZIP keeps its layout.
+  const files = (await blobs.list(message.sourcePrefix)).sort(
+    (a, b) => Number(a > b) - Number(a < b),
+  );
   if (files.length !== message.expectedFiles) {
     throw new JobError(
       'BULK_ZIP_INCOMPLETE',

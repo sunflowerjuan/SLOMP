@@ -530,7 +530,9 @@ describe('persistTaxRoll', () => {
     expect(result.settlements).toBe(2);
     expect(result.conflicts).toEqual([]);
     const current = prisma.settlements.filter((s) => s.replacedAt === null);
-    expect(current.map((s) => s.totalAmount).sort()).toEqual([200, 300]);
+    expect(current.map((s) => s.totalAmount).sort((a, b) => a - b)).toEqual([
+      200, 300,
+    ]);
     expect(
       prisma.settlements.filter((s) => s.replacedAt !== null),
     ).toHaveLength(1);

@@ -89,6 +89,27 @@ describe('buildPaymentOrderTemplateData', () => {
     ]);
   });
 
+  it('sorts liquidations of different years by year, then by sequence', () => {
+    const data = buildPaymentOrderTemplateData(
+      '2026-0007',
+      ISSUED_AT,
+      PROPERTY,
+      [
+        settlement(2021, '2027-0001', { predial: 1 }),
+        settlement(2022, '2026-0100', { predial: 1 }),
+        settlement(2023, '2025-9999', { predial: 1 }),
+        settlement(2024, '2026-0042', { predial: 1 }),
+      ],
+    );
+
+    expect(data.liquidations.map((l) => l.number)).toEqual([
+      '2025-9999',
+      '2026-0042',
+      '2026-0100',
+      '2027-0001',
+    ]);
+  });
+
   it('has no separator for a single liquidation and two are joined by "y"', () => {
     const one = buildPaymentOrderTemplateData(
       '2026-0007',
