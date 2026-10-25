@@ -58,11 +58,13 @@ not need a deploy. The files live in the `templates` container of Storage
 (`AZURE_STORAGE_CONNECTION_STRING`), so Azurite must be running locally.
 
 A municipality has no template until one is uploaded, and PDF generation
-answers 503 `PDF_TEMPLATE_UNAVAILABLE` meanwhile. To install Páez's official
-template (client material, not in git) against a running backend:
+answers 503 `PDF_TEMPLATE_UNAVAILABLE` meanwhile. To install a municipality's
+official template (client material, not in git) against a running backend,
+with the email of an Administrator in `ADMIN_EMAIL` (required) and its password
+in `ADMIN_PASSWORD`:
 
 ```bash
-$ pnpm --filter backend templates:upload paez LIQUIDACION templates/liquidacion-paez.docx
+$ ADMIN_EMAIL=<email> pnpm --filter backend templates:upload <slug> LIQUIDACION <file.docx>
 ```
 
 ## Run tests

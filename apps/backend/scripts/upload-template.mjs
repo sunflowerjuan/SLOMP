@@ -1,10 +1,10 @@
 // Uploads a .docx template through the running API, e.g. to install a
 // municipality's first template without the panel:
 //
-//   pnpm --filter backend templates:upload paez LIQUIDACION templates/liquidacion-paez.docx
+//   pnpm --filter backend templates:upload <slug> LIQUIDACION <file.docx>
 //
-// Environment: API_URL (default http://localhost:3000), ADMIN_EMAIL and
-// ADMIN_PASSWORD (default to the development seed account).
+// Environment: ADMIN_EMAIL (required), ADMIN_PASSWORD (default: the development
+// seed password) and API_URL (default http://localhost:3000).
 import { openAsBlob } from 'node:fs';
 import { basename } from 'node:path';
 
@@ -13,6 +13,12 @@ if (!slug || !documentType || !file) {
   console.error(
     'Usage: upload-template.mjs <municipality-slug> <LIQUIDACION|MANDAMIENTO> <file.docx>',
   );
+  process.exit(2);
+}
+
+const adminEmail = process.env.ADMIN_EMAIL;
+if (!adminEmail) {
+  console.error('Define ADMIN_EMAIL');
   process.exit(2);
 }
 
@@ -35,7 +41,7 @@ const { accessToken } = await call('/login', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    email: process.env.ADMIN_EMAIL ?? 'admin@paez-boyaca.gov.co',
+    email: adminEmail,
     password: process.env.ADMIN_PASSWORD ?? 'changeme123',
   }),
 });

@@ -13,7 +13,7 @@ export function isValidSlug(value: string): boolean {
   return value.length <= MAX_SLUG_LENGTH && SLUG_PATTERN.test(value);
 }
 
-// Proposes a slug from a municipality name ("Páez" -> "paez"). It is only a
+// Proposes a slug from a municipality name ("San José" -> "san-jose"). It is only a
 // suggestion: two municipalities can share a name in different departments,
 // so the caller still has to check it is free and may edit it. Runs of other
 // characters become one hyphen, so each end has at most one hyphen to drop.

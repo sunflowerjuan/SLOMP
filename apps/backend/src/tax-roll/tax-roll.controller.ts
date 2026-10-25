@@ -162,7 +162,7 @@ export class TaxRollController {
           owners: 790,
           settlements: 812,
           conflicts: 0,
-          administratorEmail: 'admin@paez-boyaca.gov.co',
+          administratorEmail: 'admin@example.gov.co',
         },
       ],
     },
