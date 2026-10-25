@@ -1,5 +1,5 @@
 export interface PaymentOrderTemplateData {
-  /** `<year>-<4-digit sequence>`, e.g. "2026-0042". The template prints "RESOLUCION N° MP 15514" right before it. */
+  /** `<year>-<4-digit sequence>`, e.g. "2026-0042". The template prints its own prefix ("RESOLUCION N° MP" and the municipality's DANE code) right before it. */
   paymentOrderNumber: string;
   /** dd/mm/yyyy, Colombia time. */
   issueDate: string;
