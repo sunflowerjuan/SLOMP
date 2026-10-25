@@ -16,9 +16,10 @@ export interface PaymentOrderSettlementLike extends SettlementWithDetailsLike {
 
 // "a, b y c": the last separator is "y", the last item has none.
 function liquidationsOf(settlements: PaymentOrderSettlementLike[]) {
-  const numbers = [
-    ...new Set(settlements.map((s) => s.resolutionNumber)),
-  ].sort();
+  // Code-unit order, the same as a bare sort(); localeCompare could reorder.
+  const numbers = [...new Set(settlements.map((s) => s.resolutionNumber))].sort(
+    (a, b) => Number(a > b) - Number(a < b),
+  );
   return numbers.map((number, index) => ({
     number,
     separator:

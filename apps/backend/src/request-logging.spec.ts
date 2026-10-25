@@ -46,7 +46,7 @@ describe('requestLogger', () => {
     });
     expect(line.durationMs).toBeGreaterThanOrEqual(0);
     expect(line.requestId).toMatch(/^[0-9a-f-]{36}$/);
-    expect(Object.keys(line).sort()).toEqual([
+    expect(Object.keys(line).sort((a, b) => a.localeCompare(b))).toEqual([
       'durationMs',
       'method',
       'path',

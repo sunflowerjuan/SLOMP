@@ -15,14 +15,15 @@ export function isValidSlug(value: string): boolean {
 
 // Proposes a slug from a municipality name ("Páez" -> "paez"). It is only a
 // suggestion: two municipalities can share a name in different departments,
-// so the caller still has to check it is free and may edit it.
+// so the caller still has to check it is free and may edit it. Runs of other
+// characters become one hyphen, so each end has at most one hyphen to drop.
 export function suggestSlug(name: string): string {
   return name
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+    .replace(/^-|-$/g, '')
     .slice(0, MAX_SLUG_LENGTH)
-    .replace(/-+$/, '');
+    .replace(/-$/, '');
 }

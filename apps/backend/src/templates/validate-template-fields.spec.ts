@@ -97,11 +97,11 @@ describe('the LIQUIDACION catalog', () => {
       ],
     );
 
-    expect(Object.keys(scalars).sort()).toEqual(
-      [...LIQUIDATION_FIELDS.scalars].sort(),
+    expect(Object.keys(scalars).sort((a, b) => a.localeCompare(b))).toEqual(
+      [...LIQUIDATION_FIELDS.scalars].sort((a, b) => a.localeCompare(b)),
     );
-    expect(Object.keys(rows[0]!).sort()).toEqual(
-      [...LIQUIDATION_FIELDS.loops.rows!].sort(),
+    expect(Object.keys(rows[0]!).sort((a, b) => a.localeCompare(b))).toEqual(
+      [...LIQUIDATION_FIELDS.loops.rows!].sort((a, b) => a.localeCompare(b)),
     );
   });
 });
@@ -152,11 +152,15 @@ describe('validateTemplateFields (MANDAMIENTO)', () => {
       ],
     );
 
-    expect(Object.keys(scalars).sort()).toEqual(
-      [...PAYMENT_ORDER_FIELDS.scalars].sort(),
+    expect(Object.keys(scalars).sort((a, b) => a.localeCompare(b))).toEqual(
+      [...PAYMENT_ORDER_FIELDS.scalars].sort((a, b) => a.localeCompare(b)),
     );
-    expect(Object.keys(liquidations[0]!).sort()).toEqual(
-      [...PAYMENT_ORDER_FIELDS.loops.liquidations!].sort(),
+    expect(
+      Object.keys(liquidations[0]!).sort((a, b) => a.localeCompare(b)),
+    ).toEqual(
+      [...PAYMENT_ORDER_FIELDS.loops.liquidations!].sort((a, b) =>
+        a.localeCompare(b),
+      ),
     );
   });
 });

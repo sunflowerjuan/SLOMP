@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ErrorCode } from '../common/errors/error-codes.js';
-import { PdfServiceClient } from './pdf-service.client.js';
+import { PdfServiceClient, pdfConfig } from './pdf-service.client.js';
 
 // The reference every PDF message carries is the municipality's active
 // template: it is read from the database, never from a fixed path.
@@ -76,5 +76,33 @@ describe('PdfServiceClient.liquidationTemplate', () => {
 
     expect(client.storageConfigured).toBe(false);
     await expect(client.liquidationTemplate(1)).resolves.toBeDefined();
+  });
+});
+
+describe('pdfConfig', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it.each([
+    ['http://pdf:8080', 'http://pdf:8080'],
+    ['http://pdf:8080/', 'http://pdf:8080'],
+    ['http://pdf:8080///', 'http://pdf:8080'],
+    ['http://pdf:8080/api/', 'http://pdf:8080/api'],
+    ['/', undefined],
+    ['', undefined],
+  ])('reads the service URL "%s" as %s', (value, serviceUrl) => {
+    vi.stubEnv('PDF_SERVICE_URL', value);
+    expect(pdfConfig().serviceUrl).toBe(serviceUrl);
+  });
+
+  // A run of slashes followed by another character is what made /\/+$/
+  // quadratic (seconds for 100 000 slashes).
+  it('handles 100 000 slashes in linear time', () => {
+    const slashes = '/'.repeat(100_000);
+    const started = performance.now();
+    vi.stubEnv('PDF_SERVICE_URL', `http://pdf${slashes}`);
+    expect(pdfConfig().serviceUrl).toBe('http://pdf');
+    vi.stubEnv('PDF_SERVICE_URL', `http://pdf${slashes}x`);
+    expect(pdfConfig().serviceUrl).toBe(`http://pdf${slashes}x`);
+    expect(performance.now() - started).toBeLessThan(100);
   });
 });

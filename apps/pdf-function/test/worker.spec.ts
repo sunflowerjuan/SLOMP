@@ -209,17 +209,20 @@ describe('assemble-zip', () => {
     expectedFiles,
   });
 
-  it('zips every PDF keeping the folder of each one', async () => {
+  // Entries go in code-unit order (digits, then upper case, then lower case),
+  // the order a bare sort() always gave.
+  it('zips every PDF keeping the folder of each one, in a stable order', async () => {
     const { storage, deps } = setup();
-    storage.blobs.files.set(
-      `pdf-jobs/${JOB}/pdf/Antes de 2022/2026-0001.pdf`,
-      FAKE_PDF,
-    );
-    storage.blobs.files.set(
-      `pdf-jobs/${JOB}/pdf/2022 en adelante/2026-0002.pdf`,
-      FAKE_PDF,
-    );
-    await deliver(deps, zipMessage(2));
+    for (const name of [
+      'b/2026-0004.pdf',
+      'Antes de 2022/2026-0001.pdf',
+      'a/2026-0003.pdf',
+      'Antes de 2022/2026-0010.pdf',
+      '2022 en adelante/2026-0002.pdf',
+    ]) {
+      storage.blobs.files.set(`pdf-jobs/${JOB}/pdf/${name}`, FAKE_PDF);
+    }
+    await deliver(deps, zipMessage(5));
 
     const zip = new PizZip(
       storage.blobs.files.get(`pdf-jobs/${JOB}/result.zip`)!,
@@ -227,11 +230,13 @@ describe('assemble-zip', () => {
     expect(
       Object.values(zip.files)
         .filter((entry) => !entry.dir)
-        .map((entry) => entry.name)
-        .sort(),
+        .map((entry) => entry.name),
     ).toEqual([
       '2022 en adelante/2026-0002.pdf',
       'Antes de 2022/2026-0001.pdf',
+      'Antes de 2022/2026-0010.pdf',
+      'a/2026-0003.pdf',
+      'b/2026-0004.pdf',
     ]);
     const [result] = storage.results.sentJson();
     expect(result).toMatchObject({

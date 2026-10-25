@@ -72,6 +72,23 @@ describe('suggestSlug', () => {
     expect(suggestSlug('***')).toBe('');
   });
 
+  it.each([
+    ['-paez', 'paez'],
+    ['paez-', 'paez'],
+    ['--paez--cauca--', 'paez-cauca'],
+    ['---', ''],
+    ['', ''],
+  ])('drops leading, trailing and repeated hyphens: "%s"', (name, slug) => {
+    expect(suggestSlug(name)).toBe(slug);
+  });
+
+  it('handles 100 000 hyphens in linear time', () => {
+    const started = performance.now();
+    expect(suggestSlug('-'.repeat(100_000))).toBe('');
+    expect(suggestSlug(`a${'-'.repeat(100_000)}`)).toBe('a');
+    expect(performance.now() - started).toBeLessThan(100);
+  });
+
   it('never ends in a hyphen after truncating a long name', () => {
     const slug = suggestSlug(`${'a'.repeat(MAX_SLUG_LENGTH - 1)} b`);
     expect(slug.endsWith('-')).toBe(false);
