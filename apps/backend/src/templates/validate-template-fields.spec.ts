@@ -164,3 +164,33 @@ describe('validateTemplateFields (MANDAMIENTO)', () => {
     );
   });
 });
+
+describe.each([
+  ['LIQUIDACION', LIQUIDATION_FIELDS],
+  ['MANDAMIENTO', PAYMENT_ORDER_FIELDS],
+] as const)('metadata of the %s catalog', (_type, catalog) => {
+  const published = [
+    ...catalog.scalars,
+    ...Object.entries(catalog.loops).flatMap(([loop, fields]) => [
+      loop,
+      ...(catalog.meta[loop]?.kind === 'TABLE_ROW'
+        ? fields.map((field) => `${loop}.${field}`)
+        : []),
+    ]),
+  ];
+
+  it('gives every published field a label, a description and a kind', () => {
+    for (const key of published) {
+      const meta = catalog.meta[key];
+      expect(meta, key).toBeDefined();
+      expect(meta!.label.trim(), key).not.toBe('');
+      expect(meta!.description.trim(), key).not.toBe('');
+    }
+  });
+
+  it('has no metadata for a field the catalog does not have', () => {
+    expect(
+      Object.keys(catalog.meta).sort((a, b) => a.localeCompare(b)),
+    ).toEqual([...published].sort((a, b) => a.localeCompare(b)));
+  });
+});

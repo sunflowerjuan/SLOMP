@@ -18,6 +18,7 @@ import {
   ApiBearerAuth,
   ApiBody,
   ApiConsumes,
+  ApiOkResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
@@ -28,7 +29,13 @@ import { ErrorCode } from '../common/errors/error-codes.js';
 import { CurrentMunicipality } from '../municipalities/current-municipality.decorator.js';
 import type { MunicipalityContext } from '../municipalities/municipality-context.js';
 import { MunicipalityGuard } from '../municipalities/municipality.guard.js';
-import { ListTemplatesQueryDto, UploadTemplateDto } from './template.dto.js';
+import {
+  CatalogEntryDto,
+  ListTemplatesQueryDto,
+  TemplateCatalogQueryDto,
+  UploadTemplateDto,
+} from './template.dto.js';
+import { buildTemplateCatalog } from './template-catalog.js';
 import {
   MAX_TEMPLATE_FILE_SIZE_MB,
   TEMPLATE_UPLOAD_LIMITS,
@@ -105,6 +112,16 @@ export class TemplatesController {
     @Query() query: ListTemplatesQueryDto,
   ) {
     return this.templates.list(municipality.id, query.documentType);
+  }
+
+  @Get('catalog')
+  @ApiOperation({
+    summary:
+      'Marcadores disponibles para un tipo de documento, con nombre en español, descripción, clase y si son obligatorios (los obligatorios primero).',
+  })
+  @ApiOkResponse({ type: [CatalogEntryDto] })
+  catalog(@Query() query: TemplateCatalogQueryDto) {
+    return buildTemplateCatalog(query.documentType);
   }
 
   @Post(':id/activate')
