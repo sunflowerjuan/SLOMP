@@ -7,7 +7,8 @@ test("el administrador inicia sesión y llega al panel", async ({ page }) => {
 
   await page.goto("/");
   await page.getByLabel("Correo electrónico").fill(email);
-  await page.getByLabel("Contraseña").fill(password);
+  // exact: the "Mostrar contraseña" toggle also matches a substring search.
+  await page.getByLabel("Contraseña", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Ingresar" }).click();
 
   await expect(
