@@ -194,6 +194,51 @@ describe('TemplatesController', () => {
     });
   });
 
+  describe('GET /templates/catalog', () => {
+    it('returns the 14 liquidation fields', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`${BASE}/catalog?documentType=LIQUIDACION`)
+        .expect(200);
+
+      expect(response.body).toHaveLength(14);
+      expect(response.body[0]).toEqual({
+        key: 'resolutionNumber',
+        label: 'Número de resolución',
+        description: expect.any(String),
+        required: true,
+        kind: 'SCALAR',
+      });
+    });
+
+    it('returns the 9 payment order fields', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`${BASE}/catalog?documentType=MANDAMIENTO`)
+        .expect(200);
+
+      expect(response.body).toHaveLength(9);
+    });
+
+    it.each([
+      '',
+      '?documentType=FACTURA',
+      '?documentType=LIQUIDACION&documentType=MANDAMIENTO',
+    ])('answers 400 for the query "%s"', async (query) => {
+      const response = await request(app.getHttpServer())
+        .get(`${BASE}/catalog${query}`)
+        .expect(400);
+
+      expect(codeOf(response.body)).toBe(ErrorCode.REQUEST_VALIDATION_FAILED);
+    });
+
+    it('answers 404 MUNICIPALITY_NOT_FOUND for an unknown slug', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/municipalities/nope/templates/catalog?documentType=LIQUIDACION')
+        .expect(404);
+
+      expect(codeOf(response.body)).toBe(ErrorCode.MUNICIPALITY_NOT_FOUND);
+    });
+  });
+
   describe('POST /templates/:id/activate', () => {
     it('activates the version for the municipality of the URL', async () => {
       templatesService.activate.mockResolvedValue({ id: 5, isActive: true });
