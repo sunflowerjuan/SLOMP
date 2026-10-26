@@ -22,7 +22,8 @@
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "admin:create": "tsx scripts/admin.ts create",
     "admin:rotate-password": "tsx scripts/admin.ts rotate-password",
-    "templates:upload": "node scripts/upload-template.mjs"
+    "templates:upload": "node scripts/upload-template.mjs",
+    "e2e:fixtures": "node scripts/generate-e2e-fixtures.mjs"
   },
   "dependencies": {
     "@azure/storage-blob": "^12.34.0",

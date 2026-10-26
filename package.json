@@ -11,7 +11,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:playwright": "pnpm --filter e2e run test:playwright"
   },
   "keywords": [],
   "author": "",
