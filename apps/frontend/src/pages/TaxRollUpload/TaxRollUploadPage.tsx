@@ -2,8 +2,6 @@ import { useEffect, useState } from "react";
 import { getErrorMessage } from "../../api/ApiError";
 import { importTaxRoll, listTaxRollImports } from "../../api/taxRoll";
 import { BulkZipPanel } from "./BulkZipPanel";
-import { TaxRollIssueList } from "./TaxRollIssueList";
-import { TaxRollStat } from "./TaxRollStat";
 import type {
   TaxRollImportHistoryEntry,
   TaxRollImportResult,
@@ -20,6 +18,7 @@ import { ReplaceConfirmDialog } from "../../components/ui/ReplaceConfirmDialog";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { Table } from "../../components/ui/Table";
 import { TableRow } from "../../components/ui/TableRow";
+import { UploadResult } from "../../components/ui/UploadResult";
 import "./TaxRollUploadPage.css";
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("es-CO", {
@@ -215,8 +214,7 @@ export function TaxRollUploadPage() {
           aria-label="Resultado de la carga"
           tabIndex={-1}
         >
-          <Card
-            title="Resultado de la carga"
+          <UploadResult
             className="tax-roll-upload-page__result"
             action={
               <button
@@ -228,31 +226,23 @@ export function TaxRollUploadPage() {
                 <CloseIcon />
               </button>
             }
+            stats={[
+              {
+                value: result.persisted.settlements,
+                label: "liquidaciones generadas",
+              },
+              {
+                value: result.persisted.properties,
+                label: "predios procesados",
+              },
+              {
+                value: result.persisted.owners,
+                label: "propietarios procesados",
+              },
+            ]}
+            invalidRows={result.invalidRows}
+            warnings={result.warnings}
           >
-            <dl className="tax-roll-upload-page__stats">
-              <TaxRollStat
-                value={result.persisted.settlements}
-                label="liquidaciones generadas"
-              />
-              <TaxRollStat
-                value={result.persisted.properties}
-                label="predios procesados"
-              />
-              <TaxRollStat
-                value={result.persisted.owners}
-                label="propietarios procesados"
-              />
-              <TaxRollStat
-                value={result.invalidRows.length}
-                label="filas inválidas omitidas"
-                tone={result.invalidRows.length > 0 ? "danger" : undefined}
-              />
-              <TaxRollStat
-                value={result.warnings.length}
-                label="con advertencias"
-                tone={result.warnings.length > 0 ? "warning" : undefined}
-              />
-            </dl>
             {conflictCount > 0 && (
               <Notice variant="info">
                 {conflictCount} predios y periodos ya tenían una liquidación y
@@ -273,12 +263,7 @@ export function TaxRollUploadPage() {
                 y no se reemplazaron.
               </Notice>
             )}
-            <TaxRollIssueList
-              title="Filas inválidas"
-              issues={result.invalidRows}
-            />
-            <TaxRollIssueList title="Advertencias" issues={result.warnings} />
-          </Card>
+          </UploadResult>
         </div>
       )}
       {!isWide && zipPanel}

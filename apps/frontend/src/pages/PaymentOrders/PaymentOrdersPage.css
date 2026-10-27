@@ -17,13 +17,6 @@
   justify-content: flex-end;
 }
 
-.payment-orders-page__stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: var(--space-12);
-  margin: 0;
-}
-
 .payment-orders-page__subheading {
   margin: 0;
   font-size: var(--text-md);

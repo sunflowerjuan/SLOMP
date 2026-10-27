@@ -1,0 +1,6 @@
+.ui-upload-result__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: var(--space-12);
+  margin: 0;
+}

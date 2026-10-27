@@ -1,4 +1,4 @@
-.incomplete-documents {
+.ui-incomplete-documents {
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
@@ -12,7 +12,7 @@
   color: var(--semantic-text-muted);
 }
 
-.incomplete-documents li {
+.ui-incomplete-documents li {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -20,14 +20,14 @@
   border-bottom: 1px solid var(--semantic-border);
 }
 
-.incomplete-documents li:last-child {
+.ui-incomplete-documents li:last-child {
   padding-bottom: 0;
   border-bottom: 0;
 }
 
 /* Cadastral codes run up to 30 digits: their own line, split only if the
    column can't hold them. */
-.incomplete-documents__code {
+.ui-incomplete-documents__code {
   font-weight: 500;
   color: var(--semantic-text);
   font-variant-numeric: tabular-nums;
