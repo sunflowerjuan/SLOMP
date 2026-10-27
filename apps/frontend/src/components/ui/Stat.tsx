@@ -1,7 +1,9 @@
+import { formatNumber } from "../../utils/formatCount";
 import "./Stat.css";
 
 export interface StatProps {
   value: number;
+  // In agreement with the value: "predio procesado" for 1.
   label: string;
   tone?: "danger" | "warning";
 }
@@ -11,7 +13,7 @@ export function Stat({ value, label, tone }: StatProps) {
   return (
     <div className="ui-stat" data-tone={tone}>
       <dt>{label}</dt>
-      <dd>{value}</dd>
+      <dd>{formatNumber(value)}</dd>
     </div>
   );
 }

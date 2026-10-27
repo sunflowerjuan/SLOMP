@@ -19,6 +19,8 @@ import { StatusBadge } from "../../components/ui/StatusBadge";
 import { Table } from "../../components/ui/Table";
 import { TableRow } from "../../components/ui/TableRow";
 import { UploadResult } from "../../components/ui/UploadResult";
+import { conflictNotice, lockedNotice } from "../../domain/taxRoll";
+import { countNoun, formatNumber } from "../../utils/formatCount";
 import "./TaxRollUploadPage.css";
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("es-CO", {
@@ -159,7 +161,7 @@ export function TaxRollUploadPage() {
   return (
     <Screen
       className="tax-roll-upload-page"
-      title="Carga de Excel"
+      title="Cartera"
       input={
         <div className="ui-screen__input-row">
           <div className="tax-roll-upload-page__upload">
@@ -229,15 +231,27 @@ export function TaxRollUploadPage() {
             stats={[
               {
                 value: result.persisted.settlements,
-                label: "liquidaciones generadas",
+                label: countNoun(
+                  result.persisted.settlements,
+                  "liquidación generada",
+                  "liquidaciones generadas",
+                ),
               },
               {
                 value: result.persisted.properties,
-                label: "predios procesados",
+                label: countNoun(
+                  result.persisted.properties,
+                  "predio procesado",
+                  "predios procesados",
+                ),
               },
               {
                 value: result.persisted.owners,
-                label: "propietarios procesados",
+                label: countNoun(
+                  result.persisted.owners,
+                  "propietario procesado",
+                  "propietarios procesados",
+                ),
               },
             ]}
             invalidRows={result.invalidRows}
@@ -245,8 +259,7 @@ export function TaxRollUploadPage() {
           >
             {conflictCount > 0 && (
               <Notice variant="info">
-                {conflictCount} predios y periodos ya tenían una liquidación y
-                no se modificaron.{" "}
+                {conflictNotice(result.persisted.conflicts)}{" "}
                 {!isReplaceDialogOpen && (
                   <Button
                     variant="secondary"
@@ -259,8 +272,7 @@ export function TaxRollUploadPage() {
             )}
             {lockedCount > 0 && (
               <Notice variant="info">
-                {lockedCount} predios y periodos tienen su liquidación en firme
-                y no se reemplazaron.
+                {lockedNotice(result.persisted.locked)}
               </Notice>
             )}
           </UploadResult>
@@ -298,7 +310,7 @@ export function TaxRollUploadPage() {
                   cells={[
                     entry.fileName,
                     DATE_FORMATTER.format(new Date(entry.importedAt)),
-                    entry.validRows + entry.invalidRows,
+                    formatNumber(entry.validRows + entry.invalidRows),
                     <StatusBadge key="estado" variant={status.variant}>
                       {status.label}
                     </StatusBadge>,

@@ -2,7 +2,7 @@ import { useRef } from "react";
 import type { CSSProperties, KeyboardEvent, MouseEvent } from "react";
 import type { SettlementSearchResult } from "../../api/settlements";
 import type { SettlementStatus } from "../../domain/settlementStatus";
-import { formatPeriods } from "../../utils/formatPeriods";
+import { describePeriods, formatPeriods } from "../../utils/formatPeriods";
 import { formatCop } from "../../utils/formatCop";
 import { primaryMark } from "../../domain/settlementMarks";
 import { SettlementMarks } from "./SettlementMarks";
@@ -155,7 +155,7 @@ export function SettlementList({
                 <SettlementStatusCell
                   status={entry.status}
                   allowedStatuses={entry.allowedStatuses}
-                  description={`${entry.cadastralCode}, periodos ${periods}`}
+                  description={`${entry.cadastralCode}, ${describePeriods(entry.periods)}`}
                   editing={editingId === entry.settlementId}
                   saving={statusChangeId === entry.settlementId}
                   editLocked={editLocked}

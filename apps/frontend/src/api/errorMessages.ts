@@ -5,6 +5,8 @@
 //   2. What the user can do next, when there is something to do.
 //   Informal "tú", full sentences ending in a period.
 
+import { paymentOrderNumberLabel } from "../domain/paymentOrder";
+import { formatNumber } from "../utils/formatCount";
 import { formatPeriods } from "../utils/formatPeriods";
 
 export type ErrorDetails = Record<string, unknown>;
@@ -42,8 +44,14 @@ function joinWithY(items: string[]): string {
   return `${items.slice(0, -1).join(", ")} y ${items[items.length - 1]}`;
 }
 
+// Years and row numbers, as written.
 function numberOr(value: unknown, fallback: string): string {
   return typeof value === "number" ? String(value) : fallback;
+}
+
+// Quantities, with the thousands separator.
+function countOr(value: unknown, fallback: string): string {
+  return typeof value === "number" ? formatNumber(value) : fallback;
 }
 
 const MISSING_LIQUIDATION_FIELD_LABELS: Record<string, string> = {
@@ -285,7 +293,7 @@ const ERROR_MESSAGES: Record<string, CatalogEntry> = {
   BULK_ZIP_INCOMPLETE:
     "No se pudo armar el ZIP completo y la generación se canceló sin consumir números de resolución. Intenta de nuevo.",
   BULK_LIMIT_EXCEEDED: (details) =>
-    `Hay ${numberOr(details.count, "demasiadas")} liquidaciones pendientes y el máximo por descarga masiva es ${numberOr(details.max, "10000")}. Contacta al equipo de soporte para generarlas por partes.`,
+    `Hay ${countOr(details.count, "demasiadas")} liquidaciones pendientes y el máximo por descarga masiva es ${countOr(details.max, "10.000")}. Contacta al equipo de soporte para generarlas por partes.`,
 };
 
 // The taxpayer cannot fix templates or the liquidation's data, so these codes
@@ -334,7 +342,7 @@ const PAYMENT_ORDER_OVERRIDES: Record<string, CatalogEntry> = {
   BULK_ZIP_INCOMPLETE:
     "No se pudo armar el ZIP completo y la generación se canceló sin consumir números de mandamiento. Intenta de nuevo.",
   BULK_LIMIT_EXCEEDED: (details) =>
-    `Hay ${numberOr(details.count, "demasiados")} mandamientos por generar y el máximo por descarga masiva es ${numberOr(details.max, "10000")}. Carga un Excel con menos predios para generarlos por partes.`,
+    `Hay ${countOr(details.count, "demasiados")} mandamientos por generar y el máximo por descarga masiva es ${countOr(details.max, "10.000")}. Carga un Excel con menos predios para generarlos por partes.`,
 };
 
 function resolve(entry: CatalogEntry, details: ErrorDetails): string {
@@ -453,5 +461,5 @@ export function paymentOrderLeftOutMessage(
     periods.length === 1
       ? `el periodo ${periods[0]}, que ya no cumplía`
       : `los periodos ${formatPeriods(periods)}, que ya no cumplían`;
-  return `El mandamiento MP-${number} se generó sin ${leftOut} las condiciones.`;
+  return `El mandamiento ${paymentOrderNumberLabel(number)} se generó sin ${leftOut} las condiciones.`;
 }

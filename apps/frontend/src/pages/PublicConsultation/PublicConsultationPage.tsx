@@ -19,6 +19,7 @@ import { Table } from "../../components/ui/Table";
 import { TableRow } from "../../components/ui/TableRow";
 import { triggerBrowserDownload } from "../../utils/downloadBlob";
 import { formatCop } from "../../utils/formatCop";
+import { countNoun } from "../../utils/formatCount";
 import { formatPeriods } from "../../utils/formatPeriods";
 import { PdfButton } from "./PdfButton";
 import type { PdfDownloadState } from "./PdfButton";
@@ -93,6 +94,7 @@ export function PublicConsultationPage({
   }, [settled, search]);
 
   const filledCount = Object.keys(toCriteria(values)).length;
+  const missingCount = MIN_FILLED_FIELDS - filledCount;
 
   function handleChange(field: keyof FormValues, value: string) {
     setValues((current) => ({ ...current, [field]: value }));
@@ -198,12 +200,12 @@ export function PublicConsultationPage({
       </header>
 
       <main className="public-consultation__main">
-        <PageHeader title="Consulta de liquidaciones del impuesto predial" />
+        <PageHeader title="Consulta de liquidaciones" />
 
         <Card
           className="public-consultation__form-card"
           title="Datos del predio"
-          subtitle="Ingresa al menos 2 de los 3 datos tal como aparecen en tu liquidación o en el recibo del predio."
+          subtitle="Escríbelos tal como aparecen en tu liquidación o en el recibo del predio."
         >
           <form
             className="public-consultation__form"
@@ -253,8 +255,8 @@ export function PublicConsultationPage({
                 aria-live="polite"
               >
                 {filledCount} de 3 datos ingresados
-                {filledCount < MIN_FILLED_FIELDS
-                  ? ` · faltan ${MIN_FILLED_FIELDS - filledCount}`
+                {missingCount > 0
+                  ? ` · ${countNoun(missingCount, "falta", "faltan")} ${missingCount}`
                   : " · listo para consultar"}
               </p>
               <div className="public-consultation__actions">

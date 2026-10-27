@@ -2,6 +2,7 @@ import type { PaymentOrderSummary } from "../../api/paymentOrders";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Notice } from "../../components/ui/Notice";
+import { paymentOrderNumberLabel } from "../../domain/paymentOrder";
 import { formatPeriods } from "../../utils/formatPeriods";
 import "./IssuedPaymentOrderList.css";
 
@@ -20,7 +21,9 @@ interface IssuedPaymentOrderListProps {
   onDownload: (order: PaymentOrderSummary) => void;
 }
 
-// The municipality's payment orders, newest first, each with its PDF.
+// The municipality's payment orders, newest first, each with its PDF. The
+// server sends the latest 100. Titled "Historial" until SL-173 gives it a
+// tab of that name.
 export function IssuedPaymentOrderList({
   orders,
   error,
@@ -30,11 +33,7 @@ export function IssuedPaymentOrderList({
   onDownload,
 }: IssuedPaymentOrderListProps) {
   return (
-    <Card
-      title="Mandamientos generados"
-      subtitle="Los 100 más recientes."
-      className="issued-payment-orders"
-    >
+    <Card title="Historial" className="issued-payment-orders">
       {error && (
         <Notice className="issued-payment-orders__retry">
           {error}
@@ -67,7 +66,7 @@ export function IssuedPaymentOrderList({
 
       {orders?.length === 0 && (
         <p className="issued-payment-orders__muted">
-          Todavía no se ha generado ningún mandamiento.
+          Aún no se han generado mandamientos.
         </p>
       )}
 
@@ -77,7 +76,7 @@ export function IssuedPaymentOrderList({
             <li key={order.id}>
               <div className="issued-payment-orders__row">
                 <div className="issued-payment-orders__info">
-                  <strong>MP-{order.number}</strong>
+                  <strong>{paymentOrderNumberLabel(order.number)}</strong>
                   <span className="issued-payment-orders__code">
                     {order.cadastralCode}
                   </span>
@@ -89,7 +88,7 @@ export function IssuedPaymentOrderList({
                 <Button
                   variant="secondary"
                   loading={downloadingId === order.id}
-                  aria-label={`Descargar el PDF del mandamiento MP-${order.number}`}
+                  aria-label={`Descargar el PDF del mandamiento ${paymentOrderNumberLabel(order.number)}`}
                   onClick={() => onDownload(order)}
                 >
                   Descargar PDF

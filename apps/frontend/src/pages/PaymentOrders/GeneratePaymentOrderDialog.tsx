@@ -24,7 +24,7 @@ export function GeneratePaymentOrderDialog({
   return (
     <Dialog
       open={candidate !== null}
-      title="Generar mandamiento de pago"
+      title="Generar mandamiento"
       onClose={() => {
         if (!isGenerating) onCancel();
       }}
@@ -34,7 +34,9 @@ export function GeneratePaymentOrderDialog({
           <strong>Cédula catastral:</strong> {candidate?.cadastralCode}
         </p>
         <p>
-          <strong>Periodos:</strong>{" "}
+          <strong>
+            {candidate?.periods.length === 1 ? "Periodo:" : "Periodos:"}
+          </strong>{" "}
           {candidate && formatPeriods(candidate.periods)}
         </p>
         <p>

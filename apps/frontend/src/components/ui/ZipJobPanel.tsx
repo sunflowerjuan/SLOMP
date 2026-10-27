@@ -1,5 +1,6 @@
 import type { IncompleteDocument } from "../../domain/pdfJob";
 import type { PdfJobState } from "../../hooks/usePdfJob";
+import { formatNumber } from "../../utils/formatCount";
 import { Button } from "./Button";
 import { Card } from "./Card";
 import { IncompleteDocumentList } from "./IncompleteDocumentList";
@@ -7,8 +8,6 @@ import { Notice } from "./Notice";
 import { PdfJobProgress } from "./PdfJobProgress";
 import { Reveal } from "./Reveal";
 import "./ZipJobPanel.css";
-
-const COUNT_FORMATTER = new Intl.NumberFormat("es-CO");
 
 export interface ZipJobRow {
   id: string;
@@ -133,7 +132,7 @@ export function ZipJobPanel({
               <div>
                 <strong>{row.label}</strong>
                 {row.count > 0 && (
-                  <span>{`${COUNT_FORMATTER.format(row.count)} PDF`}</span>
+                  <span>{`${formatNumber(row.count)} PDF`}</span>
                 )}
                 {row.count === 0 && row.emptyText && (
                   <span>{row.emptyText}</span>

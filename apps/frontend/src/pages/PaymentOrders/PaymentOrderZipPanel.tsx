@@ -61,15 +61,14 @@ export function PaymentOrderZipPanel({
 
   return (
     <ZipJobPanel
-      title="Generación masiva"
+      title="Todos en un ZIP"
       rows={[
         {
           id: "MANDAMIENTO",
-          label: "Mandamientos en firme",
+          label: "Mandamientos",
           count,
-          emptyText: settlementIds
-            ? "Sin mandamientos"
-            : "Procesa un Excel de mandamientos",
+          // Before an Excel is reviewed the row only has its label.
+          emptyText: settlementIds ? "Sin mandamientos" : undefined,
           actionLabel: "Generar ZIP de mandamientos",
           starting,
           onGenerate: () => void handleGenerate(),
@@ -78,7 +77,7 @@ export function PaymentOrderZipPanel({
       locked={locked}
       job={pdfJob}
       runningTitle="Generando mandamientos"
-      readyLabel="Mandamientos de pago"
+      readyLabel="Mandamientos"
       notice={notice}
       incompleteLabel="Mandamientos con datos incompletos"
     />

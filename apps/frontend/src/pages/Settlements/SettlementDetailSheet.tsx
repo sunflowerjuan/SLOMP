@@ -4,7 +4,7 @@ import type { SettlementStatus } from "../../domain/settlementStatus";
 import { Button } from "../../components/ui/Button";
 import { CloseIcon } from "../../components/ui/CloseIcon";
 import { useSwipeToDismiss } from "../../hooks/useSwipeToDismiss";
-import { formatPeriods } from "../../utils/formatPeriods";
+import { describePeriods, formatPeriods } from "../../utils/formatPeriods";
 import { formatCop } from "../../utils/formatCop";
 import { primaryMark } from "../../domain/settlementMarks";
 import { SettlementMarks } from "./SettlementMarks";
@@ -106,7 +106,7 @@ export function SettlementDetailSheet({
                   <SettlementStatusCell
                     status={entry.status}
                     allowedStatuses={entry.allowedStatuses}
-                    description={`${entry.cadastralCode}, periodos ${periods}`}
+                    description={`${entry.cadastralCode}, ${describePeriods(entry.periods)}`}
                     editing={editing}
                     saving={saving}
                     editLocked={editLocked}

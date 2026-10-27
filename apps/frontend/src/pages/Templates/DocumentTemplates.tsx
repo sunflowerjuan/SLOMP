@@ -33,7 +33,7 @@ const DOCUMENT_TEXT: Record<
   { title: string; name: string }
 > = {
   LIQUIDACION: { title: "Liquidación oficial", name: "liquidación" },
-  MANDAMIENTO: { title: "Mandamiento de pago", name: "mandamiento" },
+  MANDAMIENTO: { title: "Mandamiento", name: "mandamiento" },
 };
 
 // The municipality's template of one document type (SL-91; payment orders
@@ -88,7 +88,7 @@ export function DocumentTemplates({
           ? { variant: "info", text: "Esta plantilla ya es la versión activa." }
           : {
               variant: "success",
-              text: `La versión ${uploaded.version} quedó activa.`,
+              text: `Se subió la versión ${uploaded.version} y ya está en uso.`,
             },
       );
       setFile(null);
