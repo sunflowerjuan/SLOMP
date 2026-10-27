@@ -4,21 +4,21 @@ import { formatPeriods } from "../../utils/formatPeriods";
 import "./IncompleteDocumentList.css";
 
 // Every document that keeps a bulk ZIP from starting (400
-// LIQUIDATION_DATA_INCOMPLETE), so they can all be fixed in one pass. Used by
-// the liquidations and the payment orders ZIP. A long list scrolls inside
-// instead of pushing the page.
+// LIQUIDATION_DATA_INCOMPLETE), so they can all be fixed in one pass. A long
+// list scrolls inside instead of pushing the page.
 export function IncompleteDocumentList({
   documents,
-  label = "Liquidaciones con datos incompletos",
+  label,
 }: {
   documents: IncompleteDocument[];
-  label?: string;
+  // Names the list, e.g. "Liquidaciones con datos incompletos".
+  label: string;
 }) {
   return (
-    <ul className="incomplete-documents" aria-label={label}>
+    <ul className="ui-incomplete-documents" aria-label={label}>
       {documents.map((document, index) => (
         <li key={`${document.cadastralCode}-${index}`}>
-          <span className="incomplete-documents__code">
+          <span className="ui-incomplete-documents__code">
             {document.cadastralCode || "Sin cédula catastral"}
           </span>
           <span>

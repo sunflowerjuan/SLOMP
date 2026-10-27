@@ -16,10 +16,10 @@ import type {
   PaymentOrderSummary,
 } from "../../api/paymentOrders";
 import { Button } from "../../components/ui/Button";
-import { Card } from "../../components/ui/Card";
 import { Dropzone } from "../../components/ui/Dropzone";
 import { Notice } from "../../components/ui/Notice";
 import { Screen } from "../../components/ui/Screen";
+import { UploadResult } from "../../components/ui/UploadResult";
 import {
   groupEligibleByProperty,
   newestFirst,
@@ -28,8 +28,6 @@ import {
 import type { PaymentOrderCandidate } from "../../domain/paymentOrder";
 import { usePaymentOrderPdf } from "../../hooks/usePaymentOrderPdf";
 import { usePdfJob } from "../../hooks/usePdfJob";
-import { TaxRollIssueList } from "../TaxRollUpload/TaxRollIssueList";
-import { TaxRollStat } from "../TaxRollUpload/TaxRollStat";
 import { GeneratePaymentOrderDialog } from "./GeneratePaymentOrderDialog";
 import { IneligiblePaymentOrderList } from "./IneligiblePaymentOrderList";
 import { IssuedPaymentOrderList } from "./IssuedPaymentOrderList";
@@ -244,32 +242,19 @@ export function PaymentOrdersPage() {
           aria-label="Resultado de la carga"
           tabIndex={-1}
         >
-          <Card title="Resultado de la carga" subtitle={preview.fileName}>
-            <dl className="payment-orders-page__stats">
-              <TaxRollStat
-                value={candidates.length}
-                label="mandamientos por generar"
-              />
-              <TaxRollStat
-                value={preview.eligible.length}
-                label="periodos en firme"
-              />
-              <TaxRollStat
-                value={preview.ineligible.length}
-                label="periodos no elegibles"
-              />
-              <TaxRollStat
-                value={preview.invalidRows.length}
-                label="filas inválidas omitidas"
-                tone={preview.invalidRows.length > 0 ? "danger" : undefined}
-              />
-              <TaxRollStat
-                value={preview.warnings.length}
-                label="con advertencias"
-                tone={preview.warnings.length > 0 ? "warning" : undefined}
-              />
-            </dl>
-
+          <UploadResult
+            subtitle={preview.fileName}
+            stats={[
+              { value: candidates.length, label: "mandamientos por generar" },
+              { value: preview.eligible.length, label: "periodos en firme" },
+              {
+                value: preview.ineligible.length,
+                label: "periodos no elegibles",
+              },
+            ]}
+            invalidRows={preview.invalidRows}
+            warnings={preview.warnings}
+          >
             {notice && <Notice variant={notice.variant}>{notice.text}</Notice>}
 
             <h3 className="payment-orders-page__subheading">
@@ -297,12 +282,7 @@ export function PaymentOrdersPage() {
             />
 
             <IneligiblePaymentOrderList rows={preview.ineligible} />
-            <TaxRollIssueList
-              title="Filas inválidas"
-              issues={preview.invalidRows}
-            />
-            <TaxRollIssueList title="Advertencias" issues={preview.warnings} />
-          </Card>
+          </UploadResult>
         </div>
       )}
 
