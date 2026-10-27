@@ -7,6 +7,7 @@ import type { Municipality } from "./api/municipalities";
 import { AdminLayout } from "./components/layout/AdminLayout";
 import type {
   AdminMenuItem,
+  AdminNavGroup,
   AdminNavItem,
 } from "./components/layout/AdminLayout";
 import type { MunicipalitySwitch } from "./components/layout/MunicipalityOptions";
@@ -17,20 +18,31 @@ import {
   pickInitialMunicipality,
 } from "./domain/municipality";
 import { useMunicipalities } from "./hooks/useMunicipalities";
-import { EmbedPage } from "./pages/ConsultaPublica/EmbedPage";
 import { AddMunicipalityDialog } from "./pages/Municipalities/AddMunicipalityDialog";
 import { MunicipalityState } from "./pages/Municipalities/MunicipalityState";
 import { PaymentOrdersPage } from "./pages/PaymentOrders/PaymentOrdersPage";
+import { SettingsPage } from "./pages/Settings/SettingsPage";
 import { SettlementsPage } from "./pages/Settlements/SettlementsPage";
 import { TaxRollUploadPage } from "./pages/TaxRollUpload/TaxRollUploadPage";
-import { TemplatesPage } from "./pages/Templates/TemplatesPage";
-import { adminHref, useAdminRoute } from "./routes";
-import type { AdminSection } from "./routes";
+import {
+  adminHref,
+  adminSectionOf,
+  settingsTabOf,
+  useAdminRoute,
+} from "./routes";
+import type { AdminSection, AdminView } from "./routes";
 
-const NAV_ITEMS: (Omit<AdminNavItem, "href"> & { id: AdminSection })[] = [
+type NavEntry = Omit<AdminNavItem, "href"> & {
+  id: AdminSection;
+  // Where the entry leads: Configuración opens its first tab.
+  view: AdminView;
+};
+
+const OPERATION_ITEMS: NavEntry[] = [
   {
     id: "cargas",
-    label: "Carga de Excel",
+    view: "cargas",
+    label: "Cartera",
     icon: (
       <Icon box={24}>
         <path d="M12 16V4M8 8l4-4 4 4" />
@@ -40,6 +52,7 @@ const NAV_ITEMS: (Omit<AdminNavItem, "href"> & { id: AdminSection })[] = [
   },
   {
     id: "liquidaciones",
+    view: "liquidaciones",
     label: "Liquidaciones",
     icon: (
       <Icon box={24}>
@@ -50,6 +63,7 @@ const NAV_ITEMS: (Omit<AdminNavItem, "href"> & { id: AdminSection })[] = [
   },
   {
     id: "mandamientos",
+    view: "mandamientos",
     label: "Mandamientos",
     icon: (
       <Icon box={24}>
@@ -59,26 +73,30 @@ const NAV_ITEMS: (Omit<AdminNavItem, "href"> & { id: AdminSection })[] = [
       </Icon>
     ),
   },
+];
+
+const SETTINGS_ITEMS: NavEntry[] = [
   {
-    id: "plantillas",
-    label: "Plantillas",
-    inMenuOnPhone: true,
+    id: "configuracion",
+    view: "configuracion/plantillas",
+    label: "Configuración",
     icon: (
       <Icon box={24}>
-        <path d="M6 3h8l4 4v14H6z" />
-        <path d="M14 3v4h4M10.5 11.5L9 13l1.5 1.5M13.5 11.5L15 13l-1.5 1.5" />
+        <path d="M10.2 4.8L10.7 2.5L13.3 2.5L13.8 4.8L15.8 5.7L17.8 4.3L19.7 6.2L18.3 8.2L19.2 10.2L21.5 10.7L21.5 13.3L19.2 13.8L18.3 15.8L19.7 17.8L17.8 19.7L15.8 18.3L13.8 19.2L13.3 21.5L10.7 21.5L10.2 19.2L8.2 18.3L6.2 19.7L4.3 17.8L5.7 15.8L4.8 13.8L2.5 13.3L2.5 10.7L4.8 10.2L5.7 8.2L4.3 6.2L6.2 4.3L8.2 5.7z" />
+        <circle cx="12" cy="12" r="3" />
       </Icon>
     ),
   },
+];
+
+// Daily work first, then setup (SL-170). The titles are not links.
+const NAV_GROUPS: (Omit<AdminNavGroup, "items"> & { items: NavEntry[] })[] = [
+  { id: "operation", label: "Operación", items: OPERATION_ITEMS },
   {
-    id: "consulta-publica",
-    label: "Consulta pública",
-    inMenuOnPhone: true,
-    icon: (
-      <Icon box={24}>
-        <path d="M8 8l-4 4 4 4M16 8l4 4-4 4M14 5l-4 14" />
-      </Icon>
-    ),
+    id: "settings",
+    label: "Configuración",
+    items: SETTINGS_ITEMS,
+    iconsOnPhone: true,
   },
 ];
 
@@ -97,16 +115,15 @@ function menuItems(signOut: () => void): AdminMenuItem[] {
   ];
 }
 
-function sectionPage(section: AdminSection, municipality: Municipality) {
-  switch (section) {
+function viewPage(view: AdminView, municipality: Municipality) {
+  // Both tabs are one screen: moving between them keeps it mounted.
+  const tab = settingsTabOf(view);
+  if (tab) return <SettingsPage slug={municipality.slug} tab={tab} />;
+  switch (view) {
     case "liquidaciones":
       return <SettlementsPage />;
     case "mandamientos":
       return <PaymentOrdersPage />;
-    case "plantillas":
-      return <TemplatesPage />;
-    case "consulta-publica":
-      return <EmbedPage slug={municipality.slug} />;
     default:
       return <TaxRollUploadPage />;
   }
@@ -134,11 +151,16 @@ export function AdminPanel() {
       : null;
 
   // No municipality in the address: open the last one used, or the first.
-  // replace() keeps the address without slug out of the history.
-  const redirectTo =
-    state.status === "ready" && !route.slug && fallback
-      ? adminHref(fallback.slug, route.section)
-      : null;
+  // An old address of a view (#/paez/plantillas) moves to the view's own.
+  // replace() keeps the address replaced out of the history.
+  let redirectTo: string | null = null;
+  if (!route.slug) {
+    if (state.status === "ready" && fallback) {
+      redirectTo = adminHref(fallback.slug, route.view);
+    }
+  } else if (route.isAlias) {
+    redirectTo = adminHref(route.slug, route.view);
+  }
   useEffect(() => {
     if (redirectTo) window.location.replace(redirectTo);
   }, [redirectTo]);
@@ -170,16 +192,19 @@ export function AdminPanel() {
           activeSlug: active?.slug ?? null,
           activeLabel: active ? municipalityLabel(active) : null,
           onSelect: (slug) => {
-            window.location.hash = adminHref(slug, route.section);
+            window.location.hash = adminHref(slug, route.view);
           },
           onAdd: () => setIsAddOpen(true),
         }
       : undefined;
 
-  const navItems: AdminNavItem[] = active
-    ? NAV_ITEMS.map((item) => ({
-        ...item,
-        href: adminHref(active.slug, item.id),
+  const navGroups: AdminNavGroup[] = active
+    ? NAV_GROUPS.map((group) => ({
+        ...group,
+        items: group.items.map(({ view, ...item }) => ({
+          ...item,
+          href: adminHref(active.slug, view),
+        })),
       }))
     : [];
 
@@ -194,9 +219,7 @@ export function AdminPanel() {
     );
   } else if (active) {
     content = (
-      <Fragment key={active.slug}>
-        {sectionPage(route.section, active)}
-      </Fragment>
+      <Fragment key={active.slug}>{viewPage(route.view, active)}</Fragment>
     );
   } else if (missingSlug && checkedSlug === missingSlug) {
     content = (
@@ -206,7 +229,7 @@ export function AdminPanel() {
         fallback={
           fallback && {
             label: municipalityLabel(fallback),
-            href: adminHref(fallback.slug, route.section),
+            href: adminHref(fallback.slug, route.view),
           }
         }
       />
@@ -216,8 +239,8 @@ export function AdminPanel() {
   return (
     <>
       <AdminLayout
-        items={navItems}
-        activeId={route.section}
+        groups={navGroups}
+        activeId={adminSectionOf(route.view)}
         menuItems={menuItems(signOut)}
         switcher={switcher}
       >

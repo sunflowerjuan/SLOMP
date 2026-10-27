@@ -87,6 +87,12 @@
   --semantic-on-primary: #ffffff;
   --focus-ring: 2px solid var(--tinta-500);
   --tap-size: 44px;
+  /* A control shaped as a pill: the active municipality */
+  --radius-pill: 999px;
+
+  /* Panel shell: the top bar, and the phone's bar at the bottom */
+  --shell-topbar-height: 48px;
+  --shell-tabbar-height: 68px;
 
   /* Motion */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);

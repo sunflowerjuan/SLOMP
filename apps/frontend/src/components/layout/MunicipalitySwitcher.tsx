@@ -4,8 +4,9 @@ import { moveMenuFocus } from "./menuFocus";
 import { MunicipalityOptions } from "./MunicipalityOptions";
 import type { MunicipalitySwitch } from "./MunicipalityOptions";
 
-// Desktop: the active municipality under SLOMP, as a control that opens the
-// list (SL-122, section 7). On a phone the same options live in the logo menu.
+// The active municipality as a pill in the top bar, on desktop and phone,
+// that opens the list (SL-122, section 7; SL-170). A long name is cut short on
+// screen; the button's label keeps it whole for screen readers.
 export function MunicipalitySwitcher({
   switcher,
 }: {
@@ -50,6 +51,10 @@ export function MunicipalitySwitcher({
         }
         onClick={() => setOpen((value) => !value)}
       >
+        <Icon box={24}>
+          <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z" />
+          <circle cx="12" cy="10" r="2.25" />
+        </Icon>
         <span className="admin-layout__switcher-label">
           {switcher.activeLabel ?? "Elige un municipio"}
         </span>
