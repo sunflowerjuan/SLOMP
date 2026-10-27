@@ -1,0 +1,604 @@
+/* Mockups are stills: no motion, so nothing is caught mid-animation. */
+*,
+*::before,
+*::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* ---------- Entry points ---------- */
+
+/* Desktop: right under the sections, apart from them. It opens a panel, it
+   is not a section, so it never gets the sliding pill. */
+.sl-entry-separator {
+  height: 1px;
+  margin: var(--space-16) 14px var(--space-12);
+  background-color: var(--tinta-100);
+}
+
+/* Pressed while the panel is open; deliberately not the white pill of the
+   active section, so the two never read as the same thing. */
+.sl-entry[aria-expanded="true"] {
+  background-color: var(--semantic-bg-selected);
+  color: var(--tinta-700);
+  font-weight: 600;
+}
+
+/* Phone: an icon button in the title row of every screen. */
+.sl-head-button.ui-button {
+  width: var(--tap-size);
+  height: var(--tap-size);
+  min-height: var(--tap-size);
+  padding: 0;
+}
+
+.sl-head-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.sl-icon {
+  flex: none;
+  width: 22px;
+  height: 22px;
+}
+
+/* ---------- Panel ---------- */
+
+/* Floats over the screen without a scrim (the screen stays usable), so it
+   carries the overlay shadow, like menus and dialogs. */
+.sl-chat {
+  position: fixed;
+  top: var(--space-12);
+  right: var(--space-12);
+  bottom: var(--space-12);
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  width: 400px;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  background-color: var(--semantic-surface);
+  box-shadow: var(--shadow-overlay);
+}
+
+.sl-chat__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-12) var(--space-8) var(--space-12) var(--space-20);
+  border-bottom: 1px solid var(--semantic-border);
+}
+
+.sl-chat__mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-ctl);
+  background-color: var(--tinta-700);
+  color: var(--semantic-on-primary);
+}
+
+.sl-chat__mark svg {
+  width: 20px;
+  height: 20px;
+}
+
+.sl-chat__heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.sl-chat__title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.sl-chat__context {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.3;
+  color: var(--semantic-text-muted);
+}
+
+.sl-text-button {
+  flex: none;
+  min-height: var(--tap-size);
+  padding: 0 var(--space-8);
+  border: 0;
+  border-radius: var(--radius-ctl);
+  background: none;
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--tinta-600);
+  cursor: pointer;
+}
+
+.sl-icon-button {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--tap-size);
+  height: var(--tap-size);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-ctl);
+  background: none;
+  color: var(--semantic-text-muted);
+  cursor: pointer;
+}
+
+.sl-icon-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* role="log": new replies are announced politely. */
+.sl-chat__log {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-16);
+  min-height: 0;
+  padding: var(--space-20);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.sl-chat__log > * {
+  flex-shrink: 0;
+}
+
+/* ---------- Messages ---------- */
+
+.sl-msg {
+  margin: 0;
+  font-size: var(--text-md);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.sl-msg p {
+  margin: 0;
+}
+
+.sl-msg p + p,
+.sl-msg p + .sl-rows,
+.sl-msg .sl-rows + p {
+  margin-top: var(--space-8);
+}
+
+.sl-msg--user {
+  align-self: flex-end;
+  max-width: 85%;
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-lg);
+  background-color: var(--semantic-bg-selected);
+  white-space: pre-wrap;
+}
+
+.sl-msg--assistant {
+  align-self: stretch;
+}
+
+.sl-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-code {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+/* Waiting: same box as the reply that will replace it. */
+.sl-thinking {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.sl-skeleton {
+  height: 12px;
+  border-radius: var(--radius-default);
+  background-color: var(--semantic-surface-muted);
+}
+
+.sl-thinking__label {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+/* ---------- Empty state ---------- */
+
+.sl-welcome {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.sl-welcome__title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.sl-welcome__text {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+.sl-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sl-suggestion {
+  width: 100%;
+  min-height: var(--tap-size);
+  padding: var(--space-8) var(--space-12);
+  border: 1px solid var(--tinta-100);
+  border-radius: var(--radius-ctl);
+  background-color: var(--semantic-surface);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--tinta-600);
+  text-align: left;
+  cursor: pointer;
+}
+
+/* ---------- Cards inside the conversation ---------- */
+
+.sl-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-16);
+  border: 1px solid var(--semantic-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--semantic-surface);
+}
+
+/* A proposal waits for the Administrator: a firmer edge than a result. */
+.sl-card--proposal {
+  border-color: var(--tinta-100);
+}
+
+.sl-card--done {
+  border-color: transparent;
+  background-color: var(--semantic-success-bg);
+}
+
+.sl-card--rejected {
+  border-color: transparent;
+  background-color: var(--semantic-danger-bg);
+}
+
+/* An older proposal, once a newer one arrived. */
+.sl-card--stale {
+  opacity: 0.6;
+}
+
+.sl-card__eyebrow {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--tinta-600);
+}
+
+.sl-card__title {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-8);
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.sl-card__title svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+}
+
+.sl-card--done .sl-card__title svg {
+  color: var(--semantic-success);
+}
+
+.sl-card--rejected .sl-card__title {
+  color: var(--semantic-danger-hover);
+}
+
+.sl-card__text {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.sl-card__hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+.sl-transition {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.sl-transition svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--semantic-text-muted);
+}
+
+.sl-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-4) var(--space-12);
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.sl-facts dt {
+  color: var(--tinta-600);
+}
+
+.sl-facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.sl-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-12);
+}
+
+.sl-card__actions--states {
+  gap: var(--space-8);
+}
+
+/* Lists of periods (results and batch proposals). */
+.sl-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-rows li {
+  display: grid;
+  /* Fixed columns: every row lines up whatever the badge says. */
+  grid-template-columns: minmax(0, 1fr) 3.5rem 6.5rem;
+  gap: var(--space-12);
+  align-items: center;
+  min-height: 36px;
+  padding: 2px 0;
+  border-bottom: 1px solid var(--semantic-border);
+}
+
+.sl-rows li:first-child {
+  min-height: 0;
+  padding-bottom: var(--space-4);
+  font-weight: 600;
+  color: var(--semantic-text-muted);
+}
+
+.sl-rows .ui-status-badge {
+  justify-self: start;
+}
+
+/* Several periods per row ("2018 a 2021"). */
+.sl-rows--wide-mid li {
+  grid-template-columns: minmax(0, 1fr) 6rem 6.5rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.sl-rows__more {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+.sl-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  min-height: var(--tap-size);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.sl-check input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--semantic-primary);
+}
+
+/* The Excel the conversation was opened with. */
+.sl-context {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-default);
+  background-color: var(--semantic-surface-muted);
+  font-size: var(--text-sm);
+  color: var(--tinta-600);
+}
+
+.sl-context svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.sl-notice-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+
+.sl-notice-row .ui-button {
+  flex: none;
+}
+
+/* ---------- Composer ---------- */
+
+.sl-chat__composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-16) var(--space-16);
+  border-top: 1px solid var(--semantic-border);
+}
+
+.sl-field {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-8);
+  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-12);
+  border: 1px solid var(--grafito-500);
+  border-radius: var(--radius-default);
+  background-color: var(--semantic-surface);
+}
+
+.sl-field[data-focused] {
+  border-color: var(--tinta-500);
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.sl-field[data-disabled] {
+  background-color: var(--semantic-surface-muted);
+}
+
+.sl-field__input {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  margin: 0;
+  padding: 6px 0;
+  font-size: var(--text-md);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.sl-field__input[data-placeholder] {
+  color: var(--semantic-text-muted);
+}
+
+.sl-send {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: var(--radius-default);
+  background-color: var(--semantic-primary);
+  color: var(--semantic-on-primary);
+}
+
+.sl-send:disabled {
+  opacity: 0.6;
+}
+
+.sl-send svg {
+  width: 20px;
+  height: 20px;
+}
+
+.sl-chat__foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-4) var(--space-12);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+/* ---------- Entry from the payment orders Excel ---------- */
+
+.sl-unlisted.ui-notice {
+  max-height: none;
+}
+
+/* ---------- Phone: the panel takes the whole screen ---------- */
+
+@media (max-width: 900px) {
+  .sl-chat {
+    inset: 0;
+    z-index: 30;
+    width: auto;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .sl-chat__header {
+    padding: calc(var(--space-8) + env(safe-area-inset-top, 0px)) var(--space-4)
+      var(--space-8) var(--space-16);
+  }
+
+  .sl-chat__log {
+    padding: var(--space-16);
+  }
+
+  .sl-chat__composer {
+    padding: var(--space-12) var(--space-16)
+      max(var(--space-12), env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (max-width: 768px) {
+  .sl-unlisted .sl-notice-row .ui-button {
+    width: 100%;
+  }
+}
+
+/* ---------- Gallery labels (only in the mockup) ---------- */
+
+.sl-mock-label {
+  position: fixed;
+  left: 50%;
+  bottom: var(--space-12);
+  z-index: 50;
+  display: none;
+}
