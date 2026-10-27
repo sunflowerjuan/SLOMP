@@ -126,7 +126,7 @@ const UNLISTED_NOTICE = `
   <div class="ui-notice ui-notice--info sl-unlisted" role="status">
     <div class="sl-notice-row">
       <span><strong class="sl-num">Hay 7 periodos liquidados que no aparecen en el Excel.</strong> Pertenecen a 3 predios que sí tienen mandamiento en este archivo.</span>
-      ${button(`${phone ? "" : ""}Revisar con Slompsim`, { variant: "secondary" })}
+      ${button("Revisar con Slompsim", { variant: "secondary" })}
     </div>
   </div>`;
 
@@ -289,6 +289,8 @@ const searchAnswer = assistant(`
 
 const SEARCH_REQUEST = `Muéstrame las liquidaciones del predio ${A}`;
 const SINGLE_REQUEST = `Marca como pagado el 2020 del predio ${A}. Nota: pagó en ventanilla el 20 de octubre`;
+const REJECTED_REQUEST = `Pasa el 2019 del predio ${A} a pérdida temporal de competencia`;
+const FOLLOW_UP_REQUEST = `¿Y el predio ${C}?`;
 
 function conversation() {
   switch (state) {
@@ -310,9 +312,9 @@ function conversation() {
     case "aplicado":
       return `${user(BATCH_REQUEST)}${doneCard}`;
     case "rechazado":
-      return `${user(`Pasa el 2019 del predio ${A} a pérdida temporal de competencia`)}${rejectedCard}`;
+      return `${user(REJECTED_REQUEST)}${rejectedCard}`;
     case "error":
-      return `${user(SEARCH_REQUEST)}${searchAnswer}${user(`¿Y el predio ${C}?`)}
+      return `${user(SEARCH_REQUEST)}${searchAnswer}${user(FOLLOW_UP_REQUEST)}
         <div class="ui-notice ui-notice--error" role="alert"><div class="sl-notice-row"><span>Slompsim no responde en este momento. Tus liquidaciones no cambiaron.</span>${button("Reintentar", { variant: "secondary" })}</div></div>`;
     case "entrada-chat":
       return `
@@ -341,11 +343,12 @@ function conversation() {
 function composer() {
   const disabled = state === "aplicando";
   const typing = state === "escribiendo";
-  const text = typing
-    ? `${SEARCH_REQUEST}<span aria-hidden="true" style="border-left: 1.5px solid var(--semantic-text); margin-left: 1px"></span>`
-    : disabled
-      ? "Espera a que se apliquen los cambios…"
-      : "Escribe qué necesitas…";
+  let text = "Escribe qué necesitas…";
+  if (typing) {
+    text = `${SEARCH_REQUEST}<span aria-hidden="true" style="border-left: 1.5px solid var(--semantic-text); margin-left: 1px"></span>`;
+  } else if (disabled) {
+    text = "Espera a que se apliquen los cambios…";
+  }
   return `
   <form class="sl-chat__composer" onsubmit="return false">
     <div class="sl-field" ${typing ? "data-focused" : ""} ${disabled ? "data-disabled" : ""}>
