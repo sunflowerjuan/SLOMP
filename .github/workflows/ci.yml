@@ -20,4 +20,13 @@ jobs:
             - run: pnpm --filter shared run db:generate
             - run: pnpm -r --if-present run lint
             - run: pnpm -r --if-present run build
-            - run: pnpm -r --if-present run test
+            - run: pnpm -r --if-present --filter '!backend' run test
+            # Fails the PR if any coverage metric drops below the thresholds
+            # in apps/backend/vitest.config.ts.
+            - run: pnpm --filter backend run test:cov
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+              if: always()
+              with:
+                  name: backend-coverage
+                  path: apps/backend/coverage
+                  if-no-files-found: ignore

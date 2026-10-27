@@ -82,6 +82,7 @@ Run `db:migrate` and then `db:seed` (in that order) whenever the database is set
 | `pnpm -r run lint` | Lint en todos los paquetes |
 | `pnpm -r run build` | Build en todos los paquetes |
 | `pnpm -r run test` | Pruebas en todos los paquetes |
+| `pnpm --filter backend run test:cov` | Pruebas del backend con cobertura. Falla si alguna métrica baja del umbral de `apps/backend/vitest.config.ts`. El informe queda en `apps/backend/coverage/index.html` (ábrelo en el navegador); en un PR se descarga como el artefacto `backend-coverage` del job de CI |
 | `pnpm --filter backend run start:dev` | Backend en modo desarrollo |
 | `pnpm --filter frontend run dev` | Frontend en modo desarrollo |
 
@@ -169,7 +170,7 @@ Una contraseña que eligió otra persona (`admin:create` o `admin:rotate-passwor
 - Ramas: `main` (producción), `develop` (desarrollo), `SCRUM-XX-descripcion` (por tarea, sale de `develop`).
 - Commits: [Conventional Commits](https://www.conventionalcommits.org/), con el número de tarea de Jira al final — `feat(auth): agregar login (SCRUM-32)`.
 - Pull Requests: uno por tarea, siempre hacia `develop` (salvo la promoción a `main`), con la plantilla que se autocompleta al abrirlos.
-- El CI (lint + build + test) corre en cada PR y debe pasar antes de mergear.
+- El CI (lint + build + test, con umbral de cobertura en el backend) corre en cada PR y debe pasar antes de mergear.
 
 ### Acciones de CI fijadas por hash
 
