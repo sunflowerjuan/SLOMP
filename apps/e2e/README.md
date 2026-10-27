@@ -1,8 +1,10 @@
 # E2E (Playwright)
 
 Pruebas de navegador del panel. Dos proyectos, ambos en Chromium: `desktop`
-(1280 × 800) y `mobile` (390 × 844, táctil). Hoy solo hay la prueba de humo
-(login → panel); los flujos críticos llegan con SL-166.
+(1280 × 800) y `mobile` (390 × 844, táctil). Hoy hay la prueba de humo
+(login → panel) y la de navegación del menú (`navigation.spec.ts`, SL-170:
+grupos, pestañas de Configuración, direcciones antiguas, municipio activo y
+teclado); los demás flujos críticos llegan con SL-166.
 
 ## Correr en local
 
