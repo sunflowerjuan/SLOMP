@@ -67,6 +67,18 @@ in `ADMIN_PASSWORD`:
 $ ADMIN_EMAIL=<email> pnpm --filter backend templates:upload <slug> LIQUIDACION <file.docx>
 ```
 
+### Guided marking (SL-159)
+
+A `.docx` without markers can be marked from the panel instead: `POST
+.../templates/drafts` stores it as a draft (unactivated, 24 hours, under
+`templates/<slug>/drafts/<id>/`), `GET .../drafts/:id/content` lists its
+paragraphs, and `POST .../drafts/:id/preview` and `.../save` apply the
+selected text as markers (`src/templates/guided-marking.ts`). Preview fills it
+with fixed sample data through the PDF service; save validates it like an
+upload and activates it. `DELETE .../drafts/:id` cancels one, and an hourly
+sweep removes the expired ones. Routes, errors and sample data: Confluence page
+"Contrato del marcado guiado de plantillas".
+
 ## Run tests
 
 ```bash
