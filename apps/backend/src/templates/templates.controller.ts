@@ -24,6 +24,7 @@ import {
   ApiConsumes,
   ApiCreatedResponse,
   ApiNoContentResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiProduces,
   ApiOperation,
@@ -51,7 +52,7 @@ import {
   TEMPLATE_UPLOAD_LIMITS,
   TemplateFileTooLargeFilter,
 } from './template-upload.js';
-import { TemplatesService } from './templates.service.js';
+import { DOCX_TYPE, TemplatesService } from './templates.service.js';
 
 // The checks multer cannot do; the size limit is TEMPLATE_UPLOAD_LIMITS.
 function requireDocx(file?: Express.Multer.File): Express.Multer.File {
@@ -236,6 +237,65 @@ export class TemplatesController {
     @Param('draftId') draftId: string,
   ) {
     await this.templates.cancelDraft(municipality.id, user.id, draftId);
+  }
+
+  @Get(':id/content')
+  @ApiOperation({
+    summary:
+      'Párrafos de una versión guardada (activa o anterior), con la misma forma que el contenido del borrador; appliedMarkers trae el nombre de cada marcador en label.',
+  })
+  @ApiNotFoundResponse({
+    description: 'TEMPLATE_NOT_FOUND: no existe o es de otro municipio.',
+  })
+  content(
+    @CurrentMunicipality() municipality: MunicipalityContext,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.templates.templateContent(municipality.id, id);
+  }
+
+  @Get(':id/preview')
+  @ApiOperation({
+    summary:
+      'PDF de una versión guardada rellenado con los datos de ejemplo ficticios de la vista previa.',
+  })
+  @ApiProduces('application/pdf')
+  @ApiNotFoundResponse({
+    description: 'TEMPLATE_NOT_FOUND: no existe o es de otro municipio.',
+  })
+  async preview(
+    @CurrentMunicipality() municipality: MunicipalityContext,
+    @Param('id', ParseIntPipe) id: number,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const pdf = await this.templates.templatePreview(municipality.id, id);
+    res.set({ 'Content-Type': 'application/pdf' });
+    return new StreamableFile(pdf);
+  }
+
+  @Get(':id/download')
+  @ApiOperation({
+    summary:
+      'Descarga el .docx guardado de una versión, idéntico al almacenado y con el nombre con que se subió.',
+  })
+  @ApiProduces(DOCX_TYPE)
+  @ApiNotFoundResponse({
+    description: 'TEMPLATE_NOT_FOUND: no existe o es de otro municipio.',
+  })
+  async download(
+    @CurrentMunicipality() municipality: MunicipalityContext,
+    @Param('id', ParseIntPipe) id: number,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { fileName, stream } = await this.templates.templateFile(
+      municipality.id,
+      id,
+    );
+    // attachment() adds filename* when the name has characters outside
+    // Latin-1, which a hand-written header would break on.
+    res.attachment(fileName);
+    res.set({ 'Content-Type': DOCX_TYPE });
+    return new StreamableFile(stream);
   }
 
   @Post(':id/activate')

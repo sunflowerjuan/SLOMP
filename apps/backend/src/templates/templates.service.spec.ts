@@ -798,3 +798,150 @@ describe('TemplatesService guided marking drafts', () => {
     expect([...blobs.keys()]).toEqual([`${live.blobPrefix}original.docx`]);
   });
 });
+
+describe('TemplatesService saved versions', () => {
+  const MARKED_DOCX = docxFromXml(
+    paragraphXml('Resolución {resolutionNumber}') +
+      tableXml([['{#rows}{year}', '{capital}{/rows}']]),
+  );
+  const OTHER_ID = 2;
+  // An older inactive version, the active one and one of another municipality.
+  const versions = () => [
+    row({
+      id: 1,
+      version: 1,
+      isActive: false,
+      fileName: 'liquidación v1.docx',
+    }),
+    row({
+      id: 2,
+      version: 2,
+      blobPath: 'templates/paez/liquidacion/2.docx',
+      sha256: createHash('sha256').update(MARKED_DOCX).digest('hex'),
+    }),
+    row({
+      id: 3,
+      municipalityId: OTHER_ID,
+      blobPath: 'templates/otro/liquidacion/1.docx',
+    }),
+  ];
+  const setup = () => {
+    const built = build(versions());
+    built.blobs.set('templates/paez/liquidacion/1.docx', VALID_DOCX);
+    built.blobs.set('templates/paez/liquidacion/2.docx', MARKED_DOCX);
+    built.blobs.set('templates/otro/liquidacion/1.docx', VALID_DOCX);
+    return built;
+  };
+
+  it('returns the blocks of a version with each marker named as in the catalog', async () => {
+    const { service } = setup();
+
+    const content = await service.templateContent(PAEZ.id, 2);
+
+    expect(content).toMatchObject({
+      id: 2,
+      version: 2,
+      documentType: 'LIQUIDACION',
+      blocks: readDocxContent(MARKED_DOCX, 'LIQUIDACION').blocks,
+    });
+    expect(content).not.toHaveProperty('draftId');
+    expect(content.appliedMarkers).toContainEqual({
+      blockId: 'body:p0',
+      start: 11,
+      end: 29,
+      field: 'resolutionNumber',
+      label: 'Número de resolución',
+    });
+    expect(content.appliedMarkers).toContainEqual(
+      expect.objectContaining({ field: 'rows.year', label: 'Vigencia (año)' }),
+    );
+  });
+
+  it('works for an older inactive version too', async () => {
+    const { service, pdf } = setup();
+
+    const content = await service.templateContent(PAEZ.id, 1);
+    await service.templatePreview(PAEZ.id, 1);
+    const file = await service.templateFile(PAEZ.id, 1);
+
+    expect(content.version).toBe(1);
+    expect(pdf.render.mock.calls[0]![0].template.blob).toBe(
+      'templates/paez/liquidacion/1.docx',
+    );
+    expect(file.fileName).toBe('liquidación v1.docx');
+  });
+
+  it('renders the stored file with the sample data, without copying it', async () => {
+    const { service, pdf, storage } = setup();
+
+    const result = await service.templatePreview(PAEZ.id, 2);
+
+    expect(result.toString()).toBe('%PDF-1.7');
+    expect(pdf.render).toHaveBeenCalledWith({
+      schemaVersion: 1,
+      documentType: 'LIQUIDACION',
+      template: {
+        blob: 'templates/paez/liquidacion/2.docx',
+        sha256: versions()[1]!.sha256,
+      },
+      data: PREVIEW_DATA.LIQUIDACION,
+    });
+    expect(storage.upload).not.toHaveBeenCalled();
+  });
+
+  it('answers 502 when the PDF service cannot render the version', async () => {
+    const { service, pdf } = setup();
+    pdf.render.mockRejectedValue(
+      new ServiceUnavailableException({ code: 'TEMPLATE_RENDER_FAILED' }),
+    );
+    expect(await errorOf(service.templatePreview(PAEZ.id, 2))).toMatchObject({
+      status: 502,
+      code: ErrorCode.TEMPLATE_PREVIEW_FAILED,
+    });
+  });
+
+  it('downloads the stored bytes unchanged, with the uploaded file name', async () => {
+    const { service } = setup();
+
+    const { fileName, stream } = await service.templateFile(PAEZ.id, 2);
+    const bytes = Buffer.concat(await stream.toArray());
+
+    expect(fileName).toBe('old.docx');
+    expect(createHash('sha256').update(bytes).digest('hex')).toBe(
+      versions()[1]!.sha256,
+    );
+  });
+
+  it('answers TEMPLATE_NOT_FOUND for another municipality or a missing id on every route', async () => {
+    const { service, pdf, storage } = setup();
+    for (const id of [3, 999]) {
+      for (const call of [
+        service.templateContent(PAEZ.id, id),
+        service.templatePreview(PAEZ.id, id),
+        service.templateFile(PAEZ.id, id),
+      ]) {
+        expect(await errorOf(call)).toMatchObject({
+          status: 404,
+          code: ErrorCode.TEMPLATE_NOT_FOUND,
+        });
+      }
+    }
+    expect(pdf.render).not.toHaveBeenCalled();
+    expect(storage.openRead).not.toHaveBeenCalled();
+  });
+
+  it('answers TEMPLATE_NOT_FOUND when the file is gone and 503 when Storage is down', async () => {
+    const { service, blobs, storage } = setup();
+    blobs.delete('templates/paez/liquidacion/2.docx');
+    expect(await errorOf(service.templateFile(PAEZ.id, 2))).toMatchObject({
+      status: 404,
+      code: ErrorCode.TEMPLATE_NOT_FOUND,
+    });
+
+    storage.openRead.mockRejectedValueOnce(new Error('storage down'));
+    expect(await errorOf(service.templateContent(PAEZ.id, 1))).toMatchObject({
+      status: 503,
+      code: ErrorCode.PDF_STORAGE_UNAVAILABLE,
+    });
+  });
+});
