@@ -6,6 +6,7 @@ import { AuthLayout } from "../../components/layout/AuthLayout";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { Notice } from "../../components/ui/Notice";
+import { useFocusOnMount } from "../../hooks/useFocusOnMount";
 import { readLastMunicipalitySlug } from "../../api/lastMunicipality";
 import { loginConsultationHref } from "../../api/municipality";
 import { currentAdminSlug } from "../../routes";
@@ -26,6 +27,7 @@ export function LoginPage() {
     currentAdminSlug(),
     readLastMunicipalitySlug(),
   );
+  const emailRef = useFocusOnMount<HTMLInputElement>();
 
   function validate(): LoginFormErrors {
     const nextErrors: LoginFormErrors = {};
@@ -87,10 +89,10 @@ export function LoginPage() {
         )}
         {submitError && <Notice>{submitError}</Notice>}
         <Input
+          ref={emailRef}
           label="Correo electrónico"
           type="email"
           autoComplete="username"
-          autoFocus
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           error={errors.email}

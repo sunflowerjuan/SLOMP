@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../ui/Icon";
-import { moveMenuFocus } from "./menuFocus";
+import { focusMenuEntry, moveMenuFocus } from "./menuFocus";
 import { MunicipalityOptions } from "./MunicipalityOptions";
 import type { MunicipalitySwitch } from "./MunicipalityOptions";
 
@@ -15,10 +15,13 @@ export function MunicipalitySwitcher({
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  // Escape (back to the button) or a click elsewhere closes it.
+  // Opening it puts focus on the active municipality. Escape (back to the
+  // button) or a click elsewhere closes it.
   useEffect(() => {
     if (!open) return;
+    focusMenuEntry(menuRef.current);
     const close = (event: Event) => {
       if (event.type === "keydown") {
         if ((event as KeyboardEvent).key !== "Escape") return;
@@ -64,14 +67,20 @@ export function MunicipalitySwitcher({
       </button>
       {open && (
         <div
+          ref={menuRef}
           className="admin-layout__menu admin-layout__menu--switcher"
           role="menu"
           aria-label="Municipios"
+          tabIndex={-1}
           onKeyDown={moveMenuFocus}
         >
           <MunicipalityOptions
             switcher={switcher}
-            onDone={() => setOpen(false)}
+            onDone={() => {
+              // A chosen entry leaves; focus goes back to the button.
+              buttonRef.current?.focus();
+              setOpen(false);
+            }}
           />
         </div>
       )}

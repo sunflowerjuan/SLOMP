@@ -6,6 +6,7 @@ import { AuthLayout } from "../../components/layout/AuthLayout";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { Notice } from "../../components/ui/Notice";
+import { useFocusOnMount } from "../../hooks/useFocusOnMount";
 import {
   MIN_PASSWORD_LENGTH,
   validatePasswordChange,
@@ -31,6 +32,7 @@ export function ChangePasswordPage() {
   const [errors, setErrors] = useState<PasswordChangeErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const currentPasswordRef = useFocusOnMount<HTMLInputElement>();
 
   function update(field: keyof PasswordChangeFields) {
     return (event: ChangeEvent<HTMLInputElement>) =>
@@ -85,10 +87,10 @@ export function ChangePasswordPage() {
       <form className="auth-layout__form" onSubmit={handleSubmit} noValidate>
         {submitError && <Notice>{submitError}</Notice>}
         <Input
+          ref={currentPasswordRef}
           label="Contraseña actual"
           type="password"
           autoComplete="current-password"
-          autoFocus
           value={fields.currentPassword}
           onChange={update("currentPassword")}
           error={errors.currentPassword}

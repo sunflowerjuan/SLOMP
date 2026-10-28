@@ -123,6 +123,10 @@ export function SettlementList({
               aria-current={selected ? "true" : undefined}
               data-mark={primaryMark(entry) ?? undefined}
               style={{ "--i": Math.min(index, 12) } as CSSProperties}
+              // The click on the row is a shortcut for the mouse; from the
+              // keyboard the cadastral code opens it, so the row stays out
+              // of the Tab order.
+              tabIndex={-1}
               onClick={(event) => handleRowClick(event, entry.settlementId)}
             >
               <div role="cell" className="settlement-list__code">

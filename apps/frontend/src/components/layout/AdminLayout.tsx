@@ -3,7 +3,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { Icon } from "../ui/Icon";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { useSlidingIndicator } from "../../hooks/useSlidingIndicator";
-import { moveMenuFocus } from "./menuFocus";
+import { focusMenuEntry, moveMenuFocus } from "./menuFocus";
 import type { MunicipalitySwitch } from "./MunicipalityOptions";
 import { MunicipalitySwitcher } from "./MunicipalitySwitcher";
 import "./AdminLayout.css";
@@ -54,6 +54,7 @@ export function AdminLayout({
   const mainRef = useRef<HTMLElement>(null);
   const brandRef = useRef<HTMLDivElement>(null);
   const brandButtonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const isFirstRender = useRef(true);
   const isCompact = useMediaQuery("(max-width: 900px)");
@@ -75,10 +76,11 @@ export function AdminLayout({
     mainRef.current?.focus({ preventScroll: true });
   }, [activeId, activeSlug]);
 
-  // The logo opens the account menu; Escape (back to the logo) or a tap
-  // elsewhere closes it.
+  // The logo opens the account menu, with focus on its first item; Escape
+  // (back to the logo) or a tap elsewhere closes it.
   useEffect(() => {
     if (!menuOpen) return;
+    focusMenuEntry(menuRef.current);
     const close = (event: Event) => {
       if (event.type === "keydown") {
         if ((event as KeyboardEvent).key !== "Escape") return;
@@ -110,19 +112,16 @@ export function AdminLayout({
     </>
   );
 
-  function renderMenuItem(
-    item: AdminMenuItem,
-    role?: "menuitem",
-    autoFocus?: boolean,
-  ) {
+  function renderMenuItem(item: AdminMenuItem, role?: "menuitem") {
     return (
       <button
         key={item.id}
         type="button"
         role={role}
         className="admin-layout__menu-item"
-        autoFocus={autoFocus}
         onClick={() => {
+          // Chosen from the logo menu: focus goes back to the logo.
+          if (role) brandButtonRef.current?.focus();
           setMenuOpen(false);
           item.onSelect();
         }}
@@ -224,14 +223,14 @@ export function AdminLayout({
               </button>
               {menuOpen && (
                 <div
+                  ref={menuRef}
                   className="admin-layout__menu"
                   role="menu"
                   aria-label="Menú"
+                  tabIndex={-1}
                   onKeyDown={moveMenuFocus}
                 >
-                  {menuItems.map((item, index) =>
-                    renderMenuItem(item, "menuitem", index === 0),
-                  )}
+                  {menuItems.map((item) => renderMenuItem(item, "menuitem"))}
                 </div>
               )}
             </div>

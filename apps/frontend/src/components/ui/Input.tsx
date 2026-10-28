@@ -1,8 +1,9 @@
 import { useId, useState } from "react";
-import type { InputHTMLAttributes } from "react";
+import type { ComponentProps } from "react";
 import "./Input.css";
 
-interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "id"> {
+// Its ref (React 19 passes it as a prop) reaches the <input>.
+interface InputProps extends Omit<ComponentProps<"input">, "id"> {
   label: string;
   error?: string;
   // Short help under the field; the error takes its place when there is one.
