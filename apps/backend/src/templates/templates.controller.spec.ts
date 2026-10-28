@@ -115,6 +115,29 @@ describe('TemplatesController', () => {
       );
     });
 
+    it('keeps an accented file name as the browser sent it, in UTF-8', async () => {
+      templatesService.upload.mockResolvedValue({ id: 1 });
+      templatesService.createDraft.mockResolvedValue({ draftId: 'd1' });
+
+      await request(app.getHttpServer())
+        .post(BASE)
+        .field('documentType', 'LIQUIDACION')
+        .attach('file', docx, 'liquidación – páez.docx')
+        .expect(201);
+      await request(app.getHttpServer())
+        .post(`${BASE}/drafts`)
+        .field('documentType', 'LIQUIDACION')
+        .attach('file', docx, 'liquidación – páez.docx')
+        .expect(201);
+
+      expect(templatesService.upload.mock.calls[0]![2].originalname).toBe(
+        'liquidación – páez.docx',
+      );
+      expect(templatesService.createDraft.mock.calls[0]![2].originalname).toBe(
+        'liquidación – páez.docx',
+      );
+    });
+
     it('rejects a request without a file', async () => {
       const response = await request(app.getHttpServer())
         .post(BASE)

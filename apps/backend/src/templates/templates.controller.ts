@@ -49,7 +49,7 @@ import {
 import { buildTemplateCatalog } from './template-catalog.js';
 import {
   MAX_TEMPLATE_FILE_SIZE_MB,
-  TEMPLATE_UPLOAD_LIMITS,
+  TEMPLATE_UPLOAD_OPTIONS,
   TemplateFileTooLargeFilter,
 } from './template-upload.js';
 import { DOCX_TYPE, TemplatesService } from './templates.service.js';
@@ -100,7 +100,7 @@ export class TemplatesController {
   constructor(private readonly templates: TemplatesService) {}
 
   @Post()
-  @UseInterceptors(FileInterceptor('file', { limits: TEMPLATE_UPLOAD_LIMITS }))
+  @UseInterceptors(FileInterceptor('file', TEMPLATE_UPLOAD_OPTIONS))
   @UseFilters(TemplateFileTooLargeFilter)
   @ApiOperation({
     summary:
@@ -146,7 +146,7 @@ export class TemplatesController {
   }
 
   @Post('drafts')
-  @UseInterceptors(FileInterceptor('file', { limits: TEMPLATE_UPLOAD_LIMITS }))
+  @UseInterceptors(FileInterceptor('file', TEMPLATE_UPLOAD_OPTIONS))
   @UseFilters(TemplateFileTooLargeFilter)
   @ApiOperation({
     summary:
