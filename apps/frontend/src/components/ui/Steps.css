@@ -1,0 +1,72 @@
+.ui-steps__list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8) var(--space-24);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+.ui-steps__list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.ui-steps__number {
+  display: grid;
+  place-items: center;
+  width: var(--space-24);
+  height: var(--space-24);
+  border: 1px solid var(--grafito-400);
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-steps__list li[data-state="current"] {
+  font-weight: 600;
+  color: var(--semantic-text);
+}
+
+.ui-steps__list li[data-state="current"] .ui-steps__number {
+  border-color: var(--semantic-primary);
+  background-color: var(--semantic-primary);
+  color: var(--semantic-on-primary);
+}
+
+.ui-steps__list li[data-state="done"] .ui-steps__number {
+  border-color: var(--semantic-success);
+  background-color: var(--semantic-success-bg);
+  color: var(--semantic-success);
+}
+
+.ui-steps__compact {
+  display: none;
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+.ui-steps__compact strong {
+  color: var(--semantic-text);
+}
+
+/* Phone: one line of text; the list stays for screen readers. */
+@media (max-width: 480px) {
+  .ui-steps__list {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .ui-steps__compact {
+    display: block;
+  }
+}

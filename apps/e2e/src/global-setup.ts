@@ -5,6 +5,7 @@ import {
   apiUrl,
   baseUrl,
 } from "./env";
+import { ensureFixtures } from "./fixtures";
 import { assertSafeTarget } from "./guard";
 
 interface Session {
@@ -22,10 +23,12 @@ async function request(path: string, init: RequestInit): Promise<Response> {
   }
 }
 
-// Runs before any test: checks the target, signs in through the API and makes
-// sure the test municipality exists. Nothing is requested before the guard.
+// Runs before any test: checks the target, writes the test Excel files if
+// they are missing, signs in through the API and makes sure the test
+// municipality exists. Nothing is requested before the guard.
 export default async function globalSetup(): Promise<void> {
   assertSafeTarget({ baseUrl, apiUrl }, allowRemote);
+  ensureFixtures();
   const { email, password } = adminCredentials();
 
   const login = await request("/login", {

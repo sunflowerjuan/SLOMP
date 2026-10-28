@@ -28,8 +28,8 @@ function rowIssueItems(issues: TaxRollRowIssue[]) {
   ));
 }
 
-// The outcome of an Excel upload (tax roll and payment orders): its figures,
-// what the page adds, and the rows that were skipped or have warnings.
+// The outcome of a tax roll upload: its figures, what the page adds, and the
+// rows that were skipped or have warnings.
 export function UploadResult({
   className,
   subtitle,

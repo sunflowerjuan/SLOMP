@@ -1,37 +1,70 @@
-.payment-orders-page__upload {
+/* Fixed zone: the tabs, then where the flow is and the step's own actions
+   (or the history's search). Each control keeps its own width. */
+.payment-orders-page__controls {
   display: flex;
   flex-direction: column;
+  align-items: stretch;
   gap: var(--space-12);
 }
 
-.payment-orders-page__result {
-  animation: rise-in var(--duration-enter) var(--ease-sheet) backwards;
+.payment-orders-page__controls > .ui-segmented {
+  align-self: flex-start;
 }
 
-.payment-orders-page__result:focus {
+.payment-orders-page__step-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8) var(--space-16);
+}
+
+.payment-orders-page__summary {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--semantic-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.payment-orders-page__step-actions {
+  display: flex;
+  gap: var(--space-8);
+  margin-left: auto;
+}
+
+.payment-orders-page__search {
+  max-width: 28rem;
+}
+
+/* The step on screen: the only content that scrolls. */
+.payment-orders-page__step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+}
+
+.payment-orders-page__step:focus {
   outline: none;
 }
 
-.payment-orders-page__actions {
-  display: flex;
-  justify-content: flex-end;
+.payment-orders-page__step > * {
+  flex-shrink: 0;
 }
 
-.payment-orders-page__subheading {
-  margin: 0;
-  font-size: var(--text-md);
-  font-weight: 600;
-  color: var(--semantic-text);
-}
-
-@media (max-width: 768px) {
-  .payment-orders-page__actions .ui-button {
-    width: 100%;
+@media (max-width: 480px) {
+  /* The fixed zone stays as short as it can. */
+  .payment-orders-page__controls,
+  .payment-orders-page__step-bar {
+    gap: var(--space-8);
   }
-}
 
-@media (prefers-reduced-motion: reduce) {
-  .payment-orders-page__result {
-    animation: fade-in var(--duration-fast) ease-out backwards;
+  .payment-orders-page__step-actions {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .payment-orders-page__step-actions .ui-button {
+    flex: 1;
   }
 }

@@ -2,7 +2,10 @@ import type { PaymentOrderSummary } from "../../api/paymentOrders";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Notice } from "../../components/ui/Notice";
-import { paymentOrderNumberLabel } from "../../domain/paymentOrder";
+import {
+  filterByCadastralCode,
+  paymentOrderNumberLabel,
+} from "../../domain/paymentOrder";
 import { formatPeriods } from "../../utils/formatPeriods";
 import "./IssuedPaymentOrderList.css";
 
@@ -14,6 +17,8 @@ const DATE_FORMATTER = new Intl.DateTimeFormat("es-CO", {
 interface IssuedPaymentOrderListProps {
   // null while the first load runs.
   orders: PaymentOrderSummary[] | null;
+  // A cadastral code, or part of it, to narrow the list to.
+  query: string;
   error: string;
   onRetry: () => void;
   downloadingId: number | null;
@@ -22,18 +27,21 @@ interface IssuedPaymentOrderListProps {
 }
 
 // The municipality's payment orders, newest first, each with its PDF. The
-// server sends the latest 100. Titled "Historial" until SL-173 gives it a
-// tab of that name.
+// server sends the latest 100, so the search looks among those. The tab
+// "Historial" names it.
 export function IssuedPaymentOrderList({
   orders,
+  query,
   error,
   onRetry,
   downloadingId,
   downloadError,
   onDownload,
 }: IssuedPaymentOrderListProps) {
+  const found = orders && filterByCadastralCode(orders, query);
+
   return (
-    <Card title="Historial" className="issued-payment-orders">
+    <Card label="Mandamientos emitidos" className="issued-payment-orders">
       {error && (
         <Notice className="issued-payment-orders__retry">
           {error}
@@ -70,9 +78,15 @@ export function IssuedPaymentOrderList({
         </p>
       )}
 
-      {orders && orders.length > 0 && (
+      {orders && orders.length > 0 && found?.length === 0 && (
+        <p className="issued-payment-orders__muted" role="status">
+          Ningún mandamiento del historial es de esa cédula catastral.
+        </p>
+      )}
+
+      {found && found.length > 0 && (
         <ul className="issued-payment-orders__list">
-          {orders.map((order) => (
+          {found.map((order) => (
             <li key={order.id}>
               <div className="issued-payment-orders__row">
                 <div className="issued-payment-orders__info">

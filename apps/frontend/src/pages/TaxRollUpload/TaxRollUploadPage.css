@@ -3,12 +3,6 @@
   overflow-x: clip;
 }
 
-.tax-roll-upload-page__upload {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-12);
-}
-
 .tax-roll-upload-page__result-reveal {
   display: grid;
   grid-template-rows: 1fr;
@@ -156,21 +150,6 @@
   .tax-roll-upload-page__close:hover {
     background-color: var(--semantic-surface-muted);
     color: var(--semantic-text);
-  }
-}
-
-.tax-roll-upload-page__actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-@media (max-width: 768px) {
-  .tax-roll-upload-page__actions {
-    justify-content: stretch;
-  }
-
-  .tax-roll-upload-page__actions .ui-button {
-    width: 100%;
   }
 }
 

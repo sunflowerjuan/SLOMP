@@ -1,0 +1,39 @@
+.payment-order-ineligible {
+  gap: var(--space-8);
+}
+
+.payment-order-ineligible__reason {
+  border-top: 1px solid var(--semantic-border);
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+.payment-order-ineligible__reason:first-of-type {
+  border-top: 0;
+}
+
+.payment-order-ineligible__reason summary {
+  min-height: var(--tap-size);
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  color: var(--semantic-text);
+  cursor: pointer;
+}
+
+/* No scroll of its own: a long reason grows the step, which is the one
+   container that scrolls. */
+.payment-order-ineligible__reason ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0 0 var(--space-12) var(--space-20);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Cadastral codes run up to 30 digits: split only if the row can't hold them. */
+.payment-order-ineligible__code {
+  color: var(--semantic-text);
+  overflow-wrap: anywhere;
+}
