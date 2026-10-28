@@ -1,4 +1,9 @@
-import { ValidationPipe, type INestApplication } from '@nestjs/common';
+import { Readable } from 'node:stream';
+import {
+  NotFoundException,
+  ValidationPipe,
+  type INestApplication,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import {
@@ -10,7 +15,10 @@ import {
   it,
   vi,
 } from 'vitest';
-import { validationExceptionFactory } from '../common/errors/error-body.js';
+import {
+  errorBody,
+  validationExceptionFactory,
+} from '../common/errors/error-body.js';
 import { ErrorCode } from '../common/errors/error-codes.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { TemplatesController } from './templates.controller.js';
@@ -39,6 +47,9 @@ describe('TemplatesController', () => {
     previewDraft: vi.fn(),
     saveDraft: vi.fn(),
     cancelDraft: vi.fn(),
+    templateContent: vi.fn(),
+    templatePreview: vi.fn(),
+    templateFile: vi.fn(),
   };
   const prisma = {
     municipality: {
@@ -101,6 +112,29 @@ describe('TemplatesController', () => {
         'LIQUIDACION',
         { buffer: expect.any(Buffer), originalname: 'liquidacion.docx' },
         7,
+      );
+    });
+
+    it('keeps an accented file name as the browser sent it, in UTF-8', async () => {
+      templatesService.upload.mockResolvedValue({ id: 1 });
+      templatesService.createDraft.mockResolvedValue({ draftId: 'd1' });
+
+      await request(app.getHttpServer())
+        .post(BASE)
+        .field('documentType', 'LIQUIDACION')
+        .attach('file', docx, 'liquidación – páez.docx')
+        .expect(201);
+      await request(app.getHttpServer())
+        .post(`${BASE}/drafts`)
+        .field('documentType', 'LIQUIDACION')
+        .attach('file', docx, 'liquidación – páez.docx')
+        .expect(201);
+
+      expect(templatesService.upload.mock.calls[0]![2].originalname).toBe(
+        'liquidación – páez.docx',
+      );
+      expect(templatesService.createDraft.mock.calls[0]![2].originalname).toBe(
+        'liquidación – páez.docx',
       );
     });
 
@@ -379,6 +413,84 @@ describe('TemplatesController', () => {
         7,
         'd1',
       );
+    });
+  });
+
+  describe('saved versions', () => {
+    const notFound = () =>
+      new NotFoundException(
+        errorBody(ErrorCode.TEMPLATE_NOT_FOUND, 'Template 9 not found.'),
+      );
+
+    it('returns the content of the version of the URL', async () => {
+      templatesService.templateContent.mockResolvedValue({ id: 4 });
+
+      const response = await request(app.getHttpServer())
+        .get(`${BASE}/4/content`)
+        .expect(200);
+
+      expect(response.body).toEqual({ id: 4 });
+      expect(templatesService.templateContent).toHaveBeenCalledWith(PAEZ.id, 4);
+    });
+
+    it('answers the preview as a PDF', async () => {
+      templatesService.templatePreview.mockResolvedValue(
+        Buffer.from('%PDF-1.7'),
+      );
+
+      const response = await request(app.getHttpServer())
+        .get(`${BASE}/4/preview`)
+        .expect(200);
+
+      expect(response.headers['content-type']).toBe('application/pdf');
+      expect(response.body.toString()).toBe('%PDF-1.7');
+      expect(templatesService.templatePreview).toHaveBeenCalledWith(PAEZ.id, 4);
+    });
+
+    it('downloads the bytes as a .docx attachment, keeping a name outside Latin-1', async () => {
+      const bytes = Buffer.from('PK-stored-template');
+      templatesService.templateFile.mockResolvedValue({
+        fileName: 'liquidación – páez.docx',
+        stream: Readable.from([bytes]),
+      });
+
+      const response = await request(app.getHttpServer())
+        .get(`${BASE}/4/download`)
+        .buffer(true)
+        .parse((res, done) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (chunk: Buffer) => chunks.push(chunk));
+          res.on('end', () => done(null, Buffer.concat(chunks)));
+        })
+        .expect(200);
+
+      expect(response.headers['content-type']).toBe(
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      );
+      expect(response.headers['content-disposition']).toContain('attachment');
+      expect(response.headers['content-disposition']).toContain(
+        "filename*=UTF-8''liquidaci%C3%B3n%20%E2%80%93%20p%C3%A1ez.docx",
+      );
+      expect(response.body).toEqual(bytes);
+    });
+
+    it('answers 404 TEMPLATE_NOT_FOUND on the three routes', async () => {
+      templatesService.templateContent.mockRejectedValue(notFound());
+      templatesService.templatePreview.mockRejectedValue(notFound());
+      templatesService.templateFile.mockRejectedValue(notFound());
+
+      for (const route of ['content', 'preview', 'download']) {
+        const response = await request(app.getHttpServer())
+          .get(`${BASE}/9/${route}`)
+          .expect(404);
+        expect(codeOf(response.body)).toBe(ErrorCode.TEMPLATE_NOT_FOUND);
+      }
+    });
+
+    it('rejects an id that is not a number', async () => {
+      await request(app.getHttpServer()).get(`${BASE}/abc/content`).expect(400);
+
+      expect(templatesService.templateContent).not.toHaveBeenCalled();
     });
   });
 });

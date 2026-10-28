@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import type { Readable } from 'node:stream';
 import { buffer as readAll } from 'node:stream/consumers';
 import {
   BadGatewayException,
@@ -19,6 +20,7 @@ import type {
   Template,
   TemplateDraft,
 } from '@prisma/client';
+import type { TemplateRef } from 'shared/pdf-contract';
 import { CodedError } from '../common/errors/coded-error.js';
 import { errorBody } from '../common/errors/error-body.js';
 import { ErrorCode } from '../common/errors/error-codes.js';
@@ -29,16 +31,18 @@ import { extractTemplateFields } from './extract-template-fields.js';
 import {
   applySelections,
   readDocxContent,
+  type DocxBlock,
   type DocxContent,
   type Selection,
 } from './guided-marking.js';
+import { buildTemplateCatalog } from './template-catalog.js';
 import { PREVIEW_DATA } from './template-preview-data.js';
 import {
   CATALOGS,
   validateTemplateFields,
 } from './validate-template-fields.js';
 
-const DOCX_TYPE =
+export const DOCX_TYPE =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
 const DRAFT_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
@@ -82,6 +86,14 @@ export type DraftContent = DocxContent & {
   documentType: PdfDocumentType;
   expiresAt: Date;
 };
+
+export interface TemplateContent {
+  id: number;
+  version: number;
+  documentType: PdfDocumentType;
+  blocks: DocxBlock[];
+  appliedMarkers: (Selection & { label: string })[];
+}
 
 // Domain errors of the guided marking (bad selection, malformed marker...) are
 // all the client's fault.
@@ -406,12 +418,19 @@ export class TemplatesService implements OnModuleInit, OnModuleDestroy {
         error,
       );
     }
+    return this.renderPreview(draft.documentType, { blob, sha256 });
+  }
+
+  private async renderPreview(
+    documentType: PdfDocumentType,
+    template: TemplateRef,
+  ): Promise<Buffer> {
     try {
       return await this.pdf.render({
         schemaVersion: 1,
-        documentType: draft.documentType,
-        template: { blob, sha256 },
-        data: PREVIEW_DATA[draft.documentType],
+        documentType,
+        template,
+        data: PREVIEW_DATA[documentType],
       });
     } catch (error) {
       const code =
@@ -422,11 +441,101 @@ export class TemplatesService implements OnModuleInit, OnModuleDestroy {
       throw new BadGatewayException(
         errorBody(
           ErrorCode.TEMPLATE_PREVIEW_FAILED,
-          'Could not fill the marked document or convert it to PDF.',
+          'Could not fill the template or convert it to PDF.',
         ),
         { cause: error },
       );
     }
+  }
+
+  // Any saved version, active or not, shown the way a draft is: its {markers}
+  // are already in the text, and appliedMarkers names each one for the lawyer.
+  async templateContent(
+    municipalityId: number,
+    id: number,
+  ): Promise<TemplateContent> {
+    const template = await this.findTemplate(municipalityId, id);
+    const docx = await readAll(await this.openTemplate(template));
+    const { blocks, appliedMarkers } = readDocxContent(
+      docx,
+      template.documentType,
+    );
+    const labels = new Map(
+      buildTemplateCatalog(template.documentType).map((entry) => [
+        entry.key,
+        entry.label,
+      ]),
+    );
+    return {
+      id: template.id,
+      version: template.version,
+      documentType: template.documentType,
+      blocks,
+      appliedMarkers: appliedMarkers.map((marker) => ({
+        ...marker,
+        label: labels.get(marker.field) ?? marker.field,
+      })),
+    };
+  }
+
+  // The stored version is already in Storage with its hash, so the PDF
+  // service renders it directly; nothing is copied.
+  async templatePreview(municipalityId: number, id: number): Promise<Buffer> {
+    const template = await this.findTemplate(municipalityId, id);
+    return this.renderPreview(template.documentType, {
+      blob: template.blobPath,
+      sha256: template.sha256,
+    });
+  }
+
+  // The bytes exactly as stored, so their sha256 is the one of the version.
+  async templateFile(
+    municipalityId: number,
+    id: number,
+  ): Promise<{ fileName: string; stream: Readable }> {
+    const template = await this.findTemplate(municipalityId, id);
+    return {
+      fileName: template.fileName,
+      stream: await this.openTemplate(template),
+    };
+  }
+
+  // A template of another municipality is "not found", same as one that does
+  // not exist.
+  private async findTemplate(
+    municipalityId: number,
+    id: number,
+  ): Promise<Template> {
+    const template = await this.prisma.template.findFirst({
+      where: { id, municipalityId },
+    });
+    if (!template) {
+      throw new NotFoundException(
+        errorBody(ErrorCode.TEMPLATE_NOT_FOUND, `Template ${id} not found.`),
+      );
+    }
+    return template;
+  }
+
+  private async openTemplate(template: Template): Promise<Readable> {
+    let stream: Readable | null;
+    try {
+      stream = await this.pdf.storage().openRead(template.blobPath);
+    } catch (error) {
+      throw storageUnavailable(
+        'Could not read the template from Storage.',
+        error,
+      );
+    }
+    if (!stream) {
+      throw new NotFoundException(
+        errorBody(
+          ErrorCode.TEMPLATE_NOT_FOUND,
+          `The file of template ${template.id} is gone.`,
+        ),
+      );
+    }
+    return stream;
   }
 
   // Marks the original, validates it like a direct upload and stores it as

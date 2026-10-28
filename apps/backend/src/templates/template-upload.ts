@@ -19,6 +19,14 @@ export const TEMPLATE_UPLOAD_LIMITS = {
   files: 1,
 };
 
+// multer reads the filename as Latin-1 by default, but browsers and curl send
+// it as UTF-8: "liquidación.docx" would be stored as "liquidaciÃ³n.docx", and
+// the download hands that name back.
+export const TEMPLATE_UPLOAD_OPTIONS = {
+  limits: TEMPLATE_UPLOAD_LIMITS,
+  defParamCharset: 'utf8',
+};
+
 // Multer aborts at the limit and Nest turns it into a 413 with a generic
 // message; the panel needs the specific code, same as the tax roll upload.
 @Catch(PayloadTooLargeException)

@@ -79,6 +79,16 @@ upload and activates it. `DELETE .../drafts/:id` cancels one, and an hourly
 sweep removes the expired ones. Routes, errors and sample data: Confluence page
 "Contrato del marcado guiado de plantillas".
 
+### Viewing a saved version (SL-183)
+
+Any saved version, active or older (the `id` of `GET .../templates`), can be
+looked at: `GET .../templates/:id/content` returns its paragraphs in the draft
+format, with each `appliedMarkers` entry also carrying the catalog `label`;
+`GET .../:id/preview` renders it to PDF with the same sample data as the draft
+preview; and `GET .../:id/download` returns the stored `.docx` byte for byte,
+under the name it was uploaded with. A template of another municipality
+answers 404 `TEMPLATE_NOT_FOUND`, same as a missing one.
+
 ## Run tests
 
 ```bash
