@@ -34,6 +34,11 @@ describe('TemplatesController', () => {
     upload: vi.fn(),
     list: vi.fn(),
     activate: vi.fn(),
+    createDraft: vi.fn(),
+    draftContent: vi.fn(),
+    previewDraft: vi.fn(),
+    saveDraft: vi.fn(),
+    cancelDraft: vi.fn(),
   };
   const prisma = {
     municipality: {
@@ -254,6 +259,126 @@ describe('TemplatesController', () => {
         .expect(400);
 
       expect(templatesService.activate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('guided marking drafts', () => {
+    const DRAFTS = `${BASE}/drafts`;
+    const selection = {
+      blockId: 'body:p0',
+      start: 11,
+      end: 14,
+      field: 'resolutionNumber',
+    };
+
+    it('creates a draft with the same file checks as the upload', async () => {
+      templatesService.createDraft.mockResolvedValue({ draftId: 'd1' });
+
+      await request(app.getHttpServer())
+        .post(DRAFTS)
+        .field('documentType', 'LIQUIDACION')
+        .attach('file', docx, 'sin-marcar.docx')
+        .expect(201);
+      const noFile = await request(app.getHttpServer())
+        .post(DRAFTS)
+        .field('documentType', 'LIQUIDACION')
+        .expect(400);
+      const tooLarge = await request(app.getHttpServer())
+        .post(DRAFTS)
+        .field('documentType', 'LIQUIDACION')
+        .attach(
+          'file',
+          Buffer.alloc(MAX_TEMPLATE_FILE_SIZE_BYTES + 1),
+          'sin-marcar.docx',
+        )
+        .expect(400);
+
+      expect(templatesService.createDraft).toHaveBeenCalledTimes(1);
+      expect(templatesService.createDraft).toHaveBeenCalledWith(
+        PAEZ,
+        'LIQUIDACION',
+        { buffer: expect.any(Buffer), originalname: 'sin-marcar.docx' },
+        7,
+      );
+      expect(codeOf(noFile.body)).toBe(ErrorCode.TEMPLATE_FILE_MISSING);
+      expect(codeOf(tooLarge.body)).toBe(ErrorCode.TEMPLATE_FILE_TOO_LARGE);
+    });
+
+    it('hands the municipality, user and draft to the content', async () => {
+      templatesService.draftContent.mockResolvedValue({ blocks: [] });
+
+      await request(app.getHttpServer())
+        .get(`${DRAFTS}/d1/content`)
+        .expect(200);
+
+      expect(templatesService.draftContent).toHaveBeenCalledWith(
+        PAEZ.id,
+        7,
+        'd1',
+      );
+    });
+
+    it('answers the preview as a PDF', async () => {
+      templatesService.previewDraft.mockResolvedValue(Buffer.from('%PDF-1.7'));
+
+      const response = await request(app.getHttpServer())
+        .post(`${DRAFTS}/d1/preview`)
+        .send({ selections: [selection] })
+        .expect(200);
+
+      expect(response.headers['content-type']).toBe('application/pdf');
+      expect(templatesService.previewDraft).toHaveBeenCalledWith(
+        PAEZ.id,
+        7,
+        'd1',
+        [selection],
+      );
+    });
+
+    it.each([
+      {},
+      { selections: 'x' },
+      { selections: [{ ...selection, start: -1 }] },
+      { selections: [{ ...selection, end: 1.5 }] },
+      { selections: [{ ...selection, field: '' }] },
+      { selections: [{ ...selection, extra: true }] },
+      { selections: [], replaceConfirmed: 'yes' },
+    ])('validates the selections of the body %j', async (body) => {
+      const preview = await request(app.getHttpServer())
+        .post(`${DRAFTS}/d1/save`)
+        .send(body)
+        .expect(400);
+
+      expect(codeOf(preview.body)).toBe(ErrorCode.REQUEST_VALIDATION_FAILED);
+      expect(templatesService.saveDraft).not.toHaveBeenCalled();
+    });
+
+    it('saves without replacing unless replaceConfirmed is true', async () => {
+      templatesService.saveDraft.mockResolvedValue({ id: 3, isActive: true });
+
+      await request(app.getHttpServer())
+        .post(`${DRAFTS}/d1/save`)
+        .send({ selections: [selection] })
+        .expect(201);
+      await request(app.getHttpServer())
+        .post(`${DRAFTS}/d1/save`)
+        .send({ selections: [selection], replaceConfirmed: true })
+        .expect(201);
+
+      expect(templatesService.saveDraft.mock.calls).toEqual([
+        [PAEZ, 7, 'd1', [selection], false],
+        [PAEZ, 7, 'd1', [selection], true],
+      ]);
+    });
+
+    it('cancels a draft with 204', async () => {
+      await request(app.getHttpServer()).delete(`${DRAFTS}/d1`).expect(204);
+
+      expect(templatesService.cancelDraft).toHaveBeenCalledWith(
+        PAEZ.id,
+        7,
+        'd1',
+      );
     });
   });
 });
