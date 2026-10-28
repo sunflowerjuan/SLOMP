@@ -12,10 +12,10 @@ import { useMemo, useSyncExternalStore } from "react";
 // the page its website embeds in an iframe. Without a municipality
 // (`#/consulta`) there is nothing to show, and no municipality is ever listed.
 //
-// The panel carries its municipality in the URL too (`#/paez/cargas`), so each
-// tab works with the municipality of its own address (SL-122, section 7).
-// Configuración has a tab per thing to set up, each with its own address
-// (`#/paez/configuracion/plantillas`), SL-170.
+// The panel carries its municipality in the URL too (`#/municipio-a/cargas`),
+// so each tab works with the municipality of its own address (SL-122,
+// section 7). Configuración has a tab per thing to set up, each with its own
+// address (`#/municipio-a/configuracion/plantillas`), SL-170.
 const PUBLIC_CONSULTATION_PREFIX = "#/consulta";
 
 export type SettingsTab = "plantillas" | "consulta";
@@ -112,7 +112,7 @@ export function adminHref(
 export interface AdminRoute {
   slug: string | null;
   view: AdminView;
-  // The address is an alias of the view (`#/paez/plantillas`): the panel
+  // The address is an alias of the view (`#/municipio-a/plantillas`): the panel
   // replaces it with the view's own address.
   isAlias: boolean;
 }

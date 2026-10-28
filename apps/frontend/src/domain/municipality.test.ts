@@ -11,18 +11,18 @@ import {
 
 describe("municipalityLabel", () => {
   it("adds the department, so namesakes stay apart", () => {
-    expect(municipalityLabel({ name: "Páez", state: "Boyacá" })).toBe(
-      "Páez, Boyacá",
+    expect(municipalityLabel({ name: "Ejemplo", state: "Norte" })).toBe(
+      "Ejemplo, Norte",
     );
-    expect(municipalityLabel({ name: "Páez", state: "Cauca" })).toBe(
-      "Páez, Cauca",
+    expect(municipalityLabel({ name: "Ejemplo", state: "Sur" })).toBe(
+      "Ejemplo, Sur",
     );
   });
 });
 
 describe("suggestSlug", () => {
   it("drops accents, case and anything that isn't a letter or digit", () => {
-    expect(suggestSlug("Páez")).toBe("paez");
+    expect(suggestSlug("Peñón Ejemplo")).toBe("penon-ejemplo");
     expect(suggestSlug("San José de Pare")).toBe("san-jose-de-pare");
     expect(suggestSlug("  Villa de Leyva!! ")).toBe("villa-de-leyva");
     expect(suggestSlug("Güicán de la Sierra")).toBe("guican-de-la-sierra");
@@ -41,19 +41,19 @@ describe("suggestSlug", () => {
 
 describe("isValidSlug", () => {
   it("accepts lowercase words joined by single hyphens", () => {
-    expect(isValidSlug("paez")).toBe(true);
-    expect(isValidSlug("paez-cauca")).toBe(true);
+    expect(isValidSlug("municipio-a")).toBe(true);
+    expect(isValidSlug("municipio-b")).toBe(true);
     expect(isValidSlug("villa2")).toBe(true);
   });
 
   it("rejects anything the backend would reject", () => {
     for (const slug of [
       "",
-      "Paez",
-      "paez--cauca",
-      "-paez",
-      "paez-",
-      "pá-ez",
+      "Municipio-A",
+      "municipio--b",
+      "-municipio-a",
+      "municipio-a-",
+      "peñón-ejemplo",
       "a".repeat(61),
     ]) {
       expect(isValidSlug(slug)).toBe(false);
@@ -65,7 +65,7 @@ describe("isReservedSlug", () => {
   it("keeps the public consultation's address free", () => {
     expect(isReservedSlug("consulta")).toBe(true);
     expect(isReservedSlug("consulta-publica")).toBe(false);
-    expect(isReservedSlug("paez")).toBe(false);
+    expect(isReservedSlug("municipio-a")).toBe(false);
   });
 });
 
@@ -81,35 +81,39 @@ describe("isValidDaneCode", () => {
 describe("sortMunicipalities", () => {
   it("orders by name, then department, ignoring accents", () => {
     const sorted = sortMunicipalities([
-      { name: "Tunja", state: "Boyacá" },
-      { name: "Páez", state: "Cauca" },
-      { name: "Paipa", state: "Boyacá" },
-      { name: "Páez", state: "Boyacá" },
+      { name: "Zeta", state: "Norte" },
+      { name: "Ejemplo", state: "Sur" },
+      { name: "Ébano", state: "Norte" },
+      { name: "Ejemplo", state: "Norte" },
     ]);
     expect(sorted.map(municipalityLabel)).toEqual([
-      "Páez, Boyacá",
-      "Páez, Cauca",
-      "Paipa, Boyacá",
-      "Tunja, Boyacá",
+      "Ébano, Norte",
+      "Ejemplo, Norte",
+      "Ejemplo, Sur",
+      "Zeta, Norte",
     ]);
   });
 });
 
 describe("pickInitialMunicipality", () => {
-  const list = [{ slug: "paez" }, { slug: "paez-cauca" }];
+  const list = [{ slug: "municipio-a" }, { slug: "municipio-b" }];
 
   it("opens the last municipality used in this browser", () => {
-    expect(pickInitialMunicipality(list, "paez-cauca")).toEqual({
-      slug: "paez-cauca",
+    expect(pickInitialMunicipality(list, "municipio-b")).toEqual({
+      slug: "municipio-b",
     });
   });
 
   it("falls back to the first when the last one is unknown or missing", () => {
-    expect(pickInitialMunicipality(list, "otro")).toEqual({ slug: "paez" });
-    expect(pickInitialMunicipality(list, null)).toEqual({ slug: "paez" });
+    expect(pickInitialMunicipality(list, "otro")).toEqual({
+      slug: "municipio-a",
+    });
+    expect(pickInitialMunicipality(list, null)).toEqual({
+      slug: "municipio-a",
+    });
   });
 
   it("has nothing to open without municipalities", () => {
-    expect(pickInitialMunicipality([], "paez")).toBeNull();
+    expect(pickInitialMunicipality([], "municipio-a")).toBeNull();
   });
 });

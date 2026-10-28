@@ -11,39 +11,41 @@ import {
 
 describe("parseAdminRoute", () => {
   it("reads the municipality and the view of #/:slug/:view", () => {
-    expect(parseAdminRoute("#/paez/liquidaciones")).toEqual({
-      slug: "paez",
+    expect(parseAdminRoute("#/municipio-a/liquidaciones")).toEqual({
+      slug: "municipio-a",
       view: "liquidaciones",
       isAlias: false,
     });
-    expect(parseAdminRoute("#/paez-cauca/configuracion/plantillas")).toEqual({
-      slug: "paez-cauca",
+    expect(parseAdminRoute("#/municipio-b/configuracion/plantillas")).toEqual({
+      slug: "municipio-b",
       view: "configuracion/plantillas",
       isAlias: false,
     });
-    expect(parseAdminRoute("#/paez/configuracion/consulta/?x=1")).toEqual({
-      slug: "paez",
+    expect(
+      parseAdminRoute("#/municipio-a/configuracion/consulta/?x=1"),
+    ).toEqual({
+      slug: "municipio-a",
       view: "configuracion/consulta",
       isAlias: false,
     });
   });
 
   it("takes the old Plantillas and Consulta pública addresses to their tab", () => {
-    expect(parseAdminRoute("#/paez/plantillas")).toEqual({
-      slug: "paez",
+    expect(parseAdminRoute("#/municipio-a/plantillas")).toEqual({
+      slug: "municipio-a",
       view: "configuracion/plantillas",
       isAlias: true,
     });
-    expect(parseAdminRoute("#/paez/consulta-publica?x=1")).toEqual({
-      slug: "paez",
+    expect(parseAdminRoute("#/municipio-a/consulta-publica?x=1")).toEqual({
+      slug: "municipio-a",
       view: "configuracion/consulta",
       isAlias: true,
     });
   });
 
   it("opens the first tab of Configuración when the address has none", () => {
-    expect(parseAdminRoute("#/paez/configuracion")).toEqual({
-      slug: "paez",
+    expect(parseAdminRoute("#/municipio-a/configuracion")).toEqual({
+      slug: "municipio-a",
       view: "configuracion/plantillas",
       isAlias: true,
     });
@@ -51,14 +53,14 @@ describe("parseAdminRoute", () => {
 
   it("opens Cartera when the view is missing or unknown", () => {
     for (const hash of [
-      "#/paez",
-      "#/paez/",
-      "#/paez/otra",
-      "#/paez/configuracion/otra",
-      "#/paez/liquidaciones/otra",
+      "#/municipio-a",
+      "#/municipio-a/",
+      "#/municipio-a/otra",
+      "#/municipio-a/configuracion/otra",
+      "#/municipio-a/liquidaciones/otra",
     ]) {
       expect(parseAdminRoute(hash)).toEqual({
-        slug: "paez",
+        slug: "municipio-a",
         view: "cargas",
         isAlias: false,
       });
@@ -89,7 +91,7 @@ describe("parseAdminRoute", () => {
   });
 
   it("keeps a malformed slug so the panel can report it", () => {
-    expect(parseAdminRoute("#/Paez/cargas").slug).toBe("Paez");
+    expect(parseAdminRoute("#/Municipio-A/cargas").slug).toBe("Municipio-A");
     expect(parseAdminRoute("#/%E0%A4%A/cargas").slug).toBe("%E0%A4%A");
   });
 
@@ -101,15 +103,15 @@ describe("parseAdminRoute", () => {
       "configuracion/plantillas",
       "configuracion/consulta",
     ] as const) {
-      expect(parseAdminRoute(adminHref("paez-cauca", view))).toEqual({
-        slug: "paez-cauca",
+      expect(parseAdminRoute(adminHref("municipio-b", view))).toEqual({
+        slug: "municipio-b",
         view,
         isAlias: false,
       });
     }
-    expect(adminHref("paez")).toBe("#/paez/cargas");
-    expect(adminHref("paez", settingsView("consulta"))).toBe(
-      "#/paez/configuracion/consulta",
+    expect(adminHref("municipio-a")).toBe("#/municipio-a/cargas");
+    expect(adminHref("municipio-a", settingsView("consulta"))).toBe(
+      "#/municipio-a/configuracion/consulta",
     );
   });
 });
@@ -131,14 +133,14 @@ describe("adminSectionOf and settingsTabOf", () => {
 
 describe("parsePublicConsultationRoute", () => {
   it("reads the municipality slug of #/consulta/:slug", () => {
-    expect(parsePublicConsultationRoute("#/consulta/paez")).toEqual({
-      slug: "paez",
+    expect(parsePublicConsultationRoute("#/consulta/municipio-a")).toEqual({
+      slug: "municipio-a",
     });
-    expect(parsePublicConsultationRoute("#/consulta/paez-cauca/")).toEqual({
-      slug: "paez-cauca",
+    expect(parsePublicConsultationRoute("#/consulta/municipio-b/")).toEqual({
+      slug: "municipio-b",
     });
-    expect(parsePublicConsultationRoute("#/consulta/paez?x=1")).toEqual({
-      slug: "paez",
+    expect(parsePublicConsultationRoute("#/consulta/municipio-a?x=1")).toEqual({
+      slug: "municipio-a",
     });
   });
 
@@ -150,12 +152,12 @@ describe("parsePublicConsultationRoute", () => {
 
   it("treats a malformed slug or extra path as no municipality", () => {
     for (const hash of [
-      "#/consulta/Paez",
-      "#/consulta/pa ez",
-      "#/consulta/-paez",
-      "#/consulta/paez--x",
+      "#/consulta/Municipio-A",
+      "#/consulta/municipio a",
+      "#/consulta/-municipio-a",
+      "#/consulta/municipio-a--x",
       "#/consulta/%E0%A4%A",
-      "#/consulta/paez/otra",
+      "#/consulta/municipio-a/otra",
       "#/consulta/..%2Fcargas",
     ]) {
       expect(parsePublicConsultationRoute(hash)).toEqual({ slug: null });
@@ -169,8 +171,8 @@ describe("parsePublicConsultationRoute", () => {
       "#/cargas",
       "#/liquidaciones",
       "#/consulta-publica",
-      "#/paez/configuracion/consulta",
-      "#/consultas/paez",
+      "#/municipio-a/configuracion/consulta",
+      "#/consultas/municipio-a",
     ]) {
       expect(parsePublicConsultationRoute(hash)).toBeNull();
     }
@@ -178,7 +180,7 @@ describe("parsePublicConsultationRoute", () => {
 
   it("round-trips through publicConsultationHref", () => {
     expect(
-      parsePublicConsultationRoute(publicConsultationHref("paez-cauca")),
-    ).toEqual({ slug: "paez-cauca" });
+      parsePublicConsultationRoute(publicConsultationHref("municipio-b")),
+    ).toEqual({ slug: "municipio-b" });
   });
 });

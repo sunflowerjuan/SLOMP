@@ -104,13 +104,13 @@ function sidebar() {
         `<a class="admin-layout__link" href="#/${id}" data-slide-item ${active ? 'aria-current="page"' : ""}>${icon}<span>${label}</span></a>`,
     )
     .join("");
-  const brand = `<span class="admin-layout__mark" aria-hidden="true">${ICON.brand}</span><span class="admin-layout__brand-text"><span class="admin-layout__brand">SLOMP</span>${phone ? '<span class="admin-layout__brand-context">Páez</span>' : ""}</span>`;
+  const brand = `<span class="admin-layout__mark" aria-hidden="true">${ICON.brand}</span><span class="admin-layout__brand-text"><span class="admin-layout__brand">SLOMP</span>${phone ? '<span class="admin-layout__brand-context">Ejemplo</span>' : ""}</span>`;
   return `
   <aside class="admin-layout__side" ${phone ? "" : "data-switcher"}>
     <div class="admin-layout__brandbar">
-      ${phone ? `<button type="button" class="admin-layout__brand-button" aria-label="Menú. Municipio: Páez">${brand}</button>` : `<div class="admin-layout__brand-button">${brand}</div>`}
+      ${phone ? `<button type="button" class="admin-layout__brand-button" aria-label="Menú. Municipio: Ejemplo">${brand}</button>` : `<div class="admin-layout__brand-button">${brand}</div>`}
     </div>
-    ${phone ? "" : `<div class="admin-layout__switcher"><button type="button" class="admin-layout__switcher-button" aria-haspopup="listbox"><span class="admin-layout__switcher-label">Páez</span>${ICON.chevron}</button></div>`}
+    ${phone ? "" : `<div class="admin-layout__switcher"><button type="button" class="admin-layout__switcher-button" aria-haspopup="listbox"><span class="admin-layout__switcher-label">Ejemplo</span>${ICON.chevron}</button></div>`}
     <nav class="admin-layout__nav" aria-label="Panel Administrador"><span class="admin-layout__indicator" aria-hidden="true"></span>${links}</nav>
     ${
       phone
@@ -365,7 +365,7 @@ function chat() {
   <section id="slompsim" class="sl-chat" role="dialog" aria-modal="false" aria-labelledby="sl-title">
     <header class="sl-chat__header">
       <span class="sl-chat__mark" aria-hidden="true">${ICON.spark}</span>
-      <div class="sl-chat__heading"><h2 id="sl-title" class="sl-chat__title">Slompsim</h2><p class="sl-chat__context">Páez</p></div>
+      <div class="sl-chat__heading"><h2 id="sl-title" class="sl-chat__title">Slompsim</h2><p class="sl-chat__context">Ejemplo</p></div>
       ${empty ? "" : '<button type="button" class="sl-text-button">Nueva conversación</button>'}
       <button type="button" class="sl-icon-button" aria-label="Cerrar Slompsim">${ICON.close}</button>
     </header>

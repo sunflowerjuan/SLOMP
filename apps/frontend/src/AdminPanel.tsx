@@ -129,9 +129,9 @@ function viewPage(view: AdminView, municipality: Municipality) {
   }
 }
 
-// The panel works in the municipality of its URL (#/paez/cargas). Switching
-// municipality only changes the URL; the screens are keyed by the slug, so
-// nothing of the previous municipality survives (SL-122, section 7).
+// The panel works in the municipality of its URL (#/municipio-a/cargas).
+// Switching municipality only changes the URL; the screens are keyed by the
+// slug, so nothing of the previous municipality survives (SL-122, section 7).
 export function AdminPanel() {
   const { signOut } = useAuth();
   const route = useAdminRoute();
@@ -151,7 +151,8 @@ export function AdminPanel() {
       : null;
 
   // No municipality in the address: open the last one used, or the first.
-  // An old address of a view (#/paez/plantillas) moves to the view's own.
+  // An old address of a view (#/municipio-a/plantillas) moves to the view's
+  // own.
   // replace() keeps the address replaced out of the history.
   let redirectTo: string | null = null;
   if (!route.slug) {
