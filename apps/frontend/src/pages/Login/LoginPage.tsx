@@ -7,8 +7,8 @@ import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { Notice } from "../../components/ui/Notice";
 import { readLastMunicipalitySlug } from "../../api/lastMunicipality";
-import { DEFAULT_PUBLIC_CONSULTATION_SLUG } from "../../api/municipality";
-import { currentAdminSlug, publicConsultationHref } from "../../routes";
+import { loginConsultationHref } from "../../api/municipality";
+import { currentAdminSlug } from "../../routes";
 
 interface LoginFormErrors {
   email?: string;
@@ -22,6 +22,10 @@ export function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const { signIn, sessionEndReason } = useAuth();
+  const consultationHref = loginConsultationHref(
+    currentAdminSlug(),
+    readLastMunicipalitySlug(),
+  );
 
   function validate(): LoginFormErrors {
     const nextErrors: LoginFormErrors = {};
@@ -63,18 +67,14 @@ export function LoginPage() {
     <AuthLayout
       title="Ingresar"
       footer={
-        <>
-          ¿Eres contribuyente?{" "}
-          <a
-            href={publicConsultationHref(
-              currentAdminSlug() ??
-                readLastMunicipalitySlug() ??
-                DEFAULT_PUBLIC_CONSULTATION_SLUG,
-            )}
-          >
-            Consulta tus liquidaciones sin iniciar sesión
-          </a>
-        </>
+        consultationHref && (
+          <>
+            ¿Eres contribuyente?{" "}
+            <a href={consultationHref}>
+              Consulta tus liquidaciones sin iniciar sesión
+            </a>
+          </>
+        )
       }
     >
       <form className="auth-layout__form" onSubmit={handleSubmit} noValidate>

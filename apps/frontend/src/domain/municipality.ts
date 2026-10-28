@@ -20,8 +20,8 @@ export interface MunicipalityName {
   state: string;
 }
 
-// "Páez, Boyacá": the department is part of the name, since two
-// municipalities can share one (Páez, Boyacá and Páez, Cauca).
+// "Nombre, Departamento": the department is part of the name, since two
+// municipalities in different departments can share one.
 export function municipalityLabel({ name, state }: MunicipalityName): string {
   return `${name}, ${state}`;
 }
@@ -38,8 +38,9 @@ export function isReservedSlug(value: string): boolean {
   return RESERVED_SLUGS.includes(value);
 }
 
-// Proposes a slug from the name ("Páez" -> "paez"), same as the backend. Only
-// a suggestion: the dialog lets the super user change it before creating.
+// Proposes a slug from the name ("Peñón Ejemplo" -> "penon-ejemplo"), same as
+// the backend. Only a suggestion: the dialog lets the super user change it
+// before creating.
 export function suggestSlug(name: string): string {
   return name
     .normalize("NFD")
