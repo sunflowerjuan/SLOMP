@@ -1,42 +1,90 @@
 import { describe, expect, it } from "vitest";
 import {
   adminHref,
+  adminSectionOf,
   parseAdminRoute,
   parsePublicConsultationRoute,
   publicConsultationHref,
+  settingsTabOf,
+  settingsView,
 } from "./routes";
 
 describe("parseAdminRoute", () => {
-  it("reads the municipality and the section of #/:slug/:section", () => {
+  it("reads the municipality and the view of #/:slug/:view", () => {
     expect(parseAdminRoute("#/paez/liquidaciones")).toEqual({
       slug: "paez",
-      section: "liquidaciones",
+      view: "liquidaciones",
+      isAlias: false,
     });
-    expect(parseAdminRoute("#/paez-cauca/plantillas")).toEqual({
+    expect(parseAdminRoute("#/paez-cauca/configuracion/plantillas")).toEqual({
       slug: "paez-cauca",
-      section: "plantillas",
+      view: "configuracion/plantillas",
+      isAlias: false,
     });
-    expect(parseAdminRoute("#/paez/consulta-publica?x=1")).toEqual({
+    expect(parseAdminRoute("#/paez/configuracion/consulta/?x=1")).toEqual({
       slug: "paez",
-      section: "consulta-publica",
+      view: "configuracion/consulta",
+      isAlias: false,
     });
   });
 
-  it("opens Carga de Excel when the section is missing or unknown", () => {
-    for (const hash of ["#/paez", "#/paez/", "#/paez/otra"]) {
+  it("takes the old Plantillas and Consulta pública addresses to their tab", () => {
+    expect(parseAdminRoute("#/paez/plantillas")).toEqual({
+      slug: "paez",
+      view: "configuracion/plantillas",
+      isAlias: true,
+    });
+    expect(parseAdminRoute("#/paez/consulta-publica?x=1")).toEqual({
+      slug: "paez",
+      view: "configuracion/consulta",
+      isAlias: true,
+    });
+  });
+
+  it("opens the first tab of Configuración when the address has none", () => {
+    expect(parseAdminRoute("#/paez/configuracion")).toEqual({
+      slug: "paez",
+      view: "configuracion/plantillas",
+      isAlias: true,
+    });
+  });
+
+  it("opens Cartera when the view is missing or unknown", () => {
+    for (const hash of [
+      "#/paez",
+      "#/paez/",
+      "#/paez/otra",
+      "#/paez/configuracion/otra",
+      "#/paez/liquidaciones/otra",
+    ]) {
       expect(parseAdminRoute(hash)).toEqual({
         slug: "paez",
-        section: "cargas",
+        view: "cargas",
+        isAlias: false,
       });
     }
   });
 
-  it("has no municipality for #/ or a section-only link from before SL-126", () => {
-    expect(parseAdminRoute("")).toEqual({ slug: null, section: "cargas" });
-    expect(parseAdminRoute("#/")).toEqual({ slug: null, section: "cargas" });
+  it("has no municipality for #/ or a view-only link from before SL-126", () => {
+    expect(parseAdminRoute("")).toEqual({
+      slug: null,
+      view: "cargas",
+      isAlias: false,
+    });
+    expect(parseAdminRoute("#/")).toEqual({
+      slug: null,
+      view: "cargas",
+      isAlias: false,
+    });
     expect(parseAdminRoute("#/liquidaciones")).toEqual({
       slug: null,
-      section: "liquidaciones",
+      view: "liquidaciones",
+      isAlias: false,
+    });
+    expect(parseAdminRoute("#/plantillas")).toEqual({
+      slug: null,
+      view: "configuracion/plantillas",
+      isAlias: true,
     });
   });
 
@@ -45,12 +93,39 @@ describe("parseAdminRoute", () => {
     expect(parseAdminRoute("#/%E0%A4%A/cargas").slug).toBe("%E0%A4%A");
   });
 
-  it("round-trips through adminHref", () => {
-    expect(parseAdminRoute(adminHref("paez-cauca", "plantillas"))).toEqual({
-      slug: "paez-cauca",
-      section: "plantillas",
-    });
+  it("round-trips every view through adminHref", () => {
+    for (const view of [
+      "cargas",
+      "liquidaciones",
+      "mandamientos",
+      "configuracion/plantillas",
+      "configuracion/consulta",
+    ] as const) {
+      expect(parseAdminRoute(adminHref("paez-cauca", view))).toEqual({
+        slug: "paez-cauca",
+        view,
+        isAlias: false,
+      });
+    }
     expect(adminHref("paez")).toBe("#/paez/cargas");
+    expect(adminHref("paez", settingsView("consulta"))).toBe(
+      "#/paez/configuracion/consulta",
+    );
+  });
+});
+
+describe("adminSectionOf and settingsTabOf", () => {
+  it("puts both tabs of Configuración under its single menu entry", () => {
+    expect(adminSectionOf("configuracion/plantillas")).toBe("configuracion");
+    expect(adminSectionOf("configuracion/consulta")).toBe("configuracion");
+    expect(settingsTabOf("configuracion/consulta")).toBe("consulta");
+  });
+
+  it("leaves the other views as their own entry, with no tab", () => {
+    for (const view of ["cargas", "liquidaciones", "mandamientos"] as const) {
+      expect(adminSectionOf(view)).toBe(view);
+      expect(settingsTabOf(view)).toBeNull();
+    }
   });
 });
 
@@ -94,6 +169,7 @@ describe("parsePublicConsultationRoute", () => {
       "#/cargas",
       "#/liquidaciones",
       "#/consulta-publica",
+      "#/paez/configuracion/consulta",
       "#/consultas/paez",
     ]) {
       expect(parsePublicConsultationRoute(hash)).toBeNull();

@@ -1,7 +1,8 @@
-/* Exactly one screen tall; .ui-screen__body is the only scroll container. */
+/* Fills the panel under its top bar (and above the phone's bar, which the
+   layout leaves room for); .ui-screen__body is the only scroll container. */
 .ui-screen {
-  height: 100vh;
-  height: 100dvh;
+  flex: 1;
+  min-height: 0;
   padding-bottom: 0;
   overflow: hidden;
 }
@@ -38,16 +39,7 @@
   flex-shrink: 0;
 }
 
-/* The nav is a fixed bar at the bottom; the main area keeps room for it (same
-   sum as .admin-layout__main's bottom padding). */
 @media (max-width: 900px) {
-  .ui-screen {
-    height: calc(
-      100dvh - 68px - var(--space-16) -
-        max(var(--space-8), env(safe-area-inset-bottom, 0px))
-    );
-  }
-
   /* The fixed zone stays under 30% of the usable height. */
   .ui-screen {
     gap: var(--space-16);

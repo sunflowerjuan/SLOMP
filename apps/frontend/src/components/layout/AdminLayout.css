@@ -9,14 +9,15 @@
   left: var(--space-16);
   top: var(--space-16);
   z-index: 20;
+  display: inline-flex;
+  align-items: center;
   min-height: var(--tap-size);
   padding: 0 var(--space-16);
-  border: 0;
   border-radius: var(--radius-default);
   background-color: var(--semantic-primary);
   color: var(--semantic-on-primary);
-  font: inherit;
   font-weight: 600;
+  text-decoration: none;
   transform: translateY(-200%);
 }
 
@@ -48,46 +49,48 @@
   padding: var(--space-4) var(--space-8) var(--space-24);
 }
 
-/* With the municipality selector, the brand's gap moves below the selector. */
-.admin-layout__side[data-switcher] .admin-layout__brandbar {
-  padding-bottom: var(--space-12);
-}
-
-.admin-layout__brand-text {
+/* Everything beside the sidebar: the top bar, then the screen. One viewport
+   tall, so the top bar never scrolls; the screen scrolls inside. */
+.admin-layout__column {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-4);
   min-width: 0;
+  height: 100vh;
+  height: 100dvh;
 }
 
-/* Phone only (see the max-width: 900px block). */
-.admin-layout__brand-context {
-  display: none;
+/* Lined up with the screen's own padding below it. */
+.admin-layout__topbar {
+  box-sizing: content-box;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-12);
+  height: var(--shell-topbar-height);
+  margin-top: var(--space-12);
+  padding: 0 var(--space-32);
 }
 
-/* Desktop selector: the active municipality under SLOMP, shaped as a field so
-   it reads as something to change, not as a title. */
+/* The active municipality: a pill that opens the list. */
 .admin-layout__switcher {
   position: relative;
-  margin: 0 0 var(--space-24);
+  min-width: 0;
 }
 
 .admin-layout__switcher-button {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-8);
-  width: 100%;
+  max-width: 100%;
   min-height: var(--tap-size);
-  padding: var(--space-8) 14px;
-  border: 1px solid var(--semantic-border);
-  border-radius: var(--radius-ctl);
-  background-color: var(--semantic-surface);
+  padding: 0 var(--space-12) 0 var(--space-12);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background-color: var(--semantic-surface-muted);
   font: inherit;
   font-size: var(--text-md);
   font-weight: 500;
-  line-height: 1.3;
   color: var(--semantic-text);
   text-align: left;
   cursor: pointer;
@@ -100,21 +103,29 @@
   transform: scale(0.98);
 }
 
+/* One line; a long name ends in an ellipsis (the button's label has it all). */
 .admin-layout__switcher-label {
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.admin-layout__switcher-button svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--semantic-text-muted);
 }
 
 /* The chevron turns while the list is open. */
-.admin-layout__switcher-button svg {
-  flex: none;
+.admin-layout__switcher-button svg:last-child {
   width: 16px;
   height: 16px;
-  color: var(--semantic-text-muted);
   transition: transform var(--duration-base) var(--ease-out);
 }
 
-.admin-layout__switcher-button[aria-expanded="true"] svg {
+.admin-layout__switcher-button[aria-expanded="true"] svg:last-child {
   transform: rotate(180deg);
 }
 
@@ -124,7 +135,7 @@
   }
 }
 
-/* The logo is the account menu trigger. */
+/* On a phone the logo is the account menu trigger. */
 .admin-layout__brand-button {
   display: flex;
   align-items: center;
@@ -158,9 +169,10 @@ button.admin-layout__brand-button:active {
   margin-top: auto;
 }
 
+/* Opens below its trigger: the phone's logo or the municipality pill. */
 .admin-layout__menu {
   position: absolute;
-  top: calc(100% - var(--space-12));
+  top: calc(100% + var(--space-4));
   left: 0;
   z-index: 10;
   min-width: 220px;
@@ -172,22 +184,14 @@ button.admin-layout__brand-button:active {
   animation: admin-layout-menu-in var(--duration-base) var(--ease-out);
 }
 
-/* Opens from the selector, as wide as it; a long list scrolls inside. */
+/* At least as wide as the pill, and room for "Agregar municipio" on one
+   line; a long list scrolls inside. */
 .admin-layout__menu--switcher {
-  top: calc(100% + var(--space-4));
-  right: 0;
-  min-width: 0;
+  min-width: max(100%, 264px);
+  max-width: calc(100vw - 2 * var(--space-16));
   max-height: min(60dvh, 420px);
   overflow-y: auto;
   overscroll-behavior: contain;
-}
-
-.admin-layout__menu-heading {
-  margin: 0;
-  padding: var(--space-8) 14px var(--space-4);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--semantic-text-muted);
 }
 
 .admin-layout__menu-separator {
@@ -202,8 +206,7 @@ button.admin-layout__brand-button:active {
   line-height: 1.3;
 }
 
-.admin-layout__option[aria-checked="true"],
-.admin-layout__menu-item[aria-current="page"] {
+.admin-layout__option[aria-checked="true"] {
   font-weight: 600;
 }
 
@@ -217,13 +220,6 @@ button.admin-layout__brand-button:active {
 .admin-layout__option-label {
   min-width: 0;
   overflow-wrap: anywhere;
-}
-
-@keyframes admin-layout-menu-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(6px) scale(0.97);
-  }
 }
 
 @keyframes admin-layout-menu-in {
@@ -261,7 +257,7 @@ button.admin-layout__brand-button:active {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-16);
   user-select: none;
   -webkit-user-select: none;
 }
@@ -277,6 +273,20 @@ button.admin-layout__brand-button:active {
 
 .admin-layout__nav[data-dragging] {
   cursor: grabbing;
+}
+
+.admin-layout__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* A label, not a link: nothing to click or focus. */
+.admin-layout__group-title {
+  padding: 0 14px var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--semantic-text-muted);
 }
 
 .admin-layout__indicator {
@@ -348,8 +358,11 @@ button.admin-layout__brand-button:active {
 }
 
 .admin-layout__main {
+  display: flex;
   flex: 1;
-  min-width: 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .admin-layout__main:focus {
@@ -361,7 +374,7 @@ button.admin-layout__brand-button:active {
     flex-direction: column;
   }
 
-  /* Action bar at the bottom, within thumb reach; the page leaves room. */
+  /* Action bar at the bottom, within thumb reach; the column leaves room. */
   .admin-layout__side {
     position: fixed;
     top: auto;
@@ -371,23 +384,31 @@ button.admin-layout__brand-button:active {
     z-index: 5;
     flex-direction: row;
     align-items: center;
-    gap: var(--space-8);
     width: auto;
-    height: 68px;
+    height: var(--shell-tabbar-height);
     margin: 0;
     padding: 6px;
-    /* Not clipped: the account menu opens above the bar. */
     overflow: visible;
   }
 
-  .admin-layout__main {
+  .admin-layout__column {
     padding-bottom: calc(
-      68px + var(--space-16) + max(var(--space-8), env(safe-area-inset-bottom))
+      var(--shell-tabbar-height) + var(--space-16) +
+        max(var(--space-8), env(safe-area-inset-bottom))
     );
   }
 
+  /* viewport-fit=cover: the top bar pads away from the notch itself. */
+  .admin-layout__topbar {
+    margin-top: 0;
+    padding: env(safe-area-inset-top, 0px)
+      max(var(--space-16), env(safe-area-inset-right, 0px)) 0
+      max(var(--space-16), env(safe-area-inset-left, 0px));
+  }
+
   .admin-layout__brandbar {
-    padding: 0 6px;
+    flex: none;
+    padding: 0;
   }
 
   .admin-layout__mark {
@@ -399,23 +420,6 @@ button.admin-layout__brand-button:active {
     font-size: var(--text-xl);
   }
 
-  /* The bar has no selector: the municipality goes under the brand. */
-  .admin-layout__brand-text {
-    gap: 0;
-  }
-
-  .admin-layout__brand-context {
-    display: block;
-    max-width: 9rem;
-    overflow: hidden;
-    font-size: var(--text-sm);
-    font-weight: 500;
-    line-height: 1.2;
-    color: var(--semantic-text-muted);
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-
   .admin-layout__link svg {
     display: none;
   }
@@ -423,6 +427,37 @@ button.admin-layout__brand-button:active {
   .admin-layout__nav {
     flex: 1;
     flex-direction: row;
+    gap: 0;
+    min-width: 0;
+  }
+
+  /* Grows by its number of links: all get the same width while it fits;
+     otherwise none goes below its word, which never breaks. */
+  .admin-layout__group {
+    flex: var(--group-size, 1) 1 0;
+    flex-direction: row;
+    align-items: center;
+    gap: 0;
+  }
+
+  /* No room for the titles: a divider marks where setup starts. */
+  .admin-layout__group-title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .admin-layout__group + .admin-layout__group::before {
+    content: "";
+    flex: none;
+    width: 1px;
+    height: var(--space-24);
+    margin: 0 var(--space-4);
+    background-color: var(--grafito-400);
   }
 
   .admin-layout__link {
@@ -433,28 +468,38 @@ button.admin-layout__brand-button:active {
     font-size: var(--text-md);
     white-space: nowrap;
   }
+}
 
-  /* The menu opens upward from the logo, above the bar. */
-  .admin-layout__menu {
-    top: auto;
-    bottom: calc(100% + var(--space-12));
-    /* Wide enough for "Agregar municipio" on one line, never taller than the
-       room above the bar (a long list scrolls) nor wider than the screen. */
-    min-width: 264px;
-    max-height: calc(100dvh - 68px - 3 * var(--space-16));
-    max-width: calc(100vw - 2 * var(--space-8));
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    transform-origin: bottom left;
-    animation-name: admin-layout-menu-in-up;
+/* Below 769px the four labels only fit at the small size. */
+@media (max-width: 768px) {
+  .admin-layout__link {
+    padding: 0 var(--space-4);
+    font-size: var(--text-sm);
   }
 }
 
-/* The bar's sections and the brand only fit side by side from 769px: below,
-   the brand stays for screen readers and the labels wrap (long words
-   included, hyphenated where the browser can). */
-@media (max-width: 768px) {
-  .admin-layout__brand-text {
+/* Phones: the bar hands its padding to the labels, setup shows its icon
+   only (four words don't fit from 375px), and the logo leaves the brand name
+   out so the pill has room. */
+@media (max-width: 480px) {
+  .admin-layout__side {
+    padding: var(--space-4);
+  }
+
+  .admin-layout__group[data-icons-on-phone] {
+    flex: none;
+  }
+
+  .admin-layout__group[data-icons-on-phone] .admin-layout__link {
+    min-width: var(--tap-size);
+    padding: 0 var(--space-8);
+  }
+
+  .admin-layout__group[data-icons-on-phone] .admin-layout__link svg {
+    display: block;
+  }
+
+  .admin-layout__group[data-icons-on-phone] .admin-layout__label {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -463,36 +508,8 @@ button.admin-layout__brand-button:active {
     white-space: nowrap;
   }
 
-  .admin-layout__nav {
-    min-width: 0;
-  }
-
-  .admin-layout__link {
-    min-width: 0;
-    padding: 0 var(--space-4);
-    font-size: var(--text-sm);
-    line-height: 1.15;
-    text-align: center;
-    white-space: normal;
-    overflow-wrap: anywhere;
-    hyphens: auto;
-  }
-}
-
-/* Phones: the bar hands its padding to the labels, so "Liquidaciones" and
-   "Mandamientos" fit whole from 375px wide. */
-@media (max-width: 480px) {
-  .admin-layout__side {
-    gap: var(--space-4);
-    padding: var(--space-4);
-  }
-
-  .admin-layout__brandbar {
-    padding-inline: 0;
-  }
-
-  .admin-layout__link {
-    padding: 0;
+  .admin-layout__brand {
+    display: none;
   }
 }
 

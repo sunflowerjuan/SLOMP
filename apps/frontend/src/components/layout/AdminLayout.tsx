@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { Icon } from "../ui/Icon";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { useSlidingIndicator } from "../../hooks/useSlidingIndicator";
 import { moveMenuFocus } from "./menuFocus";
-import { MunicipalityOptions } from "./MunicipalityOptions";
 import type { MunicipalitySwitch } from "./MunicipalityOptions";
 import { MunicipalitySwitcher } from "./MunicipalitySwitcher";
 import "./AdminLayout.css";
@@ -14,9 +13,17 @@ export interface AdminNavItem {
   label: string;
   href: string;
   icon: ReactNode;
-  // Setup sections: on a phone they open from the logo menu, so the bar keeps
-  // only the daily work and its labels fit.
-  inMenuOnPhone?: boolean;
+}
+
+// Entries that go together under a title. The title is not a link and takes
+// no focus; on a phone a divider shows it (SL-170).
+export interface AdminNavGroup {
+  id: string;
+  label: string;
+  items: AdminNavItem[];
+  // On a phone its links show only their icon, so the daily work keeps its
+  // words whole in the bar; the name stays for screen readers.
+  iconsOnPhone?: boolean;
 }
 
 // Account action (sign out, ...). On a phone they open from the logo; on
@@ -29,17 +36,16 @@ export interface AdminMenuItem {
 }
 
 interface AdminLayoutProps {
-  items: AdminNavItem[];
+  groups: AdminNavGroup[];
   activeId: string;
   menuItems: AdminMenuItem[];
-  // Active municipality and how to change it: under SLOMP on desktop, in the
-  // logo menu on a phone.
+  // Active municipality and how to change it: the pill of the top bar.
   switcher?: MunicipalitySwitch;
   children: ReactNode;
 }
 
 export function AdminLayout({
-  items,
+  groups,
   activeId,
   menuItems,
   switcher,
@@ -47,20 +53,15 @@ export function AdminLayout({
 }: AdminLayoutProps) {
   const mainRef = useRef<HTMLElement>(null);
   const brandRef = useRef<HTMLDivElement>(null);
+  const brandButtonRef = useRef<HTMLButtonElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const isFirstRender = useRef(true);
   const isCompact = useMediaQuery("(max-width: 900px)");
-  const barItems = isCompact
-    ? items.filter((item) => !item.inMenuOnPhone)
-    : items;
-  const menuSections = isCompact
-    ? items.filter((item) => item.inMenuOnPhone)
-    : [];
-  // -1 while a menu section is open on a phone: the bar marks none.
-  const activeIndex = barItems.findIndex((item) => item.id === activeId);
+  const items = groups.flatMap((group) => group.items);
+  const activeIndex = items.findIndex((item) => item.id === activeId);
   const { containerRef, indicatorStyle, dragging, axis, bind } =
     useSlidingIndicator<HTMLElement>(activeIndex, (index) => {
-      window.location.hash = barItems[index].href;
+      window.location.hash = items[index].href;
     });
   const activeSlug = switcher?.activeSlug;
 
@@ -74,17 +75,17 @@ export function AdminLayout({
     mainRef.current?.focus({ preventScroll: true });
   }, [activeId, activeSlug]);
 
-  // The logo opens the account menu; Escape or a tap elsewhere closes it.
+  // The logo opens the account menu; Escape (back to the logo) or a tap
+  // elsewhere closes it.
   useEffect(() => {
     if (!menuOpen) return;
     const close = (event: Event) => {
-      if (event.type === "keydown" && (event as KeyboardEvent).key !== "Escape")
+      if (event.type === "keydown") {
+        if ((event as KeyboardEvent).key !== "Escape") return;
+        brandButtonRef.current?.focus();
+      } else if (brandRef.current?.contains(event.target as Node)) {
         return;
-      if (
-        event.type === "pointerdown" &&
-        brandRef.current?.contains(event.target as Node)
-      )
-        return;
+      }
       setMenuOpen(false);
     };
     document.addEventListener("pointerdown", close);
@@ -94,8 +95,6 @@ export function AdminLayout({
       document.removeEventListener("keydown", close);
     };
   }, [menuOpen]);
-
-  const activeLabel = switcher?.activeLabel ?? null;
 
   const brand = (
     <>
@@ -107,13 +106,7 @@ export function AdminLayout({
           <path d="M10.6 16.4L10 20l2-1 2 1-.6-3.6" />
         </Icon>
       </span>
-      <span className="admin-layout__brand-text">
-        <span className="admin-layout__brand">SLOMP</span>
-        {/* Phone only: on desktop the selector below shows it. */}
-        {activeLabel && (
-          <span className="admin-layout__brand-context">{activeLabel}</span>
-        )}
-      </span>
+      <span className="admin-layout__brand">SLOMP</span>
     </>
   );
 
@@ -142,89 +135,23 @@ export function AdminLayout({
 
   return (
     <div className="admin-layout">
-      <button
-        type="button"
+      {/* Its default jump would change the hash, and the hash is the route. */}
+      <a
         className="admin-layout__skip"
-        onClick={() => mainRef.current?.focus()}
+        href="#main"
+        onClick={(event) => {
+          event.preventDefault();
+          mainRef.current?.focus();
+        }}
       >
         Saltar al contenido
-      </button>
-      <aside
-        className="admin-layout__side"
-        data-switcher={switcher ? "" : undefined}
-      >
-        <div ref={brandRef} className="admin-layout__brandbar">
-          {isCompact ? (
-            <button
-              type="button"
-              className="admin-layout__brand-button"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              aria-label={
-                activeLabel ? `Menú. Municipio: ${activeLabel}` : "Menú"
-              }
-              onClick={() => setMenuOpen((open) => !open)}
-            >
-              {brand}
-            </button>
-          ) : (
+      </a>
+      <aside className="admin-layout__side">
+        {!isCompact && (
+          <div className="admin-layout__brandbar">
             <div className="admin-layout__brand-button">{brand}</div>
-          )}
-          {isCompact && menuOpen && (
-            <div
-              className="admin-layout__menu"
-              role="menu"
-              aria-label="Menú"
-              onKeyDown={moveMenuFocus}
-            >
-              {switcher && (
-                <>
-                  <p className="admin-layout__menu-heading" aria-hidden="true">
-                    Municipio
-                  </p>
-                  <MunicipalityOptions
-                    switcher={switcher}
-                    onDone={() => setMenuOpen(false)}
-                  />
-                  <div
-                    role="separator"
-                    className="admin-layout__menu-separator"
-                  />
-                </>
-              )}
-              {menuSections.length > 0 && (
-                <>
-                  {menuSections.map((item, index) => (
-                    <a
-                      key={item.id}
-                      role="menuitem"
-                      className="admin-layout__menu-item"
-                      href={item.href}
-                      autoFocus={!switcher && index === 0}
-                      aria-current={item.id === activeId ? "page" : undefined}
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      {item.icon}
-                      {item.label}
-                    </a>
-                  ))}
-                  <div
-                    role="separator"
-                    className="admin-layout__menu-separator"
-                  />
-                </>
-              )}
-              {menuItems.map((item, index) =>
-                renderMenuItem(
-                  item,
-                  "menuitem",
-                  !switcher && menuSections.length === 0 && index === 0,
-                ),
-              )}
-            </div>
-          )}
-        </div>
-        {!isCompact && switcher && <MunicipalitySwitcher switcher={switcher} />}
+          </div>
+        )}
         <nav
           ref={containerRef}
           className="admin-layout__nav"
@@ -240,18 +167,36 @@ export function AdminLayout({
               aria-hidden="true"
             />
           )}
-          {barItems.map((item) => (
-            <a
-              key={item.id}
-              data-slide-item
-              className="admin-layout__link"
-              href={item.href}
-              draggable={false}
-              aria-current={item.id === activeId ? "page" : undefined}
+          {groups.map((group) => (
+            <div
+              key={group.id}
+              role="group"
+              aria-labelledby={`admin-nav-${group.id}`}
+              className="admin-layout__group"
+              data-icons-on-phone={group.iconsOnPhone || undefined}
+              // On a phone every link of the bar gets the same width.
+              style={{ "--group-size": group.items.length } as CSSProperties}
             >
-              {item.icon}
-              <span>{item.label}</span>
-            </a>
+              <span
+                id={`admin-nav-${group.id}`}
+                className="admin-layout__group-title"
+              >
+                {group.label}
+              </span>
+              {group.items.map((item) => (
+                <a
+                  key={item.id}
+                  data-slide-item
+                  className="admin-layout__link"
+                  href={item.href}
+                  draggable={false}
+                  aria-current={item.id === activeId ? "page" : undefined}
+                >
+                  {item.icon}
+                  <span className="admin-layout__label">{item.label}</span>
+                </a>
+              ))}
+            </div>
           ))}
         </nav>
         {!isCompact && (
@@ -260,9 +205,48 @@ export function AdminLayout({
           </div>
         )}
       </aside>
-      <main ref={mainRef} className="admin-layout__main" tabIndex={-1}>
-        {children}
-      </main>
+      <div className="admin-layout__column">
+        {/* One row that never scrolls: the municipality the panel works in
+            stays in sight, and its pill changes it (SL-170). */}
+        <header className="admin-layout__topbar">
+          {isCompact && (
+            <div ref={brandRef} className="admin-layout__brandbar">
+              <button
+                ref={brandButtonRef}
+                type="button"
+                className="admin-layout__brand-button"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                aria-label="Menú"
+                onClick={() => setMenuOpen((open) => !open)}
+              >
+                {brand}
+              </button>
+              {menuOpen && (
+                <div
+                  className="admin-layout__menu"
+                  role="menu"
+                  aria-label="Menú"
+                  onKeyDown={moveMenuFocus}
+                >
+                  {menuItems.map((item, index) =>
+                    renderMenuItem(item, "menuitem", index === 0),
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          {switcher && <MunicipalitySwitcher switcher={switcher} />}
+        </header>
+        <main
+          id="main"
+          ref={mainRef}
+          className="admin-layout__main"
+          tabIndex={-1}
+        >
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

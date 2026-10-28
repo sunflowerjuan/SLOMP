@@ -1,0 +1,7 @@
+/* The tabs, then the document type of Plantillas; each keeps its own width. */
+.settings-page__controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-12);
+}
