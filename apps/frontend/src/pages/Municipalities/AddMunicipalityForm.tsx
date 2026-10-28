@@ -101,11 +101,11 @@ export function AddMunicipalityForm({
 
   return (
     <form className="add-municipality" onSubmit={handleSubmit} noValidate>
+      {/* The dialog's first field: showModal() puts focus on it. */}
       <Input
         label="Nombre"
         value={name}
         error={errors.name}
-        autoFocus
         autoComplete="off"
         onChange={(event) => setName(event.target.value)}
       />

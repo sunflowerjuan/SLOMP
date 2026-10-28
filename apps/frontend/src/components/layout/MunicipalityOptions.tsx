@@ -16,19 +16,13 @@ interface MunicipalityOptionsProps {
 }
 
 // The municipalities, the active one checked, and "Agregar municipio" last.
-// Shared by the desktop selector and the phone's logo menu.
 export function MunicipalityOptions({
   switcher,
   onDone,
 }: MunicipalityOptionsProps) {
-  const focusIndex = Math.max(
-    0,
-    switcher.options.findIndex((option) => option.slug === switcher.activeSlug),
-  );
-
   return (
     <>
-      {switcher.options.map((option, index) => {
+      {switcher.options.map((option) => {
         const checked = option.slug === switcher.activeSlug;
         return (
           <button
@@ -37,7 +31,6 @@ export function MunicipalityOptions({
             role="menuitemradio"
             aria-checked={checked}
             className="admin-layout__menu-item admin-layout__option"
-            autoFocus={index === focusIndex}
             onClick={() => {
               onDone();
               if (!checked) switcher.onSelect(option.slug);
@@ -61,7 +54,6 @@ export function MunicipalityOptions({
         type="button"
         role="menuitem"
         className="admin-layout__menu-item"
-        autoFocus={switcher.options.length === 0}
         onClick={() => {
           onDone();
           switcher.onAdd();
