@@ -40,16 +40,17 @@ export function isReservedSlug(value: string): boolean {
 
 // Proposes a slug from the name ("Peñón Ejemplo" -> "penon-ejemplo"), same as
 // the backend. Only a suggestion: the dialog lets the super user change it
-// before creating.
+// before creating. Runs of other characters become one hyphen, so each end has
+// at most one hyphen to drop.
 export function suggestSlug(name: string): string {
   return name
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+    .replace(/^-|-$/g, "")
     .slice(0, MAX_SLUG_LENGTH)
-    .replace(/-+$/, "");
+    .replace(/-$/, "");
 }
 
 // Same order as GET /municipalities (name, then department), so a municipality
