@@ -15,6 +15,13 @@
     transform var(--duration-press) var(--ease-out);
   white-space: nowrap;
   position: relative;
+  /* ButtonLink: an <a> drawn as a button. */
+  text-decoration: none;
+}
+
+a.ui-button:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .ui-button--full-width {

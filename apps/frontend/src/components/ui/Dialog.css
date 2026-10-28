@@ -9,6 +9,38 @@
   box-shadow: var(--shadow-overlay);
 }
 
+/* Room for a document: the whole screen but a margin, laid out so that it
+   fits without scrolling (the document inside takes the height left). */
+.ui-dialog--wide {
+  max-width: 960px;
+  height: calc(100dvh - 2 * var(--space-24));
+  max-height: none;
+  overflow: hidden;
+}
+
+.ui-dialog--wide .ui-dialog__box {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: var(--space-24) var(--space-32);
+}
+
+/* Phone: as tall as its content, which is short there (no document inside). */
+@media (max-width: 900px) {
+  /* fit-content, not auto: a modal dialog is pinned top and bottom, and
+     auto would stretch it to the whole height. */
+  .ui-dialog--wide {
+    height: fit-content;
+    max-height: calc(100dvh - 2 * var(--space-16));
+    overflow-y: auto;
+  }
+
+  .ui-dialog--wide .ui-dialog__box {
+    height: auto;
+    padding: var(--space-20);
+  }
+}
+
 .ui-dialog::backdrop {
   background-color: var(--overlay);
 }

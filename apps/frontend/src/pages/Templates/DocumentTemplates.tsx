@@ -14,9 +14,11 @@ import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Dialog } from "../../components/ui/Dialog";
 import { Dropzone } from "../../components/ui/Dropzone";
+import { Icon } from "../../components/ui/Icon";
 import { Notice } from "../../components/ui/Notice";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { DATE_TIME_FORMATTER, DOCUMENT_TEXT } from "./documentText";
+import { TemplateVersionViewer } from "./TemplateVersionViewer";
 import "./TemplatesPage.css";
 
 // Same limit the backend enforces (TEMPLATE_UPLOAD_LIMITS).
@@ -114,8 +116,8 @@ export function DocumentTemplates({
   );
 }
 
-// Every version of one document, newest first; an earlier one can be
-// activated again, which asks first.
+// Every version of one document, newest first: each can be looked at as it
+// prints, and an earlier one activated again, which asks first.
 function TemplateHistory({
   documentType,
 }: {
@@ -125,6 +127,7 @@ function TemplateHistory({
   const [versions, setVersions] = useState<TemplateVersion[] | null>(null);
   const [listError, setListError] = useState("");
   const [activated, setActivated] = useState("");
+  const [viewing, setViewing] = useState<TemplateVersion | null>(null);
   const [toActivate, setToActivate] = useState<TemplateVersion | null>(null);
   const [activating, setActivating] = useState(false);
   const [activateError, setActivateError] = useState("");
@@ -147,6 +150,12 @@ function TemplateHistory({
       });
     return () => controller.abort();
   }, [documentType]);
+
+  function askToActivate(version: TemplateVersion) {
+    setViewing(null);
+    setActivateError("");
+    setToActivate(version);
+  }
 
   async function handleActivate() {
     if (!toActivate) return;
@@ -231,25 +240,43 @@ function TemplateHistory({
                     {DATE_TIME_FORMATTER.format(new Date(version.createdAt))}
                   </span>
                 </div>
-                {version.isActive ? (
-                  <StatusBadge variant="success">Activa</StatusBadge>
-                ) : (
+                <div className="templates-page__version-actions">
                   <Button
                     variant="secondary"
-                    aria-label={`Activar la versión ${version.version}`}
-                    onClick={() => {
-                      setActivateError("");
-                      setToActivate(version);
-                    }}
+                    className="templates-page__view"
+                    aria-label={`Ver la versión ${version.version}`}
+                    title="Ver cómo queda esta versión"
+                    onClick={() => setViewing(version)}
                   >
-                    Activar
+                    <Icon>
+                      <path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z" />
+                      <circle cx="8" cy="8" r="2" />
+                    </Icon>
                   </Button>
-                )}
+                  {version.isActive ? (
+                    <StatusBadge variant="success">Activa</StatusBadge>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      aria-label={`Activar la versión ${version.version}`}
+                      onClick={() => askToActivate(version)}
+                    >
+                      Activar
+                    </Button>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
         )}
       </Card>
+      <TemplateVersionViewer
+        version={viewing}
+        documentName={text.name}
+        onClose={() => setViewing(null)}
+        onActivate={askToActivate}
+      />
+
       <Dialog
         open={toActivate !== null}
         title={`¿Activar la versión ${toActivate?.version ?? ""}?`}

@@ -7,7 +7,7 @@ import type {
   TemplateDocumentType,
   TemplateVersion,
 } from "../../api/templates";
-import { Button } from "../../components/ui/Button";
+import { Button, ButtonLink } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Icon } from "../../components/ui/Icon";
 import { Notice } from "../../components/ui/Notice";
@@ -180,14 +180,20 @@ function ActiveTemplateCard({
         </div>
       )}
 
-      <a className="templates-page__link" href={href}>
-        {state.status === "ready" && !active
-          ? "Subir una plantilla"
-          : "Ver historial y subir una nueva"}
-        <Icon>
-          <path d="M6 4l4 4-4 4" />
-        </Icon>
-      </a>
+      {/* Without a template the next step is uploading one. */}
+      {state.status === "ready" && !active ? (
+        <ButtonLink className="templates-page__go" href={href}>
+          Subir una plantilla
+        </ButtonLink>
+      ) : (
+        <ButtonLink
+          variant="secondary"
+          className="templates-page__go"
+          href={href}
+        >
+          Ver historial y subir una nueva
+        </ButtonLink>
+      )}
     </Card>
   );
 }

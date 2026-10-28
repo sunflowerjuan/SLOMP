@@ -1,4 +1,6 @@
+import { ApiError } from "./ApiError";
 import { request, requestBlob } from "./httpClient";
+import type { BlobResponse } from "./httpClient";
 import { municipalityPath } from "./municipality";
 
 // Document templates of the active municipality. A new version only comes in
@@ -34,6 +36,56 @@ export function activateTemplate(id: number): Promise<TemplateVersion> {
   return request(municipalityPath(`/templates/${id}/activate`), {
     method: "POST",
   });
+}
+
+// The PDF service turns away a render while it is busy with another one
+// (TEMPLATE_PREVIEW_FAILED): a preview asks once more before giving up.
+const PREVIEW_RETRY_MS = 1500;
+
+function wait(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    signal?.addEventListener("abort", () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+}
+
+async function previewPdf(
+  render: () => Promise<BlobResponse>,
+  signal?: AbortSignal,
+): Promise<Blob> {
+  try {
+    return (await render()).blob;
+  } catch (caught) {
+    if (
+      !(caught instanceof ApiError) ||
+      caught.code !== "TEMPLATE_PREVIEW_FAILED" ||
+      signal?.aborted
+    ) {
+      throw caught;
+    }
+    await wait(PREVIEW_RETRY_MS, signal);
+    return (await render()).blob;
+  }
+}
+
+// A saved version (active or earlier) as a PDF, filled with the same
+// fictitious sample data as the draft preview.
+export function previewTemplateVersion(
+  id: number,
+  signal?: AbortSignal,
+): Promise<Blob> {
+  return previewPdf(
+    () => requestBlob(municipalityPath(`/templates/${id}/preview`), { signal }),
+    signal,
+  );
+}
+
+// The stored .docx, byte for byte, under the name it was uploaded with.
+export function downloadTemplateVersion(id: number): Promise<BlobResponse> {
+  return requestBlob(municipalityPath(`/templates/${id}/download`));
 }
 
 // Guided marking. `key` is the technical name the backend expects in a
@@ -140,17 +192,20 @@ export function getDraftContent(
 
 // Every selection, every time: the backend keeps none of them. The PDF is
 // filled with fictitious sample data.
-export async function previewTemplateDraft(
+export function previewTemplateDraft(
   draftId: string,
   selections: MarkerSelection[],
   signal?: AbortSignal,
 ): Promise<Blob> {
-  const { blob } = await requestBlob(draftPath(draftId, "/preview"), {
-    method: "POST",
-    body: { selections },
+  return previewPdf(
+    () =>
+      requestBlob(draftPath(draftId, "/preview"), {
+        method: "POST",
+        body: { selections },
+        signal,
+      }),
     signal,
-  });
-  return blob;
+  );
 }
 
 // Without `replaceConfirmed` the backend refuses to replace an active version

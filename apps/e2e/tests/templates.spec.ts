@@ -409,3 +409,69 @@ test("el enlace de consulta pública se ve completo en Configuración y se copia
     await address.inputValue(),
   );
 });
+
+test("cada versión del historial se puede ver antes de activarla", async ({
+  page,
+}) => {
+  // Two saves: the second leaves the first as an earlier version.
+  await ensureActiveLiquidationTemplate();
+  const active = await ensureActiveLiquidationTemplate();
+  await page.reload();
+
+  const history = page.getByRole("region", { name: "Historial de versiones" });
+  await history
+    .getByRole("button", { name: `Ver la versión ${active.version - 1}` })
+    .click();
+
+  const viewer = page.getByRole("dialog", {
+    name: `Versión ${active.version - 1} de la plantilla de liquidación`,
+  });
+  await expect(viewer).toBeVisible();
+  await expect(viewer).toContainText("Versión anterior");
+  await expect(viewer).toContainText(
+    /Vista previa con datos de ejemplo ficticios/,
+  );
+  // Only a desktop shows the PDF inside the page; the screen's own
+  // "Reintentar" covers a busy PDF service.
+  const ready = viewer
+    .locator("iframe")
+    .or(viewer.getByRole("button", { name: "Abrir la vista previa" }));
+  const retry = viewer.getByRole("button", { name: "Reintentar" });
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await expect(ready.or(retry)).toBeVisible({ timeout: 30_000 });
+    if (await ready.isVisible()) break;
+    await retry.click();
+  }
+  await expect(ready).toBeVisible();
+
+  const download = page.waitForEvent("download");
+  await viewer.getByRole("button", { name: "Descargar .docx" }).click();
+  expect((await download).suggestedFilename()).toBe(
+    "plantilla-liquidacion-sin-marcadores.docx",
+  );
+
+  // Activating from the viewer still asks first; cancelling changes nothing.
+  await viewer.getByRole("button", { name: "Activar esta versión" }).click();
+  const confirm = page.getByRole("dialog", {
+    name: `¿Activar la versión ${active.version - 1}?`,
+  });
+  await expect(confirm).toBeVisible();
+  await confirm.getByRole("button", { name: "Cancelar" }).click();
+  await expect(
+    history.getByRole("listitem").first().getByText("Activa"),
+  ).toBeVisible();
+
+  // The active one can be looked at too, with nothing to activate.
+  await history
+    .getByRole("button", { name: `Ver la versión ${active.version}` })
+    .click();
+  const current = page.getByRole("dialog", {
+    name: `Versión ${active.version} de la plantilla de liquidación`,
+  });
+  await expect(current.getByText("Activa", { exact: true })).toBeVisible();
+  await expect(
+    current.getByRole("button", { name: "Activar esta versión" }),
+  ).toHaveCount(0);
+  await current.getByRole("button", { name: "Cerrar" }).click();
+  await expect(current).toBeHidden();
+});

@@ -66,40 +66,6 @@ const STEPS = ["Subir", "Marcar", "Revisar y guardar"];
 
 const FLASH_MS = 1600;
 
-// The PDF service turns away a render while it is busy with another one
-// (TEMPLATE_PREVIEW_FAILED): the preview asks once more before saying so.
-const PREVIEW_RETRY_MS = 1500;
-
-function wait(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve) => {
-    const timer = setTimeout(resolve, ms);
-    signal.addEventListener("abort", () => {
-      clearTimeout(timer);
-      resolve();
-    });
-  });
-}
-
-async function previewWithRetry(
-  draftId: string,
-  selections: MarkerSelection[],
-  signal: AbortSignal,
-): Promise<Blob> {
-  try {
-    return await previewTemplateDraft(draftId, selections, signal);
-  } catch (caught) {
-    if (
-      !(caught instanceof ApiError) ||
-      caught.code !== "TEMPLATE_PREVIEW_FAILED" ||
-      signal.aborted
-    ) {
-      throw caught;
-    }
-    await wait(PREVIEW_RETRY_MS, signal);
-    return previewTemplateDraft(draftId, selections, signal);
-  }
-}
-
 function isDraftGone(error: unknown): boolean {
   return (
     error instanceof ApiError &&
@@ -409,7 +375,7 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
       previewController.current = controller;
       setPreview({ status: "loading" });
       try {
-        const blob = await previewWithRetry(
+        const blob = await previewTemplateDraft(
           draft.draftId,
           sorted,
           controller.signal,

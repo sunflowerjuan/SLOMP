@@ -22,7 +22,8 @@
   align-items: stretch;
 }
 
-.templates-page__layout--even .templates-page__link {
+.templates-page__layout--even .templates-page__go {
+  align-self: flex-start;
   margin-top: auto;
 }
 
@@ -251,5 +252,96 @@
 @keyframes templates-page-pulse {
   50% {
     opacity: 0.5;
+  }
+}
+
+/* Side by side, unlike the version's text column next to them. */
+.templates-page__version > .templates-page__version-actions {
+  flex: none;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+/* Viewing a saved version. */
+/* An icon only: as wide as it is tall. */
+.templates-page__view.ui-button {
+  width: 40px;
+  padding: 0;
+}
+
+@media (pointer: coarse) {
+  .templates-page__view.ui-button {
+    width: var(--tap-size);
+  }
+}
+
+.templates-page__view svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Viewing a saved version: the whole box fits on the screen, and the PDF
+   takes the height left over, so nothing scrolls but the PDF itself. */
+.template-viewer {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-16);
+  min-height: 0;
+}
+
+.template-viewer .template-preview {
+  flex: 1;
+  min-height: 0;
+}
+
+.template-viewer .template-preview .ui-notice {
+  flex: none;
+}
+
+.template-viewer__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8) var(--space-16);
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+.template-viewer .template-preview__frame {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+
+.template-viewer .template-preview__frame--phone {
+  flex: none;
+}
+
+.template-viewer__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+
+.template-viewer__spacer {
+  flex: 1;
+}
+
+/* Phone: the main action across the top, the other two side by side. */
+@media (max-width: 480px) {
+  .template-viewer__actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .template-viewer__actions .ui-button:last-child:not(:nth-child(3)) {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .template-viewer__spacer {
+    display: none;
   }
 }
