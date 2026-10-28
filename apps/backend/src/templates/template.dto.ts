@@ -118,6 +118,15 @@ export class SaveDraftDto extends PreviewDraftDto {
   @IsOptional()
   @IsBoolean()
   replaceConfirmed?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Nombre con el que se guarda la versión (y se descarga). Sin él, queda el del archivo subido. Se le agrega .docx; hasta 120 caracteres, sin barras.',
+    example: 'Liquidación oficial 2026',
+  })
+  @IsOptional()
+  @IsString()
+  fileName?: string;
 }
 
 export class DraftViewDto {

@@ -6,7 +6,11 @@
 //   Informal "tú", full sentences ending in a period.
 
 import { paymentOrderNumberLabel } from "../domain/paymentOrder";
-import type { MarkingProblem } from "../domain/templateMarking";
+import { MAX_TEMPLATE_NAME_LENGTH } from "../domain/templateMarking";
+import type {
+  MarkingProblem,
+  TemplateNameProblem,
+} from "../domain/templateMarking";
 import { formatNumber } from "../utils/formatCount";
 import { formatPeriods } from "../utils/formatPeriods";
 
@@ -126,6 +130,14 @@ export const MARKING_PROBLEM_MESSAGES: Record<MarkingProblem, string> = {
     "Los campos de la tabla van todos en la misma fila de ejemplo: usa la fila que ya marcaste.",
   IN_REMOVED_ROW:
     "Esa fila se quitará del documento. Restáurala si quieres marcar en ella.",
+};
+
+// Why the name a template is saved under can't be used (checked on screen,
+// like the backend's TEMPLATE_FILE_NAME_INVALID).
+export const TEMPLATE_NAME_MESSAGES: Record<TemplateNameProblem, string> = {
+  EMPTY: "Escribe el nombre con el que se guardará la plantilla.",
+  TOO_LONG: `El nombre puede tener hasta ${MAX_TEMPLATE_NAME_LENGTH} caracteres.`,
+  FORBIDDEN: "El nombre no puede tener barras (/ o \\).",
 };
 
 // Why a table row can't be left out of the template (`reason` of
@@ -288,6 +300,8 @@ const ERROR_MESSAGES: Record<string, CatalogEntry> = {
     "Uno de los marcadores no existe para este tipo de documento. Quítalo, vuelve a asignarlo e intenta de nuevo.",
   TEMPLATE_REPLACE_NOT_CONFIRMED:
     "Este municipio ya tiene una plantilla activa de este tipo. Confirma el reemplazo para guardar la nueva.",
+  TEMPLATE_FILE_NAME_INVALID: (details) =>
+    `El nombre de la plantilla debe tener entre 1 y ${numberOr(details.maxLength, "120")} caracteres, sin barras (/ o \\). Corrígelo e intenta de nuevo.`,
   TEMPLATE_PREVIEW_FAILED:
     "No se pudo generar la vista previa. Intenta de nuevo; si el problema continúa, contacta al equipo de soporte.",
 

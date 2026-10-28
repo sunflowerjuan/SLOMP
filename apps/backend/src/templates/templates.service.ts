@@ -35,6 +35,7 @@ import {
   type DocxContent,
   type Selection,
 } from './guided-marking.js';
+import { templateFileName } from './template-file-name.js';
 import { buildTemplateCatalog } from './template-catalog.js';
 import { PREVIEW_DATA } from './template-preview-data.js';
 import {
@@ -548,6 +549,7 @@ export class TemplatesService implements OnModuleInit, OnModuleDestroy {
     selections: Selection[],
     replaceConfirmed: boolean,
     removedRows: string[] = [],
+    fileName?: string,
   ): Promise<TemplateView> {
     const { draft, original } = await this.openDraft(
       municipality.id,
@@ -561,7 +563,10 @@ export class TemplatesService implements OnModuleInit, OnModuleDestroy {
     const view = await this.storeVersion(
       municipality,
       draft.documentType,
-      { buffer: marked, originalname: draft.fileName },
+      {
+        buffer: marked,
+        originalname: templateFileName(fileName, draft.fileName),
+      },
       userId,
       { fields, replaceConfirmed },
     );

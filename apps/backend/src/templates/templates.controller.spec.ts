@@ -380,6 +380,7 @@ describe('TemplatesController', () => {
       { selections: [], replaceConfirmed: 'yes' },
       { selections: [], removedRows: 'body:p24' },
       { selections: [], removedRows: [24] },
+      { selections: [], fileName: 7 },
     ])('validates the selections of the body %j', async (body) => {
       const preview = await request(app.getHttpServer())
         .post(`${DRAFTS}/d1/save`)
@@ -402,9 +403,15 @@ describe('TemplatesController', () => {
         .send({ selections: [selection], replaceConfirmed: true })
         .expect(201);
 
+      await request(app.getHttpServer())
+        .post(`${DRAFTS}/d1/save`)
+        .send({ selections: [selection], fileName: 'Liquidación 2026' })
+        .expect(201);
+
       expect(templatesService.saveDraft.mock.calls).toEqual([
-        [PAEZ, 7, 'd1', [selection], false, undefined],
-        [PAEZ, 7, 'd1', [selection], true, undefined],
+        [PAEZ, 7, 'd1', [selection], false, undefined, undefined],
+        [PAEZ, 7, 'd1', [selection], true, undefined, undefined],
+        [PAEZ, 7, 'd1', [selection], false, undefined, 'Liquidación 2026'],
       ]);
     });
 

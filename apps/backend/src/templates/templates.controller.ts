@@ -226,6 +226,7 @@ export class TemplatesController {
       body.selections,
       body.replaceConfirmed === true,
       body.removedRows,
+      body.fileName,
     );
   }
 

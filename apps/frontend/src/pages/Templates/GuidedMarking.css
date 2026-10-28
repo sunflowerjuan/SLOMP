@@ -5,6 +5,101 @@
   gap: var(--space-12);
 }
 
+/* The title: the name the template is saved under, and its pencil. */
+.template-name {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4) var(--space-8);
+  max-width: 100%;
+}
+
+.template-name__text {
+  overflow-wrap: anywhere;
+}
+
+.template-name__edit {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--tap-size);
+  height: var(--tap-size);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-ctl);
+  background: none;
+  color: var(--semantic-primary);
+  cursor: pointer;
+}
+
+.template-name__edit:hover {
+  background-color: var(--semantic-hover);
+}
+
+.template-name__edit:focus-visible {
+  outline: var(--focus-ring);
+}
+
+.template-name__edit svg {
+  width: 20px;
+  height: 20px;
+}
+
+.template-name--editing {
+  flex-direction: column;
+  align-items: stretch;
+  width: min(640px, 100%);
+}
+
+/* The title takes the width there is, so the box (with its large type)
+   never pushes the header past the edge of the screen. */
+.guided-marking .ui-screen__head > .ui-page-header {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.template-name__field {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+}
+
+.template-name__input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-4) var(--space-8);
+  border: 1px solid var(--grafito-500);
+  border-radius: var(--radius-default);
+  background-color: var(--semantic-surface);
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--semantic-text);
+}
+
+.template-name__input:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+  border-color: var(--semantic-primary);
+}
+
+.template-name__input[aria-invalid] {
+  border-color: var(--semantic-danger);
+}
+
+.template-name__extension {
+  font-size: var(--text-lg);
+  font-weight: 400;
+  color: var(--semantic-text-muted);
+}
+
+.template-name__error {
+  font-size: var(--text-sm);
+  font-weight: 400;
+  letter-spacing: normal;
+  color: var(--semantic-danger-hover);
+}
+
 .guided-marking__bar {
   display: flex;
   flex-wrap: wrap;

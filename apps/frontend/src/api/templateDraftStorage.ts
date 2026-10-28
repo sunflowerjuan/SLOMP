@@ -16,6 +16,9 @@ export interface StoredDraft {
   selections: MarkerSelection[];
   // Table rows to leave out, each named by one of its blocks.
   removedRows: string[];
+  // The name to save it under, without .docx; the uploaded file's until
+  // the lawyer changes it.
+  name?: string;
 }
 
 function key(): string | null {
@@ -60,6 +63,7 @@ function parse(raw: string | null): StoredDraft | null {
             (row): row is string => typeof row === "string",
           )
         : [],
+      name: typeof value.name === "string" ? value.name : undefined,
     };
   } catch {
     return null;

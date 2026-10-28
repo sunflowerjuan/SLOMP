@@ -217,14 +217,17 @@ export function previewTemplateDraft(
 
 // Without `replaceConfirmed` the backend refuses to replace an active version
 // (TEMPLATE_REPLACE_NOT_CONFIRMED).
+// `fileName`: the name the version is kept and downloaded under (the
+// backend adds .docx).
 export function saveTemplateDraft(
   draftId: string,
   marking: DraftMarking,
   replaceConfirmed: boolean,
+  fileName: string,
 ): Promise<TemplateVersion> {
   return request(draftPath(draftId, "/save"), {
     method: "POST",
-    body: { ...marking, replaceConfirmed },
+    body: { ...marking, replaceConfirmed, fileName },
   });
 }
 

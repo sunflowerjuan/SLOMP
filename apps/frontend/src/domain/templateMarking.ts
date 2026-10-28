@@ -18,6 +18,26 @@ export type MarkingProblem =
   | "OTHER_ROW"
   | "IN_REMOVED_ROW";
 
+// The name a template is saved under, as the backend takes it.
+export const MAX_TEMPLATE_NAME_LENGTH = 120;
+
+export type TemplateNameProblem = "EMPTY" | "TOO_LONG" | "FORBIDDEN";
+
+// "Liquidación Páez.docx" -> "Liquidación Páez": the name is edited without
+// its extension, which the backend adds.
+export function templateNameOf(fileName: string): string {
+  return fileName.replace(/\.docx$/i, "");
+}
+
+export function templateNameProblem(name: string): TemplateNameProblem | null {
+  const trimmed = templateNameOf(name.trim()).trim();
+  if (trimmed === "") return "EMPTY";
+  if (trimmed.length > MAX_TEMPLATE_NAME_LENGTH) return "TOO_LONG";
+  // eslint-disable-next-line no-control-regex
+  if (/[/\\\u0000-\u001f\u007f]/.test(trimmed)) return "FORBIDDEN";
+  return null;
+}
+
 export interface TextRange {
   blockId: string;
   start: number;

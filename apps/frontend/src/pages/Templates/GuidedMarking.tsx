@@ -37,6 +37,7 @@ import {
   sortSelections,
   surplusRows,
   tableRowInUse,
+  templateNameOf,
   trimRange,
   usedFields,
 } from "../../domain/templateMarking";
@@ -51,6 +52,7 @@ import {
   DiscardDraftDialog,
   ReplaceTemplateDialog,
 } from "./GuidedMarkingDialogs";
+import { EditableTemplateName } from "./EditableTemplateName";
 import { MarkerChecklist } from "./MarkerChecklist";
 import { MarkerMenu } from "./MarkerMenu";
 import type { MenuGroup } from "./MarkerMenu";
@@ -139,6 +141,10 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
   const [selections, setSelections] = useState(draft.selections);
   // Table rows left out of the template, each named by one of its blocks.
   const [removedRows, setRemovedRows] = useState(draft.removedRows);
+  // The name it is saved under, without .docx.
+  const [name, setName] = useState(
+    () => draft.name ?? templateNameOf(draft.fileName),
+  );
   const [step, setStep] = useState<Step>("mark");
   const [pending, setPending] = useState<Pending | null>(null);
   const [problem, setProblem] = useState<MarkingProblem | null>(null);
@@ -195,8 +201,8 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
   }, [draft.draftId, draft.documentType, leave, loadAttempt]);
 
   useEffect(() => {
-    storeDraft({ ...draft, selections, removedRows });
-  }, [draft, selections, removedRows]);
+    storeDraft({ ...draft, selections, removedRows, name });
+  }, [draft, selections, removedRows, name]);
 
   // The preview's object URL lives until the next preview or the screen goes.
   useEffect(
@@ -518,6 +524,7 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
         draft.draftId,
         marking,
         replaceConfirmed,
+        name.trim(),
       );
       leave({ kind: "saved", version });
     } catch (caught) {
@@ -602,6 +609,7 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
   const ready = content !== null && catalog !== null;
   const canSave = ready && progress.missing.length === 0;
   const missingId = "guided-marking-missing";
+
   const pendingText =
     pending &&
     blocks
@@ -637,8 +645,14 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
   return (
     <Screen
       className="guided-marking"
-      title={`Nueva plantilla de ${text.name}`}
-      subtitle={`${draft.fileName} · el borrador se conserva hasta el ${DATE_TIME_FORMATTER.format(new Date(draft.expiresAt))}`}
+      title={
+        <EditableTemplateName
+          value={name}
+          documentName={text.name}
+          onChange={setName}
+        />
+      }
+      subtitle={`Nueva plantilla de ${text.name} · archivo subido: ${draft.fileName} · el borrador se conserva hasta el ${DATE_TIME_FORMATTER.format(new Date(draft.expiresAt))}`}
       covered={phone && (sheetOpen || pending !== null)}
       input={
         <div className="guided-marking__controls">

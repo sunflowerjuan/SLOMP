@@ -199,10 +199,7 @@ for (const { type, name, markings, required, documentName } of [
   }) => {
     await upload(page, type, name);
     await expect(
-      page.getByRole("heading", {
-        level: 1,
-        name: `Nueva plantilla de ${documentName}`,
-      }),
+      page.getByText(new RegExp(`^Nueva plantilla de ${documentName} · `)),
     ).toBeVisible();
     await expect(
       page.getByText(`0 de ${required} obligatorios`).first(),
@@ -214,6 +211,33 @@ for (const { type, name, markings, required, documentName } of [
       page.getByText(`${required} de ${required} obligatorios`).first(),
     ).toBeVisible();
 
+    // The title is the name it is saved under: the uploaded file's until
+    // the pencil changes it.
+    const heading = page.getByRole("heading", { level: 1 });
+    await expect(heading).toHaveText(name.replace(/\.docx$/, ""));
+    await page
+      .getByRole("button", { name: /^Cambiar el nombre de la plantilla/ })
+      .click();
+    const nameBox = page.getByRole("textbox", {
+      name: `Nombre de la plantilla de ${documentName}`,
+    });
+    await expect(nameBox).toBeFocused();
+    // An empty name is refused and the box stays open.
+    await nameBox.fill("");
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("alert")).toHaveText(
+      "Escribe el nombre con el que se guardará la plantilla.",
+    );
+    // Escape leaves the name as it was.
+    await page.keyboard.press("Escape");
+    await expect(heading).toHaveText(name.replace(/\.docx$/, ""));
+    await page
+      .getByRole("button", { name: /^Cambiar el nombre de la plantilla/ })
+      .click();
+    await nameBox.fill(`Plantilla de ${documentName} e2e`);
+    await page.keyboard.press("Enter");
+    await expect(heading).toHaveText(`Plantilla de ${documentName} e2e`);
+
     await saveFromPreview(page);
 
     await expect(
@@ -224,7 +248,7 @@ for (const { type, name, markings, required, documentName } of [
       .getByRole("region", { name: "Historial de versiones" })
       .getByRole("listitem")
       .first();
-    await expect(newest).toContainText(name);
+    await expect(newest).toContainText(`Plantilla de ${documentName} e2e.docx`);
     await expect(newest).toContainText("Activa");
   });
 }

@@ -16,6 +16,8 @@ import {
   segmentsBetween,
   sortSelections,
   surplusRows,
+  templateNameOf,
+  templateNameProblem,
   tableRowInUse,
   trimRange,
   usedFields,
@@ -278,5 +280,21 @@ describe("rows of example values", () => {
         ({ row }) => row,
       ),
     ).toEqual(["body:0:3"]);
+  });
+});
+
+describe("the name a template is saved under", () => {
+  it("is edited without its extension", () => {
+    expect(templateNameOf("Liquidación Páez.docx")).toBe("Liquidación Páez");
+    expect(templateNameOf("Mandamiento.DOCX")).toBe("Mandamiento");
+  });
+
+  it("can't be empty, too long or have slashes", () => {
+    expect(templateNameProblem("Liquidación 2026")).toBe(null);
+    expect(templateNameProblem("   ")).toBe("EMPTY");
+    expect(templateNameProblem(".docx")).toBe("EMPTY");
+    expect(templateNameProblem("a".repeat(121))).toBe("TOO_LONG");
+    expect(templateNameProblem("carpeta/plantilla")).toBe("FORBIDDEN");
+    expect(templateNameProblem("carpeta\\plantilla")).toBe("FORBIDDEN");
   });
 });

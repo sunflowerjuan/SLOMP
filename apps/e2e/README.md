@@ -26,6 +26,11 @@ con SL-166.
    `changeme123`, o los `SEED_ADMIN_*` que definas). **Borra los datos de la
    base local.**
 
+   Las pruebas de plantillas guardan borradores, vistas previas y versiones
+   en Storage: el `.env` de la raíz debe tener `AZURE_STORAGE_CONNECTION_STRING`
+   apuntando al contenedor de Azurite (ver `.env.example`). Sin ella, el
+   backend responde 503 al subir una plantilla. En CI la define el workflow.
+
 2. Instala el navegador (una vez): `pnpm --filter e2e exec playwright install chromium`
 
 3. Corre la suite con las credenciales del administrador de pruebas:
