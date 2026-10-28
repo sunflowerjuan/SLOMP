@@ -28,8 +28,8 @@ type State =
   | { status: "error"; message: string }
   | { status: "ready"; active: TemplateVersion | null };
 
-// Configuración > Plantillas: only which version of each document is in use,
-// or that there is none. The history, activating an earlier version and
+// In Configuración, only which version of each document is in use, or that
+// there is none. The history, activating an earlier version and
 // uploading a new one are on each document's templates screen.
 export function ActiveTemplates({ slug }: { slug: string }) {
   // A template left half marked in this browser, to come back to.
@@ -116,7 +116,7 @@ function ActiveTemplateCard({
   const labels = active ? fieldLabels(active.fields, catalog) : [];
 
   return (
-    <Card title={text.title} className="templates-page__type">
+    <Card title={`Plantilla de ${text.name}`} className="templates-page__type">
       {state.status === "loading" && (
         <div
           className="templates-page__version--skeleton"

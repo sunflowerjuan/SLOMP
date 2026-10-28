@@ -28,7 +28,6 @@ import { TaxRollUploadPage } from "./pages/TaxRollUpload/TaxRollUploadPage";
 import {
   adminHref,
   adminSectionOf,
-  settingsTabOf,
   templatesSegmentOf,
   useAdminRoute,
 } from "./routes";
@@ -80,7 +79,7 @@ const OPERATION_ITEMS: NavEntry[] = [
 const SETTINGS_ITEMS: NavEntry[] = [
   {
     id: "configuracion",
-    view: "configuracion/plantillas",
+    view: "configuracion",
     label: "Configuración",
     icon: (
       <Icon box={24}>
@@ -118,9 +117,9 @@ function menuItems(signOut: () => void): AdminMenuItem[] {
 }
 
 function viewPage(view: AdminView, municipality: Municipality) {
-  // Both tabs are one screen: moving between them keeps it mounted.
-  const tab = settingsTabOf(view);
-  if (tab) return <SettingsPage slug={municipality.slug} tab={tab} />;
+  if (view === "configuracion") {
+    return <SettingsPage slug={municipality.slug} />;
+  }
   // Both documents are one screen too: switching keeps the chosen file.
   const segment = templatesSegmentOf(view);
   if (segment) {

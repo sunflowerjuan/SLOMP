@@ -6,7 +6,7 @@ import { Icon } from "../../components/ui/Icon";
 import { Screen } from "../../components/ui/Screen";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { Toast } from "../../components/ui/Toast";
-import { adminHref, settingsView, templatesView } from "../../routes";
+import { adminHref, templatesView } from "../../routes";
 import type { TemplatesSegment } from "../../routes";
 import { DocumentTemplates } from "./DocumentTemplates";
 import type { Outcome } from "./DocumentTemplates";
@@ -85,7 +85,7 @@ export function TemplatesPage({
       action={
         <a
           className="templates-page__back"
-          href={adminHref(slug, settingsView("plantillas"))}
+          href={adminHref(slug, "configuracion")}
         >
           <Icon>
             <path d="M10 4l-4 4 4 4" />

@@ -14,50 +14,47 @@ import { useMemo, useSyncExternalStore } from "react";
 //
 // The panel carries its municipality in the URL too (`#/municipio-a/cargas`),
 // so each tab works with the municipality of its own address (SL-122,
-// section 7). Configuración has a tab per thing to set up, each with its own
-// address (`#/municipio-a/configuracion/plantillas`), SL-170.
+// section 7). Configuración is one panel (`#/municipio-a/configuracion`), and
+// the templates of each document have their own screen under it.
 const PUBLIC_CONSULTATION_PREFIX = "#/consulta";
-
-export type SettingsTab = "plantillas" | "consulta";
 
 // The templates of one document have their own screen under Configuración
 // (`#/municipio-a/configuracion/plantillas/liquidacion`): their history, the
-// way to activate an earlier version and the upload of a new one. The tab
-// itself only says which version of each document is in use.
+// way to activate an earlier version and the upload of a new one.
+// Configuración itself only says which version of each document is in use.
 export type TemplatesSegment = "liquidacion" | "mandamiento";
 
 const TEMPLATES_SEGMENTS: TemplatesSegment[] = ["liquidacion", "mandamiento"];
 
-// What the panel shows: a screen of the menu, a tab of Configuración or the
-// templates of a document.
+// What the panel shows: a screen of the menu or the templates of a document.
 export type AdminView =
   | "cargas"
   | "liquidaciones"
   | "mandamientos"
-  | `configuracion/${SettingsTab}`
+  | "configuracion"
   | `configuracion/plantillas/${TemplatesSegment}`;
 
 // The menu entry a view belongs to.
 export type AdminSection =
   "cargas" | "liquidaciones" | "mandamientos" | "configuracion";
 
-const SETTINGS_TABS: SettingsTab[] = ["plantillas", "consulta"];
-
 const ADMIN_VIEWS: AdminView[] = [
   "cargas",
   "liquidaciones",
   "mandamientos",
-  ...SETTINGS_TABS.map((tab) => settingsView(tab)),
+  "configuracion",
   ...TEMPLATES_SEGMENTS.map((segment) => templatesView(segment)),
 ];
 
 // Other addresses of a view: the ones Plantillas and Consulta pública had
-// before they moved under Configuración (saved links keep working), and
-// Configuración without a tab. The panel replaces them with the view's own.
+// before they moved under Configuración, and the tabs Configuración had
+// before it was a single panel (saved links keep working). The panel
+// replaces them with the view's own.
 const VIEW_ALIASES = new Map<string, AdminView>([
-  ["plantillas", "configuracion/plantillas"],
-  ["consulta-publica", "configuracion/consulta"],
-  ["configuracion", "configuracion/plantillas"],
+  ["plantillas", "configuracion"],
+  ["consulta-publica", "configuracion"],
+  ["configuracion/plantillas", "configuracion"],
+  ["configuracion/consulta", "configuracion"],
 ]);
 
 const DEFAULT_ADMIN_VIEW: AdminView = "cargas";
@@ -98,15 +95,6 @@ export function parsePublicConsultationRoute(
   return { slug: SLUG_PATTERN.test(slug) ? slug : null };
 }
 
-export function settingsView(tab: SettingsTab): AdminView {
-  return `configuracion/${tab}`;
-}
-
-// The Configuración tab a view shows; null outside Configuración.
-export function settingsTabOf(view: AdminView): SettingsTab | null {
-  return SETTINGS_TABS.find((tab) => settingsView(tab) === view) ?? null;
-}
-
 export function templatesView(segment: TemplatesSegment): AdminView {
   return `configuracion/plantillas/${segment}`;
 }
@@ -119,8 +107,7 @@ export function templatesSegmentOf(view: AdminView): TemplatesSegment | null {
   );
 }
 
-// The tabs of Configuración and the templates screens belong to its single
-// menu entry.
+// Configuración and the templates screens belong to its single menu entry.
 export function adminSectionOf(view: AdminView): AdminSection {
   return (
     view.startsWith("configuracion/") ? "configuracion" : view

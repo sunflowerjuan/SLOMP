@@ -17,6 +17,15 @@
   }
 }
 
+/* Both documents as tall as the taller one, the link at the bottom of each. */
+.templates-page__layout--even {
+  align-items: stretch;
+}
+
+.templates-page__layout--even .templates-page__link {
+  margin-top: auto;
+}
+
 .templates-page__upload,
 .templates-page__versions,
 .templates-page__type {
@@ -56,7 +65,7 @@
   outline-offset: 2px;
 }
 
-/* Configuración > Plantillas */
+/* Configuración */
 .templates-summary {
   display: flex;
   flex-direction: column;

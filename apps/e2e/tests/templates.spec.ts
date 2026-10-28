@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { ensureActiveLiquidationTemplate, fixture } from "../src/fixtures";
 import type { FixtureName } from "../src/fixtures";
+import { E2E_MUNICIPALITY_SLUG } from "../src/env";
 import { adminPath } from "../src/paths";
 import { signIn } from "../src/session";
 
@@ -236,6 +237,10 @@ test("con una plantilla activa, guardar pregunta antes de reemplazarla y Cancela
     page.getByText(/^Para guardar falta asignar «Código catastral del predio»/),
   ).toBeVisible();
   await page.getByRole("button", { name: "Volver a marcar" }).click();
+  // The step takes the focus first, so screen readers announce it.
+  await expect(
+    page.getByRole("region", { name: "Paso 2 de 3: Marcar" }),
+  ).toBeFocused();
   for (const marking of LIQUIDATION.slice(1)) await mark(page, marking);
 
   await page.getByRole("button", { name: "Vista previa" }).click();
@@ -347,12 +352,25 @@ test("Configuración solo dice qué plantilla de cada documento está en uso, y 
   page,
 }) => {
   const active = await ensureActiveLiquidationTemplate();
-  await page.goto(adminPath("configuracion/plantillas"));
+  await page.goto(adminPath("configuracion"));
 
-  const liquidation = page.getByRole("region", { name: "Liquidación oficial" });
+  const liquidation = page.getByRole("region", {
+    name: "Plantilla de liquidación",
+  });
+  const paymentOrder = page.getByRole("region", {
+    name: "Plantilla de mandamiento",
+  });
   await expect(liquidation).toContainText("Activa");
   await expect(liquidation).toContainText(/Versión \d+/);
-  await expect(page.getByRole("region", { name: "Mandamiento" })).toBeVisible();
+  await expect(paymentOrder).toBeVisible();
+  // Side by side on a desktop, both as tall as the taller one.
+  const [left, right] = await Promise.all([
+    liquidation.boundingBox(),
+    paymentOrder.boundingBox(),
+  ]);
+  if (left && right && left.y === right.y) {
+    expect(left.height).toBe(right.height);
+  }
   // No upload and no history here.
   await expect(page.locator("input[type=file]")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^Activar/ })).toHaveCount(0);
@@ -371,4 +389,23 @@ test("Configuración solo dice qué plantilla de cada documento está en uso, y 
   await expect(
     page.getByRole("heading", { level: 1, name: "Configuración" }),
   ).toBeVisible();
+});
+
+test("el enlace de consulta pública se ve completo en Configuración y se copia", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto(adminPath("configuracion"));
+
+  const link = page.getByRole("region", { name: "Enlace de consulta pública" });
+  const address = link.getByLabel("Dirección de la consulta");
+  await expect(address).toHaveValue(
+    new RegExp(`#/consulta/${E2E_MUNICIPALITY_SLUG}$`),
+  );
+  await link.getByRole("button", { name: "Copiar enlace" }).click();
+  await expect(link.getByRole("status")).toHaveText("Enlace copiado.");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    await address.inputValue(),
+  );
 });
