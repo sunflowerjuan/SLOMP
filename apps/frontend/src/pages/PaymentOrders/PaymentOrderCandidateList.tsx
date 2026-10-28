@@ -1,36 +1,41 @@
-import type { IssuedPaymentOrder } from "../../api/paymentOrders";
 import { paymentOrderNumberLabel } from "../../domain/paymentOrder";
-import type { PaymentOrderCandidate } from "../../domain/paymentOrder";
+import type {
+  IssuedCandidate,
+  PaymentOrderCandidate,
+} from "../../domain/paymentOrder";
 import { Button } from "../../components/ui/Button";
 import { Notice } from "../../components/ui/Notice";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { formatPeriods } from "../../utils/formatPeriods";
 import "./PaymentOrderCandidateList.css";
 
-interface PaymentOrderCandidateListProps {
-  candidates: PaymentOrderCandidate[];
+interface CandidateGeneration {
   // Issued from this screen, by cadastral code.
-  issued: Record<string, IssuedPaymentOrder>;
+  issued: Record<string, IssuedCandidate>;
   // A bulk job or another generation holds the numbers.
   locked: boolean;
   downloadingId: number | null;
   // Failed download of an order issued here, shown under its row.
   downloadError: { paymentOrderId: number; text: string } | null;
   onGenerate: (candidate: PaymentOrderCandidate) => void;
-  onDownload: (order: IssuedPaymentOrder) => void;
+  onDownload: (order: IssuedCandidate) => void;
+}
+
+interface PaymentOrderCandidateListProps {
+  candidates: PaymentOrderCandidate[];
+  // Names the list for screen readers.
+  label: string;
+  // The step "Generar" only: each row's button, or its number and PDF once
+  // issued. Without it the rows are only listed (step "Revisar").
+  generation?: CandidateGeneration;
 }
 
 // The properties of the Excel whose periods are "En firme": one payment order
-// each. A row offers "Generar" until issued, then shows its number and PDF
-// (payment orders have no status of their own).
+// each (payment orders have no status of their own).
 export function PaymentOrderCandidateList({
   candidates,
-  issued,
-  locked,
-  downloadingId,
-  downloadError,
-  onGenerate,
-  onDownload,
+  label,
+  generation,
 }: PaymentOrderCandidateListProps) {
   if (candidates.length === 0) {
     return (
@@ -41,9 +46,9 @@ export function PaymentOrderCandidateList({
   }
 
   return (
-    <ul className="payment-order-candidates" aria-label="Listos para generar">
+    <ul className="payment-order-candidates" aria-label={label}>
       {candidates.map((candidate) => {
-        const order = issued[candidate.cadastralCode];
+        const order = generation?.issued[candidate.cadastralCode];
         return (
           <li key={candidate.cadastralCode}>
             <div className="payment-order-candidates__row">
@@ -53,27 +58,28 @@ export function PaymentOrderCandidateList({
                 </span>
                 <span>{formatPeriods(candidate.periods)}</span>
               </div>
-              {order ? (
+              {generation && order && (
                 <div className="payment-order-candidates__actions">
                   <StatusBadge variant="success">
                     {paymentOrderNumberLabel(order.number)}
                   </StatusBadge>
                   <Button
                     variant="secondary"
-                    loading={downloadingId === order.paymentOrderId}
+                    loading={generation.downloadingId === order.paymentOrderId}
                     aria-label={`Descargar el PDF del mandamiento ${paymentOrderNumberLabel(order.number)}`}
-                    onClick={() => onDownload(order)}
+                    onClick={() => generation.onDownload(order)}
                   >
                     Descargar PDF
                   </Button>
                 </div>
-              ) : (
+              )}
+              {generation && !order && (
                 <div className="payment-order-candidates__actions">
                   <Button
                     variant="secondary"
-                    disabled={locked}
+                    disabled={generation.locked}
                     aria-label={`Generar el mandamiento del predio ${candidate.cadastralCode}`}
-                    onClick={() => onGenerate(candidate)}
+                    onClick={() => generation.onGenerate(candidate)}
                   >
                     Generar
                   </Button>
@@ -81,8 +87,9 @@ export function PaymentOrderCandidateList({
               )}
             </div>
             {order &&
-              downloadError?.paymentOrderId === order.paymentOrderId && (
-                <Notice>{downloadError.text}</Notice>
+              generation?.downloadError?.paymentOrderId ===
+                order.paymentOrderId && (
+                <Notice>{generation.downloadError.text}</Notice>
               )}
           </li>
         );

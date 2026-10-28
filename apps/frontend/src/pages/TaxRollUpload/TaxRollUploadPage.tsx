@@ -9,7 +9,6 @@ import type {
 import { Button } from "../../components/ui/Button";
 import { CloseIcon } from "../../components/ui/CloseIcon";
 import { Card } from "../../components/ui/Card";
-import { Dropzone } from "../../components/ui/Dropzone";
 import { Notice } from "../../components/ui/Notice";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { useSwipeToDismiss } from "../../hooks/useSwipeToDismiss";
@@ -18,6 +17,7 @@ import { ReplaceConfirmDialog } from "../../components/ui/ReplaceConfirmDialog";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { Table } from "../../components/ui/Table";
 import { TableRow } from "../../components/ui/TableRow";
+import { UploadForm } from "../../components/ui/UploadForm";
 import { UploadResult } from "../../components/ui/UploadResult";
 import { conflictNotice, lockedNotice } from "../../domain/taxRoll";
 import { countNoun, formatNumber } from "../../utils/formatCount";
@@ -164,29 +164,20 @@ export function TaxRollUploadPage() {
       title="Cartera"
       input={
         <div className="ui-screen__input-row">
-          <div className="tax-roll-upload-page__upload">
-            <Dropzone
-              file={file}
-              onFileSelect={(selected) => {
-                setFile(selected);
-                resetOutcome();
-              }}
-              onClear={() => {
-                setFile(null);
-                resetOutcome();
-              }}
-            />
-            <div className="tax-roll-upload-page__actions">
-              <Button
-                type="button"
-                disabled={!file}
-                loading={isProcessing}
-                onClick={handleProcess}
-              >
-                Procesar archivo
-              </Button>
-            </div>
-          </div>
+          <UploadForm
+            file={file}
+            onFileSelect={(selected) => {
+              setFile(selected);
+              resetOutcome();
+            }}
+            onClear={() => {
+              setFile(null);
+              resetOutcome();
+            }}
+            actionLabel="Procesar archivo"
+            busy={isProcessing}
+            onSubmit={() => void handleProcess()}
+          />
           {isWide && zipPanel}
         </div>
       }

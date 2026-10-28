@@ -1,0 +1,16 @@
+.ui-upload-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.ui-upload-form__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 768px) {
+  .ui-upload-form__actions .ui-button {
+    width: 100%;
+  }
+}
