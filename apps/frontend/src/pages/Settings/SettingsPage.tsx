@@ -15,7 +15,7 @@ const TAB_OPTIONS: { value: SettingsTab; label: string }[] = [
 
 const DOCUMENT_OPTIONS: { value: TemplateDocumentType; label: string }[] = [
   { value: "LIQUIDACION", label: "Liquidación" },
-  { value: "MANDAMIENTO", label: "Mandamiento de pago" },
+  { value: "MANDAMIENTO", label: "Mandamiento" },
 ];
 
 // Configuración (SL-170): a tab per thing to set up, each with its own

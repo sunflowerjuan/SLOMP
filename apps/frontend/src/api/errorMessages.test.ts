@@ -21,10 +21,10 @@ describe("messageForPaymentOrderRejection", () => {
 
   it("names the periods a payment order was issued without", () => {
     expect(paymentOrderLeftOutMessage("2026-0004", [2019])).toBe(
-      "El mandamiento MP-2026-0004 se generó sin el periodo 2019, que ya no cumplía las condiciones.",
+      "El mandamiento 2026-0004 se generó sin el periodo 2019, que ya no cumplía las condiciones.",
     );
     expect(paymentOrderLeftOutMessage("2026-0004", [2019, 2020, 2022])).toBe(
-      "El mandamiento MP-2026-0004 se generó sin los periodos 2019–2020, 2022, que ya no cumplían las condiciones.",
+      "El mandamiento 2026-0004 se generó sin los periodos 2019–2020, 2022, que ya no cumplían las condiciones.",
     );
   });
 

@@ -78,16 +78,9 @@ export function ChangePasswordPage() {
       }
     >
       <p className="change-password-page__intro">
-        Tu contraseña actual fue asignada por otra persona. Elige una nueva para
-        entrar al panel: desde ese momento solo tú la conocerás.
+        Tu contraseña actual te la asignó otra persona. Elige una nueva para
+        entrar al panel.
       </p>
-      <ul className="change-password-page__rules">
-        <li>Usa al menos {MIN_PASSWORD_LENGTH} caracteres.</li>
-        <li>
-          Puedes usar una frase con espacios; no hace falta mezclar símbolos.
-        </li>
-        <li>Evita contraseñas comunes o palabras con números al final.</li>
-      </ul>
 
       <form className="auth-layout__form" onSubmit={handleSubmit} noValidate>
         {submitError && <Notice>{submitError}</Notice>}
@@ -104,6 +97,7 @@ export function ChangePasswordPage() {
           label="Nueva contraseña"
           type="password"
           autoComplete="new-password"
+          hint={`Al menos ${MIN_PASSWORD_LENGTH} caracteres. Sirve una frase con espacios; evita contraseñas comunes.`}
           value={fields.newPassword}
           onChange={update("newPassword")}
           error={errors.newPassword}

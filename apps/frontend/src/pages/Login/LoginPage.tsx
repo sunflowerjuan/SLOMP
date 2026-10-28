@@ -61,7 +61,7 @@ export function LoginPage() {
 
   return (
     <AuthLayout
-      title="Ingresar"
+      title="Inicia sesión"
       footer={
         <>
           ¿Eres contribuyente?{" "}

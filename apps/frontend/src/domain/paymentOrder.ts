@@ -7,6 +7,15 @@ import type {
 
 // How the panel reads the payment orders Excel preview (SL-130). Pure.
 
+// What the panel puts before a payment order number. Empty: the number as the
+// system keeps it ("2026-0001"). If the panel must show the prefix the PDF
+// prints, it goes here; the downloaded file's name doesn't use it.
+const PAYMENT_ORDER_NUMBER_PREFIX = "";
+
+export function paymentOrderNumberLabel(number: string): string {
+  return `${PAYMENT_ORDER_NUMBER_PREFIX}${number}`;
+}
+
 // One payment order to generate: the backend issues one per property, covering
 // all its eligible periods.
 export interface PaymentOrderCandidate {

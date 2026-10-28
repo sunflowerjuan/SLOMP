@@ -1,12 +1,12 @@
 import { ApiError, getErrorMessage } from "../../api/ApiError";
 import type { PdfJob } from "../../api/pdfJobs";
 import type { PdfJobState } from "../../hooks/usePdfJob";
+import { formatNumber } from "../../utils/formatCount";
 import { Button } from "./Button";
 import { Notice } from "./Notice";
 import { Reveal } from "./Reveal";
 import "./PdfJobProgress.css";
 
-const COUNT_FORMATTER = new Intl.NumberFormat("es-CO");
 const TIME_FORMATTER = new Intl.DateTimeFormat("es-CO", {
   hour: "numeric",
   minute: "2-digit",
@@ -22,7 +22,7 @@ function availableUntil(expiresAt: string): string {
 function phaseText(job: PdfJob, progress: number): string {
   if (job.status === "PREPARING") return "Preparando…";
   if (job.status === "ASSEMBLING") return "Armando el ZIP…";
-  return `${COUNT_FORMATTER.format(job.completedDocuments)} de ${COUNT_FORMATTER.format(job.totalDocuments)} PDF · ${progress}%`;
+  return `${formatNumber(job.completedDocuments)} de ${formatNumber(job.totalDocuments)} PDF · ${progress}%`;
 }
 
 // A FAILED job carries its cause in errorCode; same catalog as HTTP errors.
@@ -106,7 +106,7 @@ export function PdfJobProgress({
                 <span>
                   {[
                     readyLabel,
-                    `${COUNT_FORMATTER.format(job.totalDocuments)} PDF`,
+                    `${formatNumber(job.totalDocuments)} PDF`,
                     job.expiresAt && availableUntil(job.expiresAt),
                   ]
                     .filter(Boolean)

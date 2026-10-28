@@ -15,6 +15,7 @@ import { Screen } from "../../components/ui/Screen";
 import { Toast } from "../../components/ui/Toast";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { triggerBrowserDownload } from "../../utils/downloadBlob";
+import { formatCount } from "../../utils/formatCount";
 import { SettlementDetailSheet } from "./SettlementDetailSheet";
 import { SettlementList } from "./SettlementList";
 import type { ListState } from "./SettlementList";
@@ -174,7 +175,7 @@ export function SettlementsPage() {
 
   const countText =
     listState === "results" || listState === "empty"
-      ? `${results.length} ${results.length === 1 ? "liquidación" : "liquidaciones"}`
+      ? formatCount(results.length, "liquidación", "liquidaciones")
       : "";
 
   return (
@@ -183,7 +184,6 @@ export function SettlementsPage() {
       data-sheet={selectedId !== null ? "open" : "closed"}
       title="Liquidaciones"
       covered={covered}
-      subtitle="Consulta las liquidaciones oficiales por predio y genera su PDF."
       input={
         <>
           <SettlementSearchBar

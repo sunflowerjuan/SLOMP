@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import type { ChangeEvent, DragEvent } from "react";
+import { formatNumber } from "../../utils/formatCount";
 import "./Dropzone.css";
 
 interface DropzoneProps {
@@ -12,12 +13,24 @@ interface DropzoneProps {
   onClear: () => void;
 }
 
+const MEGABYTES = new Intl.NumberFormat("es-CO", {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
+
+// The hint names a file type by the program it opens with, not by its
+// extension.
+const FILE_KIND: Record<string, string> = {
+  ".xlsx": "Excel",
+  ".docx": "Word",
+};
+
 function formatFileSize(bytes: number): string {
   const kb = bytes / 1024;
   if (kb < 1024) {
-    return `${kb.toFixed(0)} KB`;
+    return `${formatNumber(Math.round(kb))} KB`;
   }
-  return `${(kb / 1024).toFixed(1)} MB`;
+  return `${MEGABYTES.format(kb / 1024)} MB`;
 }
 
 type DropzoneState = "idle" | "dragover" | "uploaded" | "error";
@@ -71,7 +84,10 @@ export function Dropzone({
     event.target.value = "";
   }
 
-  const hint = `${accept.split(",").join(" o ")} — máximo ${maxSizeMb} MB`;
+  const kinds = accept
+    .split(",")
+    .map((type) => FILE_KIND[type.trim()] ?? type.trim());
+  const hint = `Archivo de ${kinds.join(" o ")} de hasta ${maxSizeMb} MB`;
 
   return (
     <div

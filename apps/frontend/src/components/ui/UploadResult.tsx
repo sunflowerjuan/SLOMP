@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { messageForRowIssue } from "../../api/errorMessages";
 import type { TaxRollRowIssue } from "../../api/taxRoll";
+import { countNoun } from "../../utils/formatCount";
 import { Card } from "./Card";
 import { IssueList } from "./IssueList";
 import { Stat } from "./Stat";
@@ -51,12 +52,20 @@ export function UploadResult({
         ))}
         <Stat
           value={invalidRows.length}
-          label="filas inválidas omitidas"
+          label={countNoun(
+            invalidRows.length,
+            "fila inválida omitida",
+            "filas inválidas omitidas",
+          )}
           tone={invalidRows.length > 0 ? "danger" : undefined}
         />
         <Stat
           value={warnings.length}
-          label="con advertencias"
+          label={countNoun(
+            warnings.length,
+            "fila con advertencias",
+            "filas con advertencias",
+          )}
           tone={warnings.length > 0 ? "warning" : undefined}
         />
       </dl>

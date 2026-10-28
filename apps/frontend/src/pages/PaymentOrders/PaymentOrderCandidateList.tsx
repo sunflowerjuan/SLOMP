@@ -1,4 +1,5 @@
 import type { IssuedPaymentOrder } from "../../api/paymentOrders";
+import { paymentOrderNumberLabel } from "../../domain/paymentOrder";
 import type { PaymentOrderCandidate } from "../../domain/paymentOrder";
 import { Button } from "../../components/ui/Button";
 import { Notice } from "../../components/ui/Notice";
@@ -20,8 +21,8 @@ interface PaymentOrderCandidateListProps {
 }
 
 // The properties of the Excel whose periods are "En firme": one payment order
-// each. A row is "Listo para generar" until issued, then shows its number and
-// PDF (payment orders have no status of their own).
+// each. A row offers "Generar" until issued, then shows its number and PDF
+// (payment orders have no status of their own).
 export function PaymentOrderCandidateList({
   candidates,
   issued,
@@ -54,11 +55,13 @@ export function PaymentOrderCandidateList({
               </div>
               {order ? (
                 <div className="payment-order-candidates__actions">
-                  <StatusBadge variant="success">MP-{order.number}</StatusBadge>
+                  <StatusBadge variant="success">
+                    {paymentOrderNumberLabel(order.number)}
+                  </StatusBadge>
                   <Button
                     variant="secondary"
                     loading={downloadingId === order.paymentOrderId}
-                    aria-label={`Descargar el PDF del mandamiento MP-${order.number}`}
+                    aria-label={`Descargar el PDF del mandamiento ${paymentOrderNumberLabel(order.number)}`}
                     onClick={() => onDownload(order)}
                   >
                     Descargar PDF
@@ -66,7 +69,6 @@ export function PaymentOrderCandidateList({
                 </div>
               ) : (
                 <div className="payment-order-candidates__actions">
-                  <StatusBadge variant="info">Listo para generar</StatusBadge>
                   <Button
                     variant="secondary"
                     disabled={locked}

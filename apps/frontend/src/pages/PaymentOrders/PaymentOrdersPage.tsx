@@ -27,6 +27,7 @@ import {
 } from "../../domain/paymentOrder";
 import type { PaymentOrderCandidate } from "../../domain/paymentOrder";
 import { usePaymentOrderPdf } from "../../hooks/usePaymentOrderPdf";
+import { countNoun } from "../../utils/formatCount";
 import { usePdfJob } from "../../hooks/usePdfJob";
 import { GeneratePaymentOrderDialog } from "./GeneratePaymentOrderDialog";
 import { IneligiblePaymentOrderList } from "./IneligiblePaymentOrderList";
@@ -215,7 +216,7 @@ export function PaymentOrdersPage() {
                 loading={isProcessing}
                 onClick={() => file && void review(file)}
               >
-                Procesar archivo
+                Revisar archivo
               </Button>
             </div>
           </div>
@@ -245,11 +246,29 @@ export function PaymentOrdersPage() {
           <UploadResult
             subtitle={preview.fileName}
             stats={[
-              { value: candidates.length, label: "mandamientos por generar" },
-              { value: preview.eligible.length, label: "periodos en firme" },
+              {
+                value: candidates.length,
+                label: countNoun(
+                  candidates.length,
+                  "mandamiento por generar",
+                  "mandamientos por generar",
+                ),
+              },
+              {
+                value: preview.eligible.length,
+                label: countNoun(
+                  preview.eligible.length,
+                  "periodo en firme",
+                  "periodos en firme",
+                ),
+              },
               {
                 value: preview.ineligible.length,
-                label: "periodos no elegibles",
+                label: countNoun(
+                  preview.ineligible.length,
+                  "periodo no elegible",
+                  "periodos no elegibles",
+                ),
               },
             ]}
             invalidRows={preview.invalidRows}
