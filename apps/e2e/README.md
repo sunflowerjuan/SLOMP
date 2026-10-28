@@ -2,9 +2,11 @@
 
 Pruebas de navegador del panel. Dos proyectos, ambos en Chromium: `desktop`
 (1280 × 800) y `mobile` (390 × 844, táctil). Hoy hay la prueba de humo
-(login → panel) y la de navegación del menú (`navigation.spec.ts`, SL-170:
+(login → panel), la de navegación del menú (`navigation.spec.ts`, SL-170:
 grupos, pestañas de Configuración, direcciones antiguas, municipio activo y
-teclado); los demás flujos críticos llegan con SL-166.
+teclado) y la de los pasos de Mandamientos (`payment-orders.spec.ts`, SL-173:
+Cargar y Revisar, filas inválidas, pestaña Historial y teclado); los demás
+flujos críticos llegan con SL-166.
 
 ## Correr en local
 
@@ -28,8 +30,9 @@ teclado); los demás flujos críticos llegan con SL-166.
    E2E_ADMIN_EMAIL=admin@paez-boyaca.gov.co E2E_ADMIN_PASSWORD=changeme123 pnpm test:playwright
    ```
 
-   Antes de las pruebas, la suite inicia sesión por API y crea el municipio
-   `e2e-prueba` si no existe. El administrador no debe tener pendiente el
+   Antes de las pruebas, la suite escribe los Excel de prueba si faltan
+   (ver [Datos de prueba](#datos-de-prueba)), inicia sesión por API y crea el
+   municipio `e2e-prueba` si no existe. El administrador no debe tener pendiente el
    cambio de contraseña (uno creado con `admin:create` sí lo tiene: cámbiala
    una vez desde el panel).
 
@@ -63,7 +66,21 @@ Los Excel se generan con datos ficticios (nunca se usan datos del cliente):
 pnpm --filter backend run e2e:fixtures   # escribe apps/e2e/fixtures/generated/ (no se versiona)
 ```
 
-El script vive en el backend porque `exceljs` ya es dependencia de allí.
+El script vive en el backend porque `exceljs` ya es dependencia de allí. La
+suite lo corre sola antes de empezar si falta alguno de los archivos
+(`src/fixtures.ts`), así que en CI no hace falta un paso aparte; si cambias el
+script, borra `fixtures/generated/` para que se vuelvan a escribir.
+
+| Archivo | Para qué |
+| --- | --- |
+| `cartera-valida.xlsx` | 3 predios con los periodos 2024 y 2025 |
+| `cartera-invalida.xlsx` | Le falta la última columna (`TAX_ROLL_HEADERS_MISMATCH`) |
+| `cartera-fila-invalida.xlsx` | Las mismas filas y una con el periodo 1979 (fuera de rango) |
+
+La prueba de Mandamientos carga primero `cartera-valida.xlsx` en `e2e-prueba`
+por API. Sus liquidaciones no tienen resolución, así que ninguna es elegible
+y el flujo llega hasta Revisar; generar un mandamiento exige liquidaciones en
+firme (60 días después de la resolución) y queda fuera de esta suite.
 
 ## Convenciones
 

@@ -78,13 +78,21 @@ function rows() {
   );
 }
 
-async function write(path, headers) {
+async function write(path, headers, extraRows = []) {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Cartera');
   sheet.addRow(headers);
-  rows().forEach((row) => sheet.addRow(row));
+  [...rows(), ...extraRows].forEach((row) => sheet.addRow(row));
   await workbook.xlsx.writeFile(path);
   console.log(`Written ${path}`);
+}
+
+// The first property again, for a period before 1980: one invalid row
+// (PERIOD_OUT_OF_RANGE) among valid ones.
+function outOfRangeRow() {
+  const row = rows()[0];
+  row[6] = 1979;
+  return row;
 }
 
 const outDir = join(
@@ -95,3 +103,8 @@ mkdirSync(outDir, { recursive: true });
 await write(join(outDir, 'cartera-valida.xlsx'), HEADERS);
 // Missing the last column: rejected with TAX_ROLL_HEADERS_MISMATCH.
 await write(join(outDir, 'cartera-invalida.xlsx'), HEADERS.slice(0, -1));
+// Valid columns and one row out of range: the payment orders upload stays in
+// its first step until it is fixed.
+await write(join(outDir, 'cartera-fila-invalida.xlsx'), HEADERS, [
+  outOfRangeRow(),
+]);
