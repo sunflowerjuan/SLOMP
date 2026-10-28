@@ -1,6 +1,17 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PdfDocumentType } from '@prisma/client';
-import { IsEnum, IsOptional } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 
 export class UploadTemplateDto {
   @ApiProperty({
@@ -44,4 +55,73 @@ export class ListTemplatesQueryDto {
   @IsOptional()
   @IsEnum(PdfDocumentType)
   documentType?: PdfDocumentType;
+}
+
+export class SelectionDto {
+  @ApiProperty({ example: 'body:p12' })
+  @IsString()
+  @IsNotEmpty()
+  blockId!: string;
+
+  @ApiProperty({
+    description:
+      'Posición inicial (incluida) en el texto visible del párrafo, en unidades UTF-16.',
+    example: 8,
+  })
+  @IsInt()
+  @Min(0)
+  start!: number;
+
+  @ApiProperty({ description: 'Posición final (excluida).', example: 20 })
+  @IsInt()
+  @Min(0)
+  end!: number;
+
+  @ApiProperty({
+    description: 'Marcador del catálogo (`key`); los de tabla con prefijo.',
+    example: 'cadastralCode',
+  })
+  @IsString()
+  @IsNotEmpty()
+  field!: string;
+}
+
+export class PreviewDraftDto {
+  @ApiProperty({
+    type: [SelectionDto],
+    description:
+      'Todas las selecciones, completas en cada petición. Los marcadores que el documento ya traía no se reenvían.',
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SelectionDto)
+  selections!: SelectionDto[];
+}
+
+export class SaveDraftDto extends PreviewDraftDto {
+  @ApiPropertyOptional({
+    description:
+      'Obligatorio en true si el municipio ya tiene una plantilla activa de ese tipo.',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  replaceConfirmed?: boolean;
+}
+
+export class DraftViewDto {
+  @ApiProperty({ format: 'uuid' })
+  draftId!: string;
+
+  @ApiProperty({ enum: PdfDocumentType })
+  documentType!: PdfDocumentType;
+
+  @ApiProperty()
+  fileName!: string;
+
+  @ApiProperty()
+  createdAt!: Date;
+
+  @ApiProperty({ description: '24 horas después de la subida.' })
+  expiresAt!: Date;
 }

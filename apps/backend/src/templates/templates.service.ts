@@ -1,11 +1,24 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { buffer as readAll } from 'node:stream/consumers';
 import {
+  BadGatewayException,
   BadRequestException,
+  ConflictException,
+  GoneException,
+  HttpException,
   Injectable,
+  Logger,
   NotFoundException,
+  type OnModuleDestroy,
+  type OnModuleInit,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import type { PdfDocumentType, Prisma, Template } from '@prisma/client';
+import type {
+  PdfDocumentType,
+  Prisma,
+  Template,
+  TemplateDraft,
+} from '@prisma/client';
 import { CodedError } from '../common/errors/coded-error.js';
 import { errorBody } from '../common/errors/error-body.js';
 import { ErrorCode } from '../common/errors/error-codes.js';
@@ -14,12 +27,21 @@ import { PdfServiceClient } from '../pdf-jobs/pdf-service.client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { extractTemplateFields } from './extract-template-fields.js';
 import {
+  applySelections,
+  readDocxContent,
+  type DocxContent,
+  type Selection,
+} from './guided-marking.js';
+import { PREVIEW_DATA } from './template-preview-data.js';
+import {
   CATALOGS,
   validateTemplateFields,
 } from './validate-template-fields.js';
 
 const DOCX_TYPE =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
+const DRAFT_SWEEP_INTERVAL_MS = 60 * 60 * 1000;
 
 // What the panel sees of a version. The Blob path only travels to the PDF
 // service (PdfServiceClient.liquidationTemplate).
@@ -47,6 +69,43 @@ function toView(template: Template): TemplateView {
   };
 }
 
+export interface DraftView {
+  draftId: string;
+  documentType: PdfDocumentType;
+  fileName: string;
+  createdAt: Date;
+  expiresAt: Date;
+}
+
+export type DraftContent = DocxContent & {
+  draftId: string;
+  documentType: PdfDocumentType;
+  expiresAt: Date;
+};
+
+// Domain errors of the guided marking (bad selection, malformed marker...) are
+// all the client's fault.
+function asBadRequest<T>(run: () => T): T {
+  try {
+    return run();
+  } catch (error) {
+    if (error instanceof CodedError) {
+      throw new BadRequestException(
+        errorBody(error.code, error.message, error.details),
+        { cause: error },
+      );
+    }
+    throw error;
+  }
+}
+
+function storageUnavailable(message: string, cause: unknown) {
+  return new ServiceUnavailableException(
+    errorBody(ErrorCode.PDF_STORAGE_UNAVAILABLE, message),
+    { cause },
+  );
+}
+
 // Serializes the template writes of one municipality: two uploads cannot pick
 // the same version, and an activation cannot interleave with an upload.
 async function lockMunicipality(tx: Prisma.TransactionClient, id: number) {
@@ -54,11 +113,29 @@ async function lockMunicipality(tx: Prisma.TransactionClient, id: number) {
 }
 
 @Injectable()
-export class TemplatesService {
+export class TemplatesService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(TemplatesService.name);
+  private timer: NodeJS.Timeout | undefined;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly pdf: PdfServiceClient,
   ) {}
+
+  // ponytail: hourly sweep of expired drafts, so a blob can outlive its 24 h
+  // by up to an hour; the API already answers TEMPLATE_DRAFT_EXPIRED then.
+  onModuleInit(): void {
+    if (!this.pdf.storageConfigured) return;
+    this.timer = setInterval(
+      () => void this.sweepDrafts(),
+      DRAFT_SWEEP_INTERVAL_MS,
+    );
+    this.timer.unref();
+  }
+
+  onModuleDestroy(): void {
+    clearInterval(this.timer);
+  }
 
   // Validates the .docx, stores it as the next version and makes it the active
   // one; the previous versions stay. A template that fails validation leaves
@@ -69,6 +146,20 @@ export class TemplatesService {
     file: { buffer: Buffer; originalname: string },
     uploadedById: number,
   ): Promise<TemplateView> {
+    const fields = this.checkedFields(documentType, file.buffer, true);
+    return this.storeVersion(municipality, documentType, file, uploadedById, {
+      fields,
+      replaceConfirmed: true,
+    });
+  }
+
+  // The markers of the file, checked against the catalog. A draft may still
+  // lack required fields (they are demanded on save), never have unknown ones.
+  private checkedFields(
+    documentType: PdfDocumentType,
+    docx: Buffer,
+    requireAll: boolean,
+  ): string[] {
     const catalog = CATALOGS[documentType];
     if (!catalog) {
       throw new BadRequestException(
@@ -78,36 +169,47 @@ export class TemplatesService {
         ),
       );
     }
-
-    let fields: string[];
-    try {
-      fields = extractTemplateFields(file.buffer, Object.keys(catalog.loops));
-    } catch (error) {
-      if (error instanceof CodedError) {
-        throw new BadRequestException(
-          errorBody(error.code, error.message, error.details),
-        );
-      }
-      throw error;
-    }
-
+    const fields = asBadRequest(() =>
+      extractTemplateFields(docx, Object.keys(catalog.loops)),
+    );
     const { missing, unknown } = validateTemplateFields(documentType, fields);
-    if (missing.length > 0 || unknown.length > 0) {
+    if (unknown.length > 0 || (requireAll && missing.length > 0)) {
       throw new BadRequestException(
         errorBody(
           ErrorCode.TEMPLATE_FIELDS_INVALID,
           'The template does not match the fields the system can fill.',
-          { missing, unknown },
+          { missing: requireAll ? missing : [], unknown },
         ),
       );
     }
+    return fields;
+  }
 
+  private async storeVersion(
+    municipality: MunicipalityContext,
+    documentType: PdfDocumentType,
+    file: { buffer: Buffer; originalname: string },
+    uploadedById: number,
+    {
+      fields,
+      replaceConfirmed,
+    }: { fields: string[]; replaceConfirmed: boolean },
+  ): Promise<TemplateView> {
     const sha256 = createHash('sha256').update(file.buffer).digest('hex');
     const active = await this.prisma.template.findFirst({
       where: { municipalityId: municipality.id, documentType, isActive: true },
     });
     // The same file again is not a new version.
     if (active?.sha256 === sha256) return toView(active);
+    if (active && !replaceConfirmed) {
+      throw new ConflictException(
+        errorBody(
+          ErrorCode.TEMPLATE_REPLACE_NOT_CONFIRMED,
+          `There is already an active ${documentType} template; confirm to replace it.`,
+          { activeVersion: active.version, activeFileName: active.fileName },
+        ),
+      );
+    }
 
     const storage = this.pdf.storage();
     let uploadedPath: string | undefined;
@@ -126,12 +228,9 @@ export class TemplatesService {
           try {
             await storage.upload(blobPath, file.buffer, DOCX_TYPE);
           } catch (error) {
-            throw new ServiceUnavailableException(
-              errorBody(
-                ErrorCode.PDF_STORAGE_UNAVAILABLE,
-                'Could not store the template in Storage.',
-              ),
-              { cause: error },
+            throw storageUnavailable(
+              'Could not store the template in Storage.',
+              error,
             );
           }
           uploadedPath = blobPath;
@@ -209,5 +308,246 @@ export class TemplatesService {
         await tx.template.update({ where: { id }, data: { isActive: true } }),
       );
     });
+  }
+
+  // Guided marking, step 1: keeps the original unactivated for 24 hours. It
+  // may come with valid markers already written; unknown ones are refused.
+  async createDraft(
+    municipality: MunicipalityContext,
+    documentType: PdfDocumentType,
+    file: { buffer: Buffer; originalname: string },
+    createdById: number,
+  ): Promise<DraftView> {
+    this.checkedFields(documentType, file.buffer, false);
+    asBadRequest(() => readDocxContent(file.buffer, documentType));
+
+    const id = randomUUID();
+    const blobPrefix = `${this.pdf.config.templatesContainer}/${municipality.slug}/drafts/${id}/`;
+    const storage = this.pdf.storage();
+    try {
+      await storage.upload(
+        `${blobPrefix}original.docx`,
+        file.buffer,
+        DOCX_TYPE,
+      );
+    } catch (error) {
+      throw storageUnavailable('Could not store the draft in Storage.', error);
+    }
+    const now = new Date();
+    let draft: TemplateDraft;
+    try {
+      draft = await this.prisma.templateDraft.create({
+        data: {
+          id,
+          documentType,
+          fileName: file.originalname,
+          blobPrefix,
+          createdAt: now,
+          expiresAt: new Date(now.getTime() + DRAFT_TTL_MS),
+          municipalityId: municipality.id,
+          createdById,
+        },
+      });
+    } catch (error) {
+      await storage.deletePrefix(blobPrefix).catch(() => undefined);
+      throw error;
+    }
+    return {
+      draftId: draft.id,
+      documentType: draft.documentType,
+      fileName: draft.fileName,
+      createdAt: draft.createdAt,
+      expiresAt: draft.expiresAt,
+    };
+  }
+
+  async draftContent(
+    municipalityId: number,
+    userId: number,
+    draftId: string,
+  ): Promise<DraftContent> {
+    const { draft, original } = await this.openDraft(
+      municipalityId,
+      userId,
+      draftId,
+    );
+    return {
+      draftId: draft.id,
+      documentType: draft.documentType,
+      expiresAt: draft.expiresAt,
+      ...asBadRequest(() => readDocxContent(original, draft.documentType)),
+    };
+  }
+
+  // Marks a copy with the selections and has the PDF service fill it with the
+  // sample data. Nothing is saved; required fields are not demanded.
+  async previewDraft(
+    municipalityId: number,
+    userId: number,
+    draftId: string,
+    selections: Selection[],
+  ): Promise<Buffer> {
+    const { draft, original } = await this.openDraft(
+      municipalityId,
+      userId,
+      draftId,
+    );
+    const marked = asBadRequest(() =>
+      applySelections(original, draft.documentType, selections),
+    );
+    const sha256 = createHash('sha256').update(marked).digest('hex');
+    // The PDF service reads templates from Storage by path and hash.
+    const blob = `${draft.blobPrefix}preview-${sha256}.docx`;
+    try {
+      await this.pdf.storage().upload(blob, marked, DOCX_TYPE);
+    } catch (error) {
+      throw storageUnavailable(
+        'Could not store the preview in Storage.',
+        error,
+      );
+    }
+    try {
+      return await this.pdf.render({
+        schemaVersion: 1,
+        documentType: draft.documentType,
+        template: { blob, sha256 },
+        data: PREVIEW_DATA[draft.documentType],
+      });
+    } catch (error) {
+      const code =
+        error instanceof HttpException
+          ? (error.getResponse() as { code?: string }).code
+          : undefined;
+      if (code === ErrorCode.PDF_SERVICE_NOT_CONFIGURED) throw error;
+      throw new BadGatewayException(
+        errorBody(
+          ErrorCode.TEMPLATE_PREVIEW_FAILED,
+          'Could not fill the marked document or convert it to PDF.',
+        ),
+        { cause: error },
+      );
+    }
+  }
+
+  // Marks the original, validates it like a direct upload and stores it as
+  // the new active version; the draft is gone afterwards.
+  async saveDraft(
+    municipality: MunicipalityContext,
+    userId: number,
+    draftId: string,
+    selections: Selection[],
+    replaceConfirmed: boolean,
+  ): Promise<TemplateView> {
+    const { draft, original } = await this.openDraft(
+      municipality.id,
+      userId,
+      draftId,
+    );
+    const marked = asBadRequest(() =>
+      applySelections(original, draft.documentType, selections),
+    );
+    const fields = this.checkedFields(draft.documentType, marked, true);
+    const view = await this.storeVersion(
+      municipality,
+      draft.documentType,
+      { buffer: marked, originalname: draft.fileName },
+      userId,
+      { fields, replaceConfirmed },
+    );
+    // The version is already saved: a leftover draft is the sweep's job, and
+    // saving it again only finds the same sha256 active.
+    await this.removeDraft(draft).catch((error: Error) =>
+      this.logger.warn(`draft ${draft.id} not removed: ${error.message}`),
+    );
+    return view;
+  }
+
+  // Cancelling also works on an expired draft: it only frees its storage.
+  async cancelDraft(
+    municipalityId: number,
+    userId: number,
+    draftId: string,
+  ): Promise<void> {
+    await this.removeDraft(
+      await this.findDraft(municipalityId, userId, draftId),
+    );
+  }
+
+  async sweepDrafts(now: Date = new Date()): Promise<number> {
+    try {
+      const expired = await this.prisma.templateDraft.findMany({
+        where: { expiresAt: { lte: now } },
+      });
+      const results = await Promise.allSettled(
+        expired.map((draft) => this.removeDraft(draft)),
+      );
+      return results.filter((result) => result.status === 'fulfilled').length;
+    } catch (error) {
+      // Retried on the next tick; never crash the backend.
+      this.logger.error(`draft sweep failed: ${(error as Error).message}`);
+      return 0;
+    }
+  }
+
+  // A draft of another municipality or another administrator is "not found",
+  // same as one that does not exist.
+  private async findDraft(
+    municipalityId: number,
+    userId: number,
+    draftId: string,
+  ): Promise<TemplateDraft> {
+    const draft = await this.prisma.templateDraft.findFirst({
+      where: { id: draftId, municipalityId, createdById: userId },
+    });
+    if (!draft) {
+      throw new NotFoundException(
+        errorBody(
+          ErrorCode.TEMPLATE_DRAFT_NOT_FOUND,
+          `Draft ${draftId} not found.`,
+        ),
+      );
+    }
+    return draft;
+  }
+
+  private async openDraft(
+    municipalityId: number,
+    userId: number,
+    draftId: string,
+  ): Promise<{ draft: TemplateDraft; original: Buffer }> {
+    const draft = await this.findDraft(municipalityId, userId, draftId);
+    if (draft.expiresAt <= new Date()) {
+      throw new GoneException(
+        errorBody(
+          ErrorCode.TEMPLATE_DRAFT_EXPIRED,
+          `Draft ${draftId} expired at ${draft.expiresAt.toISOString()}.`,
+        ),
+      );
+    }
+    let original: Buffer | undefined;
+    try {
+      const stream = await this.pdf
+        .storage()
+        .openRead(`${draft.blobPrefix}original.docx`);
+      original = stream ? await readAll(stream) : undefined;
+    } catch (error) {
+      throw storageUnavailable('Could not read the draft from Storage.', error);
+    }
+    if (!original) {
+      throw new NotFoundException(
+        errorBody(
+          ErrorCode.TEMPLATE_DRAFT_NOT_FOUND,
+          `The file of draft ${draftId} is gone.`,
+        ),
+      );
+    }
+    return { draft, original };
+  }
+
+  // Blob first: a row without its blob answers "not found", a blob without a
+  // row would never be cleaned.
+  private async removeDraft(draft: TemplateDraft): Promise<void> {
+    await this.pdf.storage().deletePrefix(draft.blobPrefix);
+    await this.prisma.templateDraft.deleteMany({ where: { id: draft.id } });
   }
 }
