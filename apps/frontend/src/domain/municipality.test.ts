@@ -38,17 +38,20 @@ describe("suggestSlug", () => {
     expect(suggestSlug("¡¿?!")).toBe("");
   });
 
-  it.each([
-    ["-ejemplo", "ejemplo"],
-    ["--ejemplo", "ejemplo"],
-    ["ejemplo-", "ejemplo"],
-    ["ejemplo--", "ejemplo"],
-    ["--villa--de--leyva--", "villa-de-leyva"],
-    ["- -villa- -", "villa"],
-    ["---", ""],
-    ["", ""],
-  ])('drops leading, trailing and repeated hyphens: "%s"', (name, slug) => {
-    expect(suggestSlug(name)).toBe(slug);
+  it("drops leading, trailing and repeated hyphens", () => {
+    const slugs: Record<string, string> = {
+      "-ejemplo": "ejemplo",
+      "--ejemplo": "ejemplo",
+      "ejemplo-": "ejemplo",
+      "ejemplo--": "ejemplo",
+      "--villa--de--leyva--": "villa-de-leyva",
+      "- -villa- -": "villa",
+      "---": "",
+      "": "",
+    };
+    for (const [name, slug] of Object.entries(slugs)) {
+      expect(suggestSlug(name), name).toBe(slug);
+    }
   });
 
   it("cuts a long name to the maximum length", () => {
@@ -60,10 +63,11 @@ describe("suggestSlug", () => {
   });
 
   it("handles 100 000 hyphens in linear time", () => {
+    const hyphens = "-".repeat(100_000);
     const started = performance.now();
-    expect(suggestSlug("-".repeat(100_000))).toBe("");
-    expect(suggestSlug(`a${"-".repeat(100_000)}`)).toBe("a");
-    expect(suggestSlug(`${"-".repeat(100_000)}a`)).toBe("a");
+    expect(suggestSlug(hyphens)).toBe("");
+    expect(suggestSlug(`a${hyphens}`)).toBe("a");
+    expect(suggestSlug(`${hyphens}a`)).toBe("a");
     expect(performance.now() - started).toBeLessThan(100);
   });
 });
