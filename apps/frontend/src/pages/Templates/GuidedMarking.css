@@ -643,6 +643,39 @@
   overflow-wrap: anywhere;
 }
 
+.marker-menu__search {
+  padding: var(--space-8) var(--space-8) 0;
+}
+
+.marker-menu__search-input {
+  width: 100%;
+  height: 40px;
+  padding: 0 var(--space-12);
+  border: 1px solid var(--grafito-400);
+  border-radius: var(--radius-default);
+  background-color: var(--semantic-surface);
+  font: inherit;
+  font-size: var(--text-md);
+  color: var(--semantic-text);
+}
+
+.marker-menu__search-input::placeholder {
+  color: var(--semantic-text-muted);
+}
+
+.marker-menu__search-input:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+  border-color: var(--semantic-primary);
+}
+
+.marker-menu__empty {
+  margin: 0;
+  padding: var(--space-12) var(--space-8);
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
 .marker-menu__list {
   padding: var(--space-8);
   overflow-y: auto;
@@ -942,4 +975,110 @@
   align-self: flex-start;
   font-size: var(--text-sm);
   color: var(--semantic-primary);
+}
+
+/* Rows of the table that repeats: the example one, and the ones that can be
+   left out of the template. Outside the table's own borders. */
+.marking-doc__table td.marking-doc__row-tools {
+  min-width: 0;
+  padding: 0 0 0 var(--space-8);
+  border: 0;
+  background: none;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.marking-doc__row-tag {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  color: var(--semantic-success);
+}
+
+.marking-doc__row-tag svg,
+.marking-doc__row-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.marking-doc__row-button {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--tinta-100);
+  border-radius: var(--radius-default);
+  background: var(--semantic-surface);
+  color: var(--semantic-danger-hover);
+  cursor: pointer;
+  user-select: none;
+}
+
+.marking-doc__row-button[data-removed] {
+  color: var(--semantic-primary-hover);
+}
+
+.marking-doc__row-button:hover {
+  background-color: var(--tinta-50);
+}
+
+.marking-doc__row-button:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+}
+
+@media (pointer: coarse) {
+  .marking-doc__row-button {
+    width: var(--tap-size);
+    height: var(--tap-size);
+  }
+}
+
+/* In a cell the marker's name may take two lines: the table fits the page
+   instead of hiding its last columns. */
+.marking-doc__table .marking-doc__tag {
+  border-radius: var(--radius-default);
+  white-space: normal;
+}
+
+/* A removed row: still in sight, crossed out, not to be marked. */
+.marking-doc__table tr[data-removed] td:not(.marking-doc__row-tools) {
+  background-color: var(--semantic-surface-muted);
+  color: var(--semantic-text-muted);
+  text-decoration: line-through;
+  user-select: none;
+}
+
+.marking-doc__surplus {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8) var(--space-16);
+  margin-top: var(--space-8);
+  padding: var(--space-12) var(--space-16);
+  border-radius: var(--radius-default);
+  background-color: var(--semantic-warning-bg);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  white-space: normal;
+}
+
+.marking-doc__surplus p {
+  flex: 1 1 260px;
+  margin: 0;
+}
+
+.marking-doc__removed-note {
+  margin: var(--space-8) 0 0;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+@media (max-width: 900px) {
+  .marking-doc__table td.marking-doc__row-tools {
+    padding: 0 var(--space-8) 0 0;
+  }
 }

@@ -67,8 +67,9 @@ export function ReplaceTemplateDialog({
 
 interface DiscardDraftDialogProps {
   open: boolean;
-  // Markers the lawyer assigned, which are lost.
+  // Markers the lawyer assigned and table rows removed, which are lost.
   assigned: number;
+  removedRows: number;
   discarding: boolean;
   onKeep: () => void;
   onDiscard: () => void;
@@ -77,6 +78,7 @@ interface DiscardDraftDialogProps {
 export function DiscardDraftDialog({
   open,
   assigned,
+  removedRows,
   discarding,
   onKeep,
   onDiscard,
@@ -92,9 +94,20 @@ export function DiscardDraftDialog({
       <div className="ui-dialog__body">
         <p>
           Se perderán{" "}
-          {assigned === 1
-            ? "el marcador que asignaste"
-            : `los ${assigned} marcadores que asignaste`}
+          {[
+            assigned === 1
+              ? "el marcador que asignaste"
+              : assigned > 1
+                ? `los ${assigned} marcadores que asignaste`
+                : "",
+            removedRows === 1
+              ? "la fila que quitaste"
+              : removedRows > 1
+                ? `las ${removedRows} filas que quitaste`
+                : "",
+          ]
+            .filter(Boolean)
+            .join(" y ")}
           . La plantilla en uso no cambia.
         </p>
       </div>

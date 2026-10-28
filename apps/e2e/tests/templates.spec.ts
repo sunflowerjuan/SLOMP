@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { ensureActiveLiquidationTemplate, fixture } from "../src/fixtures";
+import {
+  activeLiquidationTexts,
+  ensureActiveLiquidationTemplate,
+  fixture,
+} from "../src/fixtures";
 import type { FixtureName } from "../src/fixtures";
 import { E2E_MUNICIPALITY_SLUG } from "../src/env";
 import { adminPath } from "../src/paths";
@@ -81,9 +85,12 @@ async function upload(page: Page, type: string, name: FixtureName) {
 // Keyboard only: focus the paragraph, Enter opens its text in a box, Shift +
 // arrows select, Enter opens the menu and the arrows reach the marker.
 async function mark(page: Page, { paragraph, text, marker }: Marking) {
-  const button = page.getByRole("button", {
-    name: new RegExp(`^Marcar texto del párrafo «.*${escape(paragraph)}`),
-  });
+  // The first paragraph that matches: a table repeats values ("2022").
+  const button = page
+    .getByRole("button", {
+      name: new RegExp(`^Marcar texto del párrafo «.*${escape(paragraph)}`),
+    })
+    .first();
   await button.focus();
   await page.keyboard.press("Enter");
   const box = page.locator(".marking-doc__picker-text");
@@ -102,6 +109,12 @@ async function mark(page: Page, { paragraph, text, marker }: Marking) {
 
   const menu = page.getByRole("menu", { name: "¿Qué dato va aquí?" });
   await expect(menu).toBeVisible();
+  // The search narrows the list (typing on a marker goes there too); the
+  // arrows go on from it to the marker.
+  await page.keyboard.type(marker);
+  await expect(
+    page.getByRole("searchbox", { name: "Buscar marcador" }),
+  ).toHaveValue(marker);
   for (let i = 0; i < 20; i += 1) {
     const focused = await page.evaluate(
       () => document.activeElement?.textContent ?? "",
@@ -474,4 +487,195 @@ test("cada versión del historial se puede ver antes de activarla", async ({
   ).toHaveCount(0);
   await current.getByRole("button", { name: "Cerrar" }).click();
   await expect(current).toBeHidden();
+});
+
+test("una tabla llena se marca en su fila de ejemplo y las demás filas se quitan desde la pantalla", async ({
+  page,
+}) => {
+  await upload(page, "Liquidación", "plantilla-liquidacion-tabla-llena.docx");
+  for (const marking of [
+    {
+      paragraph: "RESOLUCIÓN No.",
+      text: "RES-0000-2026",
+      marker: "Número de resolución",
+    },
+    {
+      paragraph: "Predio con",
+      text: "00-00-0000-0000-000",
+      marker: "Código catastral del predio",
+    },
+    { paragraph: "2022»", text: "2022", marker: "Vigencia (año)" },
+    {
+      paragraph: "$ 371.429»",
+      text: "$ 371.429",
+      marker: "Valor total a pagar",
+    },
+  ]) {
+    await mark(page, marking);
+  }
+  await expect(page.getByText("5 de 5 obligatorios").first()).toBeVisible();
+
+  // Marking the example row removed the other rows of values at once:
+  // crossed out, explained, and each one can come back.
+  const removed = page.locator("tr[data-removed]");
+  await expect(removed).toHaveCount(3);
+  await expect(
+    page.getByText(
+      "Se quitaron 3 filas con valores de ejemplo: saldrían iguales en todas las liquidaciones.",
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/^Deja solo esta fila con los datos de la tabla/),
+  ).toBeVisible();
+  await expect(page.getByRole("note")).toHaveCount(0);
+
+  // One restored stays restored, and the table says it would print as is.
+  await page.getByRole("button", { name: /^Restaurar la fila «2023/ }).click();
+  await expect(removed).toHaveCount(2);
+  const surplus = page.getByRole("note");
+  await expect(surplus).toContainText(
+    "Esta tabla tiene 1 fila más con valores de ejemplo.",
+  );
+  await surplus.getByRole("button", { name: "Quitar esa fila" }).click();
+  await expect(removed).toHaveCount(3);
+  await expect(surplus).toBeHidden();
+
+  await saveFromPreview(page);
+  await expect(
+    page.getByRole("status").filter({ hasText: "Se guardó" }),
+  ).toBeVisible();
+
+  const texts = await activeLiquidationTexts();
+  expect(texts).toContain("{#rows}{year}");
+  expect(texts).toContain("{totalAmount}");
+  expect(texts).not.toContain("SOBRETASA AMBIENTAL");
+  expect(texts).not.toContain("2023");
+  expect(texts).not.toContain("2024");
+});
+
+test("el menú de marcadores no se mueve al recorrerlo y se cierra si la selección sale de la vista", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "En el teléfono el menú es una hoja inferior fija.");
+  // A short window: the document scrolls and the menu has to scroll inside.
+  await page.setViewportSize({ width: 1280, height: 560 });
+  await upload(page, "Liquidación", "plantilla-liquidacion-tabla-llena.docx");
+
+  const title = page
+    .locator(".marking-doc__block", { hasText: "RESOLUCIÓN" })
+    .locator("[data-start]")
+    .first();
+  const box = (await title.boundingBox())!;
+  await page.mouse.move(box.x + 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width - 2, box.y + box.height / 2, {
+    steps: 5,
+  });
+  await page.mouse.up();
+  const menu = page.locator(".marker-menu");
+  await expect(menu).toBeVisible();
+  const before = await menu.boundingBox();
+
+  // Down to the end of its list with the wheel: it stays where it was.
+  await menu.locator(".marker-menu__list").hover();
+  for (let i = 0; i < 10; i += 1) await page.mouse.wheel(0, 200);
+  await page.waitForTimeout(300);
+  expect(await menu.boundingBox()).toEqual(before);
+  await expect(
+    menu.getByRole("menuitem", { name: /^Capital de la vigencia/ }),
+  ).toBeInViewport();
+
+  // The document scrolled until the selection is out of sight: it closes.
+  await page.locator(".guided-marking__document").evaluate((zone) => {
+    zone.scrollTop = zone.scrollHeight;
+  });
+  await expect(menu).toBeHidden();
+});
+
+test("ir a un marcador al final del documento no desplaza la pantalla entera", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "En el teléfono la lista está en una hoja inferior.");
+  await page.setViewportSize({ width: 1280, height: 560 });
+  await upload(page, "Liquidación", "plantilla-liquidacion-tabla-llena.docx");
+  await mark(page, {
+    paragraph: "$ 371.429»",
+    text: "$ 371.429",
+    marker: "Valor total a pagar",
+  });
+
+  const zone = page.locator(".guided-marking__document");
+  await zone.evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  await page
+    .getByRole("button", { name: "Ver Valor total a pagar en el documento" })
+    .click();
+  await page.waitForTimeout(800);
+
+  // Only the document's own area scrolled; nothing around it moved.
+  const outside = await zone.evaluate((element) => {
+    const moved: string[] = [];
+    for (
+      let current = element.parentElement;
+      current;
+      current = current.parentElement
+    ) {
+      if (current.scrollTop !== 0) moved.push(current.className);
+    }
+    return { moved, window: window.scrollY, zone: element.scrollTop };
+  });
+  expect(outside.moved).toEqual([]);
+  expect(outside.window).toBe(0);
+  expect(outside.zone).toBeGreaterThan(0);
+  await expect(
+    page.locator(".marking-doc__mark[data-field=totalAmount]"),
+  ).toBeInViewport();
+});
+
+test("el buscador del menú filtra los marcadores sin importar tildes", async ({
+  page,
+}) => {
+  await upload(
+    page,
+    "Liquidación",
+    "plantilla-liquidacion-sin-marcadores.docx",
+  );
+  const button = page
+    .getByRole("button", { name: /^Marcar texto del párrafo «Resolución No\./ })
+    .first();
+  await button.focus();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("End");
+  for (let i = 0; i < 13; i += 1) await page.keyboard.press("Shift+ArrowLeft");
+  await page.keyboard.press("Enter");
+
+  const menu = page.getByRole("menu", { name: "¿Qué dato va aquí?" });
+  const search = page.getByRole("searchbox", { name: "Buscar marcador" });
+  await expect(menu).toBeVisible();
+  await search.fill("codigo catastral");
+  await expect(menu.getByRole("menuitem")).toHaveCount(1);
+  await expect(menu.getByRole("menuitem")).toContainText(
+    "Código catastral del predio",
+  );
+
+  await search.fill("xyz");
+  await expect(menu.getByRole("menuitem")).toHaveCount(0);
+  await expect(menu).toContainText("Ningún marcador coincide con «xyz».");
+
+  // Escape clears the search first, then closes.
+  await search.focus();
+  await page.keyboard.press("Escape");
+  await expect(search).toHaveValue("");
+  await expect(menu.getByRole("menuitem").first()).toBeVisible();
+
+  // Enter in the search takes the first marker that fits.
+  await search.fill("resolucion");
+  await page.keyboard.press("Enter");
+  await expect(menu).toBeHidden();
+  await expect(
+    page.locator(".marking-doc__mark[data-source=lawyer]"),
+  ).toContainText("Número de resolución");
 });

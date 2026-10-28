@@ -116,8 +116,9 @@ export function MarkerChecklist({
                 <Status entry={loop} count={counts.get(loop.key) ?? 0} />
               </div>
               <p className="marker-list__description">
-                Se repite una fila por cada año. Se activa al marcar cualquier
-                dato de la tabla en su fila de ejemplo.
+                Se repite una fila por cada vigencia y concepto que cobre la
+                liquidación. Se activa al marcar cualquier dato de la tabla en
+                su fila de ejemplo.
               </p>
               {loop.required && (
                 <div className="marker-list__meta">

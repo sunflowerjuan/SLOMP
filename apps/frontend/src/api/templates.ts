@@ -190,18 +190,25 @@ export function getDraftContent(
   return request(draftPath(draftId, "/content"), { signal });
 }
 
-// Every selection, every time: the backend keeps none of them. The PDF is
-// filled with fictitious sample data.
+// What the lawyer did to the draft, sent whole every time: the backend keeps
+// none of it. `removedRows` are table rows to leave out (the example values a
+// table brings besides its example row), each named by one of its blocks.
+export interface DraftMarking {
+  selections: MarkerSelection[];
+  removedRows: string[];
+}
+
+// The PDF is filled with fictitious sample data.
 export function previewTemplateDraft(
   draftId: string,
-  selections: MarkerSelection[],
+  marking: DraftMarking,
   signal?: AbortSignal,
 ): Promise<Blob> {
   return previewPdf(
     () =>
       requestBlob(draftPath(draftId, "/preview"), {
         method: "POST",
-        body: { selections },
+        body: marking,
         signal,
       }),
     signal,
@@ -212,12 +219,12 @@ export function previewTemplateDraft(
 // (TEMPLATE_REPLACE_NOT_CONFIRMED).
 export function saveTemplateDraft(
   draftId: string,
-  selections: MarkerSelection[],
+  marking: DraftMarking,
   replaceConfirmed: boolean,
 ): Promise<TemplateVersion> {
   return request(draftPath(draftId, "/save"), {
     method: "POST",
-    body: { selections, replaceConfirmed },
+    body: { ...marking, replaceConfirmed },
   });
 }
 

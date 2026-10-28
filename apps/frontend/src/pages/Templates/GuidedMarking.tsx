@@ -32,13 +32,20 @@ import {
   progressText,
   rangeProblem,
   requiredProgress,
+  rowKey,
   sameRange,
   sortSelections,
+  surplusRows,
   tableRowInUse,
   trimRange,
   usedFields,
 } from "../../domain/templateMarking";
-import type { MarkingProblem, TextRange } from "../../domain/templateMarking";
+import type {
+  MarkingProblem,
+  TableRow,
+  TextRange,
+} from "../../domain/templateMarking";
+import { scrollWithin } from "../../utils/scrollWithin";
 import { DATE_TIME_FORMATTER, DOCUMENT_TEXT } from "./documentText";
 import {
   DiscardDraftDialog,
@@ -130,6 +137,8 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
   const [loadError, setLoadError] = useState("");
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [selections, setSelections] = useState(draft.selections);
+  // Table rows left out of the template, each named by one of its blocks.
+  const [removedRows, setRemovedRows] = useState(draft.removedRows);
   const [step, setStep] = useState<Step>("mark");
   const [pending, setPending] = useState<Pending | null>(null);
   const [problem, setProblem] = useState<MarkingProblem | null>(null);
@@ -186,8 +195,8 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
   }, [draft.draftId, draft.documentType, leave, loadAttempt]);
 
   useEffect(() => {
-    storeDraft({ ...draft, selections });
-  }, [draft, selections]);
+    storeDraft({ ...draft, selections, removedRows });
+  }, [draft, selections, removedRows]);
 
   // The preview's object URL lives until the next preview or the screen goes.
   useEffect(
@@ -239,6 +248,34 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
     () => sortSelections(blocks, selections),
     [blocks, selections],
   );
+  const removedRowKeys = useMemo(
+    () =>
+      new Set(
+        removedRows.flatMap((blockId) => {
+          const block = blocks.find(
+            (candidate) => candidate.blockId === blockId,
+          );
+          const row = block && rowKey(block);
+          return row ? [row] : [];
+        }),
+      ),
+    [blocks, removedRows],
+  );
+  const surplus = useMemo(
+    () =>
+      repeatingRow
+        ? surplusRows(blocks, repeatingRow, allMarks).filter(
+            ({ row }) => !removedRowKeys.has(row),
+          )
+        : [],
+    [blocks, repeatingRow, allMarks, removedRowKeys],
+  );
+  // What preview and save send: the selections in document order and the
+  // rows to leave out.
+  const marking = useMemo(
+    () => ({ selections: sorted, removedRows: [...removedRows].sort() }),
+    [sorted, removedRows],
+  );
 
   const documentMarks: DocumentMark[] = useMemo(
     () => [
@@ -279,7 +316,7 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
         id: loop.key,
         title: loop.label,
         explanation:
-          "Se repite una fila por cada año: marca estos datos en la fila de ejemplo de la tabla.",
+          "Se repite una fila por cada vigencia y concepto: marca estos datos en una sola fila de ejemplo de la tabla.",
         problem: fields[0]
           ? entryProblem(fields[0], block, repeatingRow)
           : null,
@@ -305,6 +342,11 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
     );
     if (!block) return;
     clearSelection();
+    const row = rowKey(block);
+    if (row && removedRowKeys.has(row)) {
+      showProblem("IN_REMOVED_ROW");
+      return;
+    }
     const trimmed = trimRange(block.text, range.start, range.end);
     if (!trimmed) {
       showProblem("EMPTY");
@@ -330,7 +372,35 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
     if (!pending) return;
     const added: MarkerSelection = { ...pending.range, field: entry.key };
     setSelections((current) => [...current, added]);
-    announce(`Se asignó «${entry.label}».`);
+    // The first table field makes its row the example row: the other rows
+    // of example values go at once (still in sight, and each one can come
+    // back), since only that row should be left to be filled. Done here,
+    // when it happens, so a row the lawyer restores stays restored.
+    const block = blocks.find(
+      (candidate) => candidate.blockId === added.blockId,
+    );
+    const exampleRow = block && rowKey(block);
+    const extra =
+      isTableField(entry) && !repeatingRow && exampleRow
+        ? surplusRows(blocks, exampleRow, [...allMarks, added]).filter(
+            ({ row }) => !removedRowKeys.has(row),
+          )
+        : [];
+    if (extra.length > 0) {
+      setRemovedRows((current) => [
+        ...current,
+        ...extra.map(({ blockId }) => blockId),
+      ]);
+      announce(
+        `Se asignó «${entry.label}». ${
+          extra.length === 1
+            ? "Se quitó la otra fila con valores de ejemplo; puedes restaurarla."
+            : `Se quitaron las otras ${extra.length} filas con valores de ejemplo; puedes restaurarlas.`
+        }`,
+      );
+    } else {
+      announce(`Se asignó «${entry.label}».`);
+    }
     closeMenu();
   }
 
@@ -348,13 +418,44 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
       ?.focus({ preventScroll: true });
   }
 
+  function toggleRow({ row, blockId }: TableRow) {
+    if (removedRowKeys.has(row)) {
+      setRemovedRows((current) =>
+        current.filter((removed) => {
+          const block = blocks.find(
+            (candidate) => candidate.blockId === removed,
+          );
+          return !block || rowKey(block) !== row;
+        }),
+      );
+      announce("Se restauró la fila.");
+    } else {
+      setRemovedRows((current) => [...current, blockId]);
+      announce("La fila se quitará de la plantilla.");
+    }
+    setProblem(null);
+  }
+
+  function removeRows(rows: TableRow[]) {
+    setRemovedRows((current) => [
+      ...current,
+      ...rows.map(({ blockId }) => blockId),
+    ]);
+    setProblem(null);
+    announce(
+      rows.length === 1
+        ? "La fila se quitará de la plantilla."
+        : `Las ${rows.length} filas se quitarán de la plantilla.`,
+    );
+  }
+
   function locate(entry: MarkerCatalogEntry) {
     setSheetOpen(false);
     const target = documentRef.current?.querySelector<HTMLElement>(
       `[data-field="${CSS.escape(entry.key)}"], [data-field^="${CSS.escape(entry.key)}."]`,
     );
     if (!target) return;
-    target.scrollIntoView({ block: "center", behavior: "smooth" });
+    scrollWithin(target, "center");
     target.dataset.flash = "true";
     setTimeout(() => delete target.dataset.flash, FLASH_MS);
     (
@@ -367,7 +468,7 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
 
   const runPreview = useCallback(
     async (force = false) => {
-      const key = JSON.stringify(sorted);
+      const key = JSON.stringify(marking);
       if (!force && key === previewKey.current) return;
       previewKey.current = key;
       previewController.current?.abort();
@@ -377,7 +478,7 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
       try {
         const blob = await previewTemplateDraft(
           draft.draftId,
-          sorted,
+          marking,
           controller.signal,
         );
         if (controller.signal.aborted) return;
@@ -398,7 +499,7 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
         });
       }
     },
-    [sorted, draft.draftId, draft.documentType, leave],
+    [marking, draft.draftId, draft.documentType, leave],
   );
 
   function goTo(next: Step) {
@@ -415,7 +516,7 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
     try {
       const version = await saveTemplateDraft(
         draft.draftId,
-        sorted,
+        marking,
         replaceConfirmed,
       );
       leave({ kind: "saved", version });
@@ -480,7 +581,7 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
   }
 
   function requestCancel() {
-    if (selections.length > 0) setDiscardOpen(true);
+    if (selections.length > 0 || removedRows.length > 0) setDiscardOpen(true);
     else void discard();
   }
 
@@ -517,13 +618,21 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
     />
   );
 
-  const anchor = useCallback(
-    () =>
-      documentRef.current
-        ?.querySelector('[data-source="pending"]')
-        ?.getBoundingClientRect() ?? null,
-    [],
-  );
+  // Where the selection is, for the floating menu: null once it scrolled
+  // out of the visible part of the document (or the screen).
+  const anchor = useCallback(() => {
+    const mark = documentRef.current?.querySelector('[data-source="pending"]');
+    if (!mark) return null;
+    const rect = mark.getBoundingClientRect();
+    const zone = mark.closest(".guided-marking__document");
+    const view = zone?.getBoundingClientRect();
+    const top = Math.max(view?.top ?? 0, 0);
+    const bottom = Math.min(
+      view?.bottom ?? window.innerHeight,
+      window.innerHeight,
+    );
+    return rect.bottom <= top || rect.top >= bottom ? null : rect;
+  }, []);
 
   return (
     <Screen
@@ -669,6 +778,7 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
           <DiscardDraftDialog
             open={discardOpen}
             assigned={selections.length}
+            removedRows={removedRows.length}
             discarding={discarding}
             onKeep={() => setDiscardOpen(false)}
             onDiscard={() => void discard()}
@@ -714,9 +824,13 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
                     marks={documentMarks}
                     labels={labels}
                     repeatingRow={repeatingRow}
+                    removedRows={removedRowKeys}
+                    surplus={surplus}
                     onSelect={handleSelect}
                     onProblem={showProblem}
                     onRemove={remove}
+                    onToggleRow={toggleRow}
+                    onRemoveRows={removeRows}
                   />
                 </div>
               ) : (

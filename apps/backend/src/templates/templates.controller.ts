@@ -187,7 +187,7 @@ export class TemplatesController {
   @HttpCode(200)
   @ApiOperation({
     summary:
-      'Aplica las selecciones al borrador y devuelve el PDF con datos de ejemplo ficticios. No guarda nada.',
+      'Aplica las selecciones al borrador, quita las filas indicadas y devuelve el PDF con datos de ejemplo ficticios. No guarda nada.',
   })
   @ApiProduces('application/pdf')
   async previewDraft(
@@ -202,6 +202,7 @@ export class TemplatesController {
       user.id,
       draftId,
       body.selections,
+      body.removedRows,
     );
     res.set({ 'Content-Type': 'application/pdf' });
     return new StreamableFile(pdf);
@@ -210,7 +211,7 @@ export class TemplatesController {
   @Post('drafts/:draftId/save')
   @ApiOperation({
     summary:
-      'Aplica las selecciones, valida los marcadores obligatorios y guarda el borrador como la nueva versión activa.',
+      'Aplica las selecciones, quita las filas indicadas, valida los marcadores obligatorios y guarda el borrador como la nueva versión activa.',
   })
   saveDraft(
     @CurrentMunicipality() municipality: MunicipalityContext,
@@ -224,6 +225,7 @@ export class TemplatesController {
       draftId,
       body.selections,
       body.replaceConfirmed === true,
+      body.removedRows,
     );
   }
 

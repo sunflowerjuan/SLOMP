@@ -398,6 +398,7 @@ export class TemplatesService implements OnModuleInit, OnModuleDestroy {
     userId: number,
     draftId: string,
     selections: Selection[],
+    removedRows: string[] = [],
   ): Promise<Buffer> {
     const { draft, original } = await this.openDraft(
       municipalityId,
@@ -405,7 +406,7 @@ export class TemplatesService implements OnModuleInit, OnModuleDestroy {
       draftId,
     );
     const marked = asBadRequest(() =>
-      applySelections(original, draft.documentType, selections),
+      applySelections(original, draft.documentType, selections, removedRows),
     );
     const sha256 = createHash('sha256').update(marked).digest('hex');
     // The PDF service reads templates from Storage by path and hash.
@@ -546,6 +547,7 @@ export class TemplatesService implements OnModuleInit, OnModuleDestroy {
     draftId: string,
     selections: Selection[],
     replaceConfirmed: boolean,
+    removedRows: string[] = [],
   ): Promise<TemplateView> {
     const { draft, original } = await this.openDraft(
       municipality.id,
@@ -553,7 +555,7 @@ export class TemplatesService implements OnModuleInit, OnModuleDestroy {
       draftId,
     );
     const marked = asBadRequest(() =>
-      applySelections(original, draft.documentType, selections),
+      applySelections(original, draft.documentType, selections, removedRows),
     );
     const fields = this.checkedFields(draft.documentType, marked, true);
     const view = await this.storeVersion(

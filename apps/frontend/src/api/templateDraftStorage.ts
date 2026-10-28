@@ -14,6 +14,8 @@ export interface StoredDraft {
   fileName: string;
   expiresAt: string;
   selections: MarkerSelection[];
+  // Table rows to leave out, each named by one of its blocks.
+  removedRows: string[];
 }
 
 function key(): string | null {
@@ -52,6 +54,12 @@ function parse(raw: string | null): StoredDraft | null {
       fileName: value.fileName,
       expiresAt: value.expiresAt,
       selections: value.selections.filter(isSelection),
+      // Drafts stored before rows could be removed have none.
+      removedRows: Array.isArray(value.removedRows)
+        ? value.removedRows.filter(
+            (row): row is string => typeof row === "string",
+          )
+        : [],
     };
   } catch {
     return null;

@@ -120,7 +120,7 @@ export function TemplatesPage({
         onFileChange={setFile}
         notice={notice}
         onDraftCreated={(created) => {
-          const stored = { ...created, selections: [] };
+          const stored = { ...created, selections: [], removedRows: [] };
           storeDraft(stored);
           setNotice(null);
           setDraft(stored);

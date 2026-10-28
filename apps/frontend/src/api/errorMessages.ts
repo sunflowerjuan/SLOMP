@@ -124,6 +124,19 @@ export const MARKING_PROBLEM_MESSAGES: Record<MarkingProblem, string> = {
     "Los campos de la tabla solo se marcan en la fila de ejemplo de una tabla del documento.",
   OTHER_ROW:
     "Los campos de la tabla van todos en la misma fila de ejemplo: usa la fila que ya marcaste.",
+  IN_REMOVED_ROW:
+    "Esa fila se quitará del documento. Restáurala si quieres marcar en ella.",
+};
+
+// Why a table row can't be left out of the template (`reason` of
+// TEMPLATE_SELECTION_INVALID when removing rows).
+const REMOVED_ROW_MESSAGES: Record<string, string> = {
+  REMOVED_ROW_HAS_MARKER:
+    "Una de las filas que quitaste tiene marcadores. Quita sus marcadores o restaura la fila e intenta de nuevo.",
+  REMOVED_ROW_LAST:
+    "No se pueden quitar todas las filas de una tabla. Restaura al menos una e intenta de nuevo.",
+  REMOVED_ROW_OUTSIDE_TABLE:
+    "Una de las filas que quitaste ya no está en una tabla. Restáurala e intenta de nuevo.",
 };
 
 const SELECTION_REASON_PROBLEMS: Record<string, MarkingProblem> = {
@@ -264,6 +277,7 @@ const ERROR_MESSAGES: Record<string, CatalogEntry> = {
     if (reason === "TOO_MANY") {
       return "Asignaste demasiados marcadores. Quita algunos e intenta de nuevo.";
     }
+    if (REMOVED_ROW_MESSAGES[reason]) return REMOVED_ROW_MESSAGES[reason];
     const problem = SELECTION_REASON_PROBLEMS[reason];
     return problem
       ? MARKING_PROBLEM_MESSAGES[problem]

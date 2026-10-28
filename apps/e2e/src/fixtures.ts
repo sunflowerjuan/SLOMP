@@ -16,6 +16,7 @@ const NAMES = [
   "cartera-fila-invalida.xlsx",
   "plantilla-liquidacion-sin-marcadores.docx",
   "plantilla-mandamiento-sin-marcadores.docx",
+  "plantilla-liquidacion-tabla-llena.docx",
 ] as const;
 
 export type FixtureName = (typeof NAMES)[number];
@@ -122,4 +123,21 @@ export async function ensureActiveLiquidationTemplate(): Promise<{
     throw new Error(`No se pudo guardar la plantilla (${saved.status}).`);
   }
   return (await saved.json()) as { version: number };
+}
+
+// The paragraphs of the municipality's active liquidation template, as the
+// API reads them back.
+export async function activeLiquidationTexts(): Promise<string[]> {
+  const accessToken = await apiToken();
+  const base = `${apiUrl}/municipalities/${E2E_MUNICIPALITY_SLUG}/templates`;
+  const auth = { Authorization: `Bearer ${accessToken}` };
+  const versions = (await (
+    await fetch(`${base}?documentType=LIQUIDACION`, { headers: auth })
+  ).json()) as { id: number; isActive: boolean }[];
+  const active = versions.find((version) => version.isActive);
+  if (!active) throw new Error("No hay plantilla de liquidación activa.");
+  const content = (await (
+    await fetch(`${base}/${active.id}/content`, { headers: auth })
+  ).json()) as { blocks: { text: string }[] };
+  return content.blocks.map((block) => block.text);
 }

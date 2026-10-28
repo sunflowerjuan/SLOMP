@@ -2,13 +2,17 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import type { DocumentBlock, MarkerSelection } from "../../api/templates";
 import { Button } from "../../components/ui/Button";
-import { blockPieces, rowKey } from "../../domain/templateMarking";
+import { Icon } from "../../components/ui/Icon";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
+import { blockPieces, rowKey, tableKeyOf } from "../../domain/templateMarking";
 import type {
   MarkSource,
   MarkingProblem,
   Segment,
+  TableRow,
   TextRange,
 } from "../../domain/templateMarking";
+import { focusWithin } from "../../utils/scrollWithin";
 import { clearSelection, readSelection } from "./documentSelection";
 
 export interface DocumentMark {
@@ -23,9 +27,15 @@ interface MarkingDocumentProps {
   labels: ReadonlyMap<string, string>;
   // The example row the table fields use, highlighted as the one that repeats.
   repeatingRow: string | null;
+  // Rows left out of the template, and the rows of example values its table
+  // still has (see surplusRows).
+  removedRows: ReadonlySet<string>;
+  surplus: TableRow[];
   onSelect: (range: TextRange, origin: HTMLElement) => void;
   onProblem: (problem: MarkingProblem) => void;
   onRemove: (mark: MarkerSelection) => void;
+  onToggleRow: (row: TableRow) => void;
+  onRemoveRows: (rows: TableRow[]) => void;
 }
 
 const PART_LABEL: Record<DocumentBlock["part"], string> = {
@@ -99,10 +109,15 @@ export function MarkingDocument({
   marks,
   labels,
   repeatingRow,
+  removedRows,
+  surplus,
   onSelect,
   onProblem,
   onRemove,
+  onToggleRow,
+  onRemoveRows,
 }: MarkingDocumentProps) {
+  const toolsFirst = useMediaQuery("(max-width: 900px)");
   const rootRef = useRef<HTMLDivElement>(null);
   const pointerDown = useRef(false);
   const lastPointer = useRef("mouse");
@@ -192,9 +207,11 @@ export function MarkingDocument({
     event.preventDefault();
     const target = blocks[Math.max(0, Math.min(next, blocks.length - 1))];
     setActiveBlock(target.blockId);
-    blockElement(target.blockId)
-      ?.querySelector<HTMLButtonElement>(".marking-doc__focus")
-      ?.focus();
+    focusWithin(
+      blockElement(target.blockId)?.querySelector<HTMLButtonElement>(
+        ".marking-doc__focus",
+      ),
+    );
   }
 
   function renderBlock(block: DocumentBlock): ReactNode {
@@ -280,9 +297,11 @@ export function MarkingDocument({
             onClose={(refocus) => {
               setPicking(null);
               if (refocus) {
-                blockElement(block.blockId)
-                  ?.querySelector<HTMLButtonElement>(".marking-doc__focus")
-                  ?.focus();
+                focusWithin(
+                  blockElement(block.blockId)?.querySelector<HTMLButtonElement>(
+                    ".marking-doc__focus",
+                  ),
+                );
               }
             }}
           />
@@ -290,6 +309,16 @@ export function MarkingDocument({
       </div>
     );
   }
+
+  // The rows that have a marker: they can't be removed.
+  const markedRows = new Set(
+    marks.map(({ mark }) => {
+      const block = blocks.find(
+        (candidate) => candidate.blockId === mark.blockId,
+      );
+      return block ? rowKey(block) : null;
+    }),
+  );
 
   function renderTable(item: Extract<Item, { kind: "table" }>): ReactNode {
     const rows = new Map<number, Map<number, DocumentBlock[]>>();
@@ -301,6 +330,17 @@ export function MarkingDocument({
       rows.set(rowIndex, row);
       columns = Math.max(columns, colIndex + 1);
     }
+    const holdsExample =
+      repeatingRow !== null && tableKeyOf(repeatingRow) === item.key;
+    const removedHere = [...removedRows].filter(
+      (row) => tableKeyOf(row) === item.key,
+    );
+    // Rows can be removed in the table that repeats, or restored where some
+    // already were. On a phone the table scrolls sideways, so the row
+    // actions go first, where they are always in sight.
+    const tools = holdsExample || removedHere.length > 0;
+    const extra = holdsExample ? surplus : [];
+
     return (
       <div key={item.key} className="marking-doc__table-wrap">
         <table className="marking-doc__table">
@@ -308,23 +348,104 @@ export function MarkingDocument({
             {[...rows.entries()]
               .sort(([a], [b]) => a - b)
               .map(([rowIndex, cells]) => {
-                const firstBlock = [...cells.values()][0][0];
-                const repeats = rowKey(firstBlock) === repeatingRow;
+                const rowBlocks = [...cells.values()].flat();
+                const key = rowKey(rowBlocks[0])!;
+                const repeats = key === repeatingRow;
+                const removed = removedRows.has(key);
+                const text = rowBlocks
+                  .map((block) => block.text)
+                  .filter(Boolean)
+                  .join(" · ");
+                const toolsCell = tools && (
+                  <td className="marking-doc__row-tools">
+                    {repeats ? (
+                      <span
+                        className="marking-doc__row-tag"
+                        title="Fila de ejemplo: se repite en cada liquidación"
+                      >
+                        <Icon>
+                          <path d="M2.5 6.5a5 5 0 0 1 9-2.5M13.5 9.5a5 5 0 0 1-9 2.5" />
+                          <path d="M11.5 1.5v2.5H9M4.5 14.5V12H7" />
+                        </Icon>
+                        <span className="marking-doc__sr">Fila de ejemplo</span>
+                      </span>
+                    ) : (
+                      !markedRows.has(key) && (
+                        <button
+                          type="button"
+                          className="marking-doc__row-button"
+                          data-removed={removed || undefined}
+                          aria-label={`${removed ? "Restaurar" : "Quitar"} la fila «${preview(text)}»`}
+                          title={
+                            removed
+                              ? "Restaurar la fila"
+                              : "Quitar la fila de la plantilla"
+                          }
+                          onClick={() =>
+                            onToggleRow({
+                              row: key,
+                              blockId: rowBlocks[0].blockId,
+                            })
+                          }
+                        >
+                          <Icon>
+                            {removed ? (
+                              <path d="M3 6.5h7a3.5 3.5 0 0 1 0 7H6M5.5 3.5 2.5 6.5l3 3" />
+                            ) : (
+                              <path d="M2.5 4.5h11M6 4.5V2.5h4v2M4 4.5l.7 9h6.6l.7-9M6.8 7v4.5M9.2 7v4.5" />
+                            )}
+                          </Icon>
+                        </button>
+                      )
+                    )}
+                  </td>
+                );
                 return (
-                  <tr key={rowIndex} data-repeats={repeats || undefined}>
+                  <tr
+                    key={rowIndex}
+                    data-repeats={repeats || undefined}
+                    data-removed={removed || undefined}
+                  >
+                    {toolsFirst && toolsCell}
                     {Array.from({ length: columns }, (_, colIndex) => (
                       <td key={colIndex}>
                         {(cells.get(colIndex) ?? []).map(renderBlock)}
                       </td>
                     ))}
+                    {tools && !toolsFirst && toolsCell}
                   </tr>
                 );
               })}
           </tbody>
         </table>
-        {item.blocks.some((block) => rowKey(block) === repeatingRow) && (
+        {holdsExample && (
           <p className="marking-doc__repeat-note">
-            La fila resaltada se repite una vez por cada año cobrado.
+            Deja solo esta fila con los datos de la tabla: al generar cada
+            liquidación se repite y se llena con cada vigencia y concepto que
+            cobre.
+          </p>
+        )}
+        {extra.length > 0 && (
+          <div className="marking-doc__surplus" role="note">
+            <p>
+              {extra.length === 1
+                ? "Esta tabla tiene 1 fila más con valores de ejemplo."
+                : `Esta tabla tiene ${extra.length} filas más con valores de ejemplo.`}{" "}
+              Si se quedan, saldrán iguales en todas las liquidaciones.
+            </p>
+            <Button variant="secondary" onClick={() => onRemoveRows(extra)}>
+              {extra.length === 1
+                ? "Quitar esa fila"
+                : `Quitar las ${extra.length} filas`}
+            </Button>
+          </div>
+        )}
+        {removedHere.length > 0 && (
+          <p className="marking-doc__removed-note">
+            {removedHere.length === 1
+              ? "Se quitó 1 fila con valores de ejemplo: saldría igual en todas las liquidaciones."
+              : `Se quitaron ${removedHere.length} filas con valores de ejemplo: saldrían iguales en todas las liquidaciones.`}{" "}
+            Si alguna debe quedar, restáurala con su botón.
           </p>
         )}
       </div>
@@ -389,6 +510,14 @@ export function MarkingDocument({
   );
 }
 
+// Keys that jump to an end of the paragraph in the keyboard text box.
+const JUMP_KEYS: Record<string, "start" | "end"> = {
+  Home: "start",
+  PageUp: "start",
+  End: "end",
+  PageDown: "end",
+};
+
 interface TextPickerProps {
   block: DocumentBlock;
   onChoose: (start: number, end: number, origin: HTMLElement) => void;
@@ -405,7 +534,7 @@ function TextPicker({ block, onChoose, onEmpty, onClose }: TextPickerProps) {
   const labelId = useId();
 
   useEffect(() => {
-    ref.current?.focus();
+    focusWithin(ref.current);
   }, []);
 
   function choose() {
@@ -413,7 +542,7 @@ function TextPicker({ block, onChoose, onEmpty, onClose }: TextPickerProps) {
     if (!box) return;
     if (box.selectionStart === box.selectionEnd) {
       onEmpty();
-      box.focus();
+      box.focus({ preventScroll: true });
       return;
     }
     const origin =
@@ -450,6 +579,25 @@ function TextPicker({ block, onChoose, onEmpty, onClose }: TextPickerProps) {
           } else if (event.key === "Escape") {
             event.preventDefault();
             onClose(true);
+          } else if (event.key in JUMP_KEYS) {
+            // Chromium also scrolls the document behind with these: the
+            // caret moves here and nothing else does.
+            event.preventDefault();
+            const box = event.currentTarget;
+            const to = JUMP_KEYS[event.key] === "start" ? 0 : box.value.length;
+            if (event.shiftKey) {
+              const anchor =
+                box.selectionDirection === "backward"
+                  ? box.selectionEnd
+                  : box.selectionStart;
+              box.setSelectionRange(
+                Math.min(anchor, to),
+                Math.max(anchor, to),
+                to < anchor ? "backward" : "forward",
+              );
+            } else {
+              box.setSelectionRange(to, to);
+            }
           } else if (
             event.key === "Backspace" ||
             event.key === "Delete" ||

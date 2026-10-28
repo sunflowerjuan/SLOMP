@@ -211,3 +211,22 @@ writeDocx(
     ),
   ].join(''),
 );
+
+// A liquidation whose table comes filled with several rows of example values
+// and a total, the way a municipality's real document does: guided marking
+// keeps one row as the example and removes the rest.
+writeDocx(
+  join(outDir, 'plantilla-liquidacion-tabla-llena.docx'),
+  [
+    paragraph('**RESOLUCIÓN No. RES-0000-2026**'),
+    paragraph('Predio con código catastral 00-00-0000-0000-000.'),
+    table([
+      ['**Año**', '**Cobro**', '**Interés**', '**Capital**'],
+      ['2022', 'IMPUESTO PREDIAL', '$ 29.028', '$ 25.565'],
+      ['2022', 'SOBRETASA AMBIENTAL', '$ 8.708', '$ 7.670'],
+      ['2023', 'IMPUESTO PREDIAL', '$ 22.843', '$ 26.330'],
+      ['2024', 'IMPUESTO PREDIAL', '$ 30.641', '$ 51.300'],
+      ['**TOTAL**', '**$ 371.429**', '', ''],
+    ]),
+  ].join(''),
+);

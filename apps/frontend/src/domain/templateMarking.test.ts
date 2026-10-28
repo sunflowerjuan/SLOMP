@@ -15,6 +15,7 @@ import {
   rowKey,
   segmentsBetween,
   sortSelections,
+  surplusRows,
   tableRowInUse,
   trimRange,
   usedFields,
@@ -220,5 +221,62 @@ describe("showing a paragraph", () => {
         selection("body:p0", 0, 3),
       ]).map((sorted) => `${sorted.blockId}@${sorted.start}`),
     ).toEqual(["body:p0@0", "body:p0@11", "body:p3@0"]);
+  });
+});
+
+describe("rows of example values", () => {
+  // The lawyer's table: titles, seven rows of values and a total.
+  const VALUES = [
+    ["2022", "IMPUESTO PREDIAL", "$ 29.028", "$ 25.565"],
+    ["2022", "SOBRETASA AMBIENTAL", "$ 8.708", "$ 7.670"],
+    ["2023", "IMPUESTO PREDIAL", "$ 22.843", "$ 26.330"],
+  ];
+  const ROWS = [
+    ["Año", "Cobro", "Interés", "Capital"],
+    ...VALUES,
+    ["TOTAL", "$ 371.429", "", ""],
+  ];
+  let index = 0;
+  const TABLE: DocumentBlock[] = ROWS.flatMap((cells, rowIndex) =>
+    cells.flatMap((text, colIndex) => {
+      index += 1;
+      return text
+        ? [
+            block(`body:p${index}`, text, {
+              tableIndex: 0,
+              rowIndex,
+              colIndex,
+            }),
+          ]
+        : [];
+    }),
+  );
+  const firstYear = TABLE.find((candidate) => candidate.text === "2022")!;
+  const example = rowKey(firstYear)!;
+
+  it("finds the other rows filled like the example row, not the titles nor the total", () => {
+    expect(surplusRows(TABLE, example, []).map(({ row }) => row)).toEqual([
+      "body:0:2",
+      "body:0:3",
+    ]);
+  });
+
+  it("names each row by one of its blocks", () => {
+    const [first] = surplusRows(TABLE, example, []);
+    const named = TABLE.find(
+      (candidate) => candidate.blockId === first.blockId,
+    )!;
+    expect(rowKey(named)).toBe(first.row);
+  });
+
+  it("never offers a row that has a marker", () => {
+    const marked = TABLE.find(
+      (candidate) => candidate.text === "SOBRETASA AMBIENTAL",
+    )!;
+    expect(
+      surplusRows(TABLE, example, [selection(marked.blockId, 0, 4)]).map(
+        ({ row }) => row,
+      ),
+    ).toEqual(["body:0:3"]);
   });
 });

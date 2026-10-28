@@ -11,7 +11,12 @@ import type {
 
 // Why a selection can't take a marker. The wording is in errorMessages.ts.
 export type MarkingProblem =
-  "CROSSES_BLOCKS" | "EMPTY" | "OVERLAP" | "OUTSIDE_TABLE" | "OTHER_ROW";
+  | "CROSSES_BLOCKS"
+  | "EMPTY"
+  | "OVERLAP"
+  | "OUTSIDE_TABLE"
+  | "OTHER_ROW"
+  | "IN_REMOVED_ROW";
 
 export interface TextRange {
   blockId: string;
@@ -80,6 +85,72 @@ export function rowKey(block: DocumentBlock): string | null {
   if (!block.table) return null;
   const part = block.blockId.slice(0, block.blockId.indexOf(":"));
   return `${part}:${block.table.tableIndex}:${block.table.rowIndex}`;
+}
+
+// The table a row belongs to: "body:0:2" -> "body:0".
+export function tableKeyOf(row: string): string {
+  return row.slice(0, row.lastIndexOf(":"));
+}
+
+// The columns of a row that have text.
+function filledColumns(
+  blocks: readonly DocumentBlock[],
+  row: string,
+): Set<number> {
+  return new Set(
+    blocks
+      .filter((block) => rowKey(block) === row && block.text.trim() !== "")
+      .map((block) => block.table!.colIndex),
+  );
+}
+
+export interface TableRow {
+  row: string;
+  // One of its blocks, the way the backend names a row to remove.
+  blockId: string;
+}
+
+// The other rows of the example row's table that look like more example
+// values: the same columns filled in, other than the table's first row (its
+// titles). Left there, they would print as they are in every document, so
+// the lawyer is offered to remove them. A row with a marker never counts.
+export function surplusRows(
+  blocks: readonly DocumentBlock[],
+  exampleRow: string,
+  marks: readonly MarkerSelection[],
+): TableRow[] {
+  const table = tableKeyOf(exampleRow);
+  const example = filledColumns(blocks, exampleRow);
+  const marked = new Set(
+    marks.map((mark) => {
+      const block = blocks.find(
+        (candidate) => candidate.blockId === mark.blockId,
+      );
+      return block ? rowKey(block) : null;
+    }),
+  );
+  const rows: TableRow[] = [];
+  for (const block of blocks) {
+    const row = rowKey(block);
+    if (
+      !row ||
+      tableKeyOf(row) !== table ||
+      row === exampleRow ||
+      block.table!.rowIndex === 0 ||
+      marked.has(row) ||
+      rows.some((known) => known.row === row)
+    ) {
+      continue;
+    }
+    const filled = filledColumns(blocks, row);
+    if (
+      filled.size === example.size &&
+      [...example].every((column) => filled.has(column))
+    ) {
+      rows.push({ row, blockId: block.blockId });
+    }
+  }
+  return rows;
 }
 
 // The example row the table fields already use, if any: the backend repeats a
