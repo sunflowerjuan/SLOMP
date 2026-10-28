@@ -20,9 +20,22 @@ const PUBLIC_CONSULTATION_PREFIX = "#/consulta";
 
 export type SettingsTab = "plantillas" | "consulta";
 
-// What the panel shows: a screen of the menu, or a tab of Configuración.
+// The templates of one document have their own screen under Configuración
+// (`#/municipio-a/configuracion/plantillas/liquidacion`): their history, the
+// way to activate an earlier version and the upload of a new one. The tab
+// itself only says which version of each document is in use.
+export type TemplatesSegment = "liquidacion" | "mandamiento";
+
+const TEMPLATES_SEGMENTS: TemplatesSegment[] = ["liquidacion", "mandamiento"];
+
+// What the panel shows: a screen of the menu, a tab of Configuración or the
+// templates of a document.
 export type AdminView =
-  "cargas" | "liquidaciones" | "mandamientos" | `configuracion/${SettingsTab}`;
+  | "cargas"
+  | "liquidaciones"
+  | "mandamientos"
+  | `configuracion/${SettingsTab}`
+  | `configuracion/plantillas/${TemplatesSegment}`;
 
 // The menu entry a view belongs to.
 export type AdminSection =
@@ -35,6 +48,7 @@ const ADMIN_VIEWS: AdminView[] = [
   "liquidaciones",
   "mandamientos",
   ...SETTINGS_TABS.map((tab) => settingsView(tab)),
+  ...TEMPLATES_SEGMENTS.map((segment) => templatesView(segment)),
 ];
 
 // Other addresses of a view: the ones Plantillas and Consulta pública had
@@ -93,9 +107,24 @@ export function settingsTabOf(view: AdminView): SettingsTab | null {
   return SETTINGS_TABS.find((tab) => settingsView(tab) === view) ?? null;
 }
 
-// Both tabs of Configuración belong to its single menu entry.
+export function templatesView(segment: TemplatesSegment): AdminView {
+  return `configuracion/plantillas/${segment}`;
+}
+
+// The document whose templates a view shows; null for any other view.
+export function templatesSegmentOf(view: AdminView): TemplatesSegment | null {
+  return (
+    TEMPLATES_SEGMENTS.find((segment) => templatesView(segment) === view) ??
+    null
+  );
+}
+
+// The tabs of Configuración and the templates screens belong to its single
+// menu entry.
 export function adminSectionOf(view: AdminView): AdminSection {
-  return (settingsTabOf(view) ? "configuracion" : view) as AdminSection;
+  return (
+    view.startsWith("configuracion/") ? "configuracion" : view
+  ) as AdminSection;
 }
 
 export function adminHref(

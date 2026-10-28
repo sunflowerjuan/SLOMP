@@ -7,6 +7,7 @@ import {
   publicConsultationHref,
   settingsTabOf,
   settingsView,
+  templatesSegmentOf,
 } from "./routes";
 
 describe("parseAdminRoute", () => {
@@ -102,6 +103,8 @@ describe("parseAdminRoute", () => {
       "mandamientos",
       "configuracion/plantillas",
       "configuracion/consulta",
+      "configuracion/plantillas/liquidacion",
+      "configuracion/plantillas/mandamiento",
     ] as const) {
       expect(parseAdminRoute(adminHref("municipio-b", view))).toEqual({
         slug: "municipio-b",
@@ -121,6 +124,23 @@ describe("adminSectionOf and settingsTabOf", () => {
     expect(adminSectionOf("configuracion/plantillas")).toBe("configuracion");
     expect(adminSectionOf("configuracion/consulta")).toBe("configuracion");
     expect(settingsTabOf("configuracion/consulta")).toBe("consulta");
+  });
+
+  it("keeps the templates of each document under Configuración, outside its tabs", () => {
+    expect(adminSectionOf("configuracion/plantillas/mandamiento")).toBe(
+      "configuracion",
+    );
+    expect(settingsTabOf("configuracion/plantillas/mandamiento")).toBeNull();
+    expect(templatesSegmentOf("configuracion/plantillas/mandamiento")).toBe(
+      "mandamiento",
+    );
+    expect(templatesSegmentOf("configuracion/plantillas")).toBeNull();
+  });
+
+  it("does not take an unknown document as a templates screen", () => {
+    expect(
+      parseAdminRoute("#/municipio-a/configuracion/plantillas/otra").view,
+    ).toBe("cargas");
   });
 
   it("leaves the other views as their own entry, with no tab", () => {

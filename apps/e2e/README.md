@@ -4,9 +4,13 @@ Pruebas de navegador del panel. Dos proyectos, ambos en Chromium: `desktop`
 (1280 × 800) y `mobile` (390 × 844, táctil). Hoy hay la prueba de humo
 (login → panel), la de navegación del menú (`navigation.spec.ts`, SL-170:
 grupos, pestañas de Configuración, direcciones antiguas, municipio activo y
-teclado) y la de los pasos de Mandamientos (`payment-orders.spec.ts`, SL-173:
-Cargar y Revisar, filas inválidas, pestaña Historial y teclado); los demás
-flujos críticos llegan con SL-166.
+teclado), la de los pasos de Mandamientos (`payment-orders.spec.ts`, SL-173:
+Cargar y Revisar, filas inválidas, pestaña Historial y teclado) y la del
+marcado guiado de plantillas (`templates.spec.ts`, SL-160: subir, marcar con
+teclado, vista previa y guardar para Liquidación y Mandamiento, diálogo de
+reemplazo, borrador tras recargar, selección que cruza párrafos, hoja inferior
+en el teléfono y resumen en Configuración); los demás flujos críticos llegan
+con SL-166.
 
 ## Correr en local
 
@@ -76,6 +80,8 @@ script, borra `fixtures/generated/` para que se vuelvan a escribir.
 | `cartera-valida.xlsx` | 3 predios con los periodos 2024 y 2025 |
 | `cartera-invalida.xlsx` | Le falta la última columna (`TAX_ROLL_HEADERS_MISMATCH`) |
 | `cartera-fila-invalida.xlsx` | Las mismas filas y una con el periodo 1979 (fuera de rango) |
+| `plantilla-liquidacion-sin-marcadores.docx` | Liquidación con valores de ejemplo y tabla de vigencias, sin `{marcadores}` |
+| `plantilla-mandamiento-sin-marcadores.docx` | Mandamiento con valores de ejemplo, sin `{marcadores}` |
 
 La prueba de Mandamientos carga primero `cartera-valida.xlsx` en `e2e-prueba`
 por API. Sus liquidaciones no tienen resolución, así que ninguna es elegible

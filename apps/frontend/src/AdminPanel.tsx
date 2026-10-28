@@ -22,12 +22,14 @@ import { AddMunicipalityDialog } from "./pages/Municipalities/AddMunicipalityDia
 import { MunicipalityState } from "./pages/Municipalities/MunicipalityState";
 import { PaymentOrdersPage } from "./pages/PaymentOrders/PaymentOrdersPage";
 import { SettingsPage } from "./pages/Settings/SettingsPage";
+import { TemplatesPage } from "./pages/Templates/TemplatesPage";
 import { SettlementsPage } from "./pages/Settlements/SettlementsPage";
 import { TaxRollUploadPage } from "./pages/TaxRollUpload/TaxRollUploadPage";
 import {
   adminHref,
   adminSectionOf,
   settingsTabOf,
+  templatesSegmentOf,
   useAdminRoute,
 } from "./routes";
 import type { AdminSection, AdminView } from "./routes";
@@ -119,6 +121,11 @@ function viewPage(view: AdminView, municipality: Municipality) {
   // Both tabs are one screen: moving between them keeps it mounted.
   const tab = settingsTabOf(view);
   if (tab) return <SettingsPage slug={municipality.slug} tab={tab} />;
+  // Both documents are one screen too: switching keeps the chosen file.
+  const segment = templatesSegmentOf(view);
+  if (segment) {
+    return <TemplatesPage slug={municipality.slug} segment={segment} />;
+  }
   switch (view) {
     case "liquidaciones":
       return <SettlementsPage />;
