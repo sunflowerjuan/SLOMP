@@ -1,9 +1,9 @@
-.bulk-zip-panel {
+.ui-zip-panel {
   --reveal-gap: var(--space-20);
   gap: var(--reveal-gap);
 }
 
-.bulk-zip-panel__rows {
+.ui-zip-panel__rows {
   display: flex;
   flex-direction: column;
   gap: var(--space-12);
@@ -11,14 +11,14 @@
   color: var(--semantic-text-muted);
 }
 
-.bulk-zip-panel__retry {
+.ui-zip-panel__retry {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-12);
 }
 
-.bulk-zip-panel__row {
+.ui-zip-panel__row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -27,32 +27,32 @@
   border-bottom: 1px solid var(--semantic-border);
 }
 
-.bulk-zip-panel__row:last-child {
+.ui-zip-panel__row:last-child {
   border-bottom: 0;
 }
 
-.bulk-zip-panel__row > div {
+.ui-zip-panel__row > div {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
 
-.bulk-zip-panel__row strong {
+.ui-zip-panel__row strong {
   color: var(--semantic-text);
 }
 
 /* Placeholder rows while the counts load: same box as the real rows. */
-.bulk-zip-panel__row--skeleton i,
-.bulk-zip-panel__row--skeleton b {
+.ui-zip-panel__row--skeleton i,
+.ui-zip-panel__row--skeleton b {
   display: block;
   background-color: var(--semantic-surface-muted);
   border-radius: var(--radius-default);
-  animation: bulk-zip-pulse 1.2s ease-in-out infinite;
+  animation: ui-zip-panel-pulse 1.2s ease-in-out infinite;
 }
 
 /* Each bar sits in a 21px line (the text's line height), so the row is as
    tall as the real one. */
-.bulk-zip-panel__row--skeleton i {
+.ui-zip-panel__row--skeleton i {
   box-sizing: border-box;
   width: 9rem;
   height: 21px;
@@ -60,27 +60,27 @@
   background-clip: content-box;
 }
 
-.bulk-zip-panel__row--skeleton i + i {
+.ui-zip-panel__row--skeleton i + i {
   width: 4.5rem;
   padding-block: 4px;
 }
 
-.bulk-zip-panel__row--skeleton b {
+.ui-zip-panel__row--skeleton b {
   width: 7.5rem;
   height: 40px;
 }
 
-@keyframes bulk-zip-pulse {
+@keyframes ui-zip-panel-pulse {
   50% {
     opacity: 0.5;
   }
 }
 
-.bulk-zip-panel__enter {
-  animation: bulk-zip-enter var(--duration-base) var(--ease-out) both;
+.ui-zip-panel__enter {
+  animation: ui-zip-panel-enter var(--duration-base) var(--ease-out) both;
 }
 
-@keyframes bulk-zip-enter {
+@keyframes ui-zip-panel-enter {
   from {
     opacity: 0;
     transform: translateY(4px);
@@ -92,7 +92,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bulk-zip-panel__enter {
+  .ui-zip-panel__enter {
     animation: fade-in var(--duration-fast) ease-out both;
   }
 }

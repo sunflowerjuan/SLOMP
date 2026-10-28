@@ -1,5 +1,4 @@
-/* One figure of an upload result (tax roll and payment orders Excel). */
-.tax-roll-upload-page__stat {
+.ui-stat {
   display: flex;
   flex-direction: column-reverse;
   gap: var(--space-4);
@@ -8,12 +7,12 @@
   border-radius: var(--radius-default);
 }
 
-.tax-roll-upload-page__stat dt {
+.ui-stat dt {
   font-size: var(--text-sm);
   color: var(--semantic-text-muted);
 }
 
-.tax-roll-upload-page__stat dd {
+.ui-stat dd {
   margin: 0;
   font-size: var(--text-xl);
   font-weight: 700;
@@ -21,6 +20,6 @@
   color: var(--semantic-text);
 }
 
-.tax-roll-upload-page__stat[data-tone="danger"] dd {
+.ui-stat[data-tone="danger"] dd {
   color: var(--semantic-danger-hover);
 }
