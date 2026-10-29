@@ -279,7 +279,10 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
   // What preview and save send: the selections in document order and the
   // rows to leave out.
   const marking = useMemo(
-    () => ({ selections: sorted, removedRows: [...removedRows].sort() }),
+    () => ({
+      selections: sorted,
+      removedRows: removedRows.toSorted((a, b) => a.localeCompare(b)),
+    }),
     [sorted, removedRows],
   );
 
