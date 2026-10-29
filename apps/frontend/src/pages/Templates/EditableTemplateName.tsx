@@ -99,7 +99,9 @@ export function EditableTemplateName({
 
   return (
     <span className="template-name">
-      <span className="template-name__text">{value}</span>
+      <span className="template-name__text" title={value}>
+        {value}
+      </span>
       <button
         ref={pencilRef}
         type="button"

@@ -320,6 +320,7 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
       );
       groups.push({
         id: loop.key,
+        table: true,
         title: loop.label,
         explanation:
           "Se repite una fila por cada vigencia y concepto: marca estos datos en una sola fila de ejemplo de la tabla.",
@@ -652,7 +653,43 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
           onChange={setName}
         />
       }
-      subtitle={`Nueva plantilla de ${text.name} · archivo subido: ${draft.fileName} · el borrador se conserva hasta el ${DATE_TIME_FORMATTER.format(new Date(draft.expiresAt))}`}
+      subtitle={`Nueva plantilla de ${text.name} · borrador disponible hasta el ${DATE_TIME_FORMATTER.format(new Date(draft.expiresAt))} · archivo: ${draft.fileName}`}
+      // The step's actions beside the title, so the document gets the height.
+      action={
+        <div className="guided-marking__actions">
+          <Button
+            variant="secondary"
+            disabled={saving || discarding}
+            onClick={requestCancel}
+          >
+            Cancelar
+          </Button>
+          {step === "mark" ? (
+            <Button disabled={!ready} onClick={() => goTo("review")}>
+              Vista previa
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="secondary"
+                disabled={saving}
+                onClick={() => goTo("mark")}
+              >
+                Volver a marcar
+              </Button>
+              <Button
+                className="guided-marking__save"
+                disabled={!canSave}
+                loading={saving && replacing === null}
+                aria-describedby={canSave ? undefined : missingId}
+                onClick={() => void requestSave()}
+              >
+                Guardar plantilla
+              </Button>
+            </>
+          )}
+        </div>
+      }
       covered={phone && (sheetOpen || pending !== null)}
       input={
         <div className="guided-marking__controls">
@@ -673,7 +710,10 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
                     aria-controls="guided-marking-sheet"
                     onClick={() => setSheetOpen(true)}
                   >
-                    Marcadores · <strong>{progressText(progress)}</strong>
+                    Marcadores ·{" "}
+                    <strong
+                      aria-label={progressText(progress)}
+                    >{`${progress.done} de ${progress.total}`}</strong>
                   </button>
                 ) : (
                   <p className="guided-marking__summary">
@@ -693,39 +733,6 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
                   : missingText(progress.missing)}
               </p>
             )}
-            <div className="guided-marking__actions">
-              <Button
-                variant="secondary"
-                disabled={saving || discarding}
-                onClick={requestCancel}
-              >
-                Cancelar
-              </Button>
-              {step === "mark" ? (
-                <Button disabled={!ready} onClick={() => goTo("review")}>
-                  Vista previa
-                </Button>
-              ) : (
-                <>
-                  <Button
-                    variant="secondary"
-                    disabled={saving}
-                    onClick={() => goTo("mark")}
-                  >
-                    Volver a marcar
-                  </Button>
-                  <Button
-                    className="guided-marking__save"
-                    disabled={!canSave}
-                    loading={saving && replacing === null}
-                    aria-describedby={canSave ? undefined : missingId}
-                    onClick={() => void requestSave()}
-                  >
-                    Guardar plantilla
-                  </Button>
-                </>
-              )}
-            </div>
           </div>
         </div>
       }

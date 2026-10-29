@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import type { DocumentBlock, MarkerSelection } from "../../api/templates";
 import { Button } from "../../components/ui/Button";
+import { CloseIcon } from "../../components/ui/CloseIcon";
 import { Icon } from "../../components/ui/Icon";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { blockPieces, rowKey, tableKeyOf } from "../../domain/templateMarking";
@@ -271,19 +272,23 @@ export function MarkingDocument({
                   : `Marcador ${label}, en lugar de: `}
               </span>
               {source === "lawyer" && <Segments segments={piece.segments} />}
-              <span className="marking-doc__tag" aria-hidden="true">
-                {label}
+              {/* The name and its x as one chip: they never wrap apart. */}
+              <span className="marking-doc__chip">
+                <span className="marking-doc__tag" aria-hidden="true">
+                  {label}
+                </span>
+                {source === "lawyer" && (
+                  <button
+                    type="button"
+                    className="marking-doc__remove"
+                    aria-label={`Quitar el marcador ${label} de «${preview(piece.text)}»`}
+                    title="Quitar marcador"
+                    onClick={() => onRemove(mark)}
+                  >
+                    <CloseIcon />
+                  </button>
+                )}
               </span>
-              {source === "lawyer" && (
-                <button
-                  type="button"
-                  className="marking-doc__remove"
-                  aria-label={`Quitar el marcador ${label} de «${preview(piece.text)}»`}
-                  onClick={() => onRemove(mark)}
-                >
-                  Quitar
-                </button>
-              )}
             </mark>
           );
         })}

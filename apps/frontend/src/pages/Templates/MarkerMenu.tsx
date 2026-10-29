@@ -3,6 +3,7 @@ import type { CSSProperties, KeyboardEvent } from "react";
 import { MARKING_PROBLEM_MESSAGES } from "../../api/errorMessages";
 import type { MarkerCatalogEntry } from "../../api/templates";
 import { CloseIcon } from "../../components/ui/CloseIcon";
+import { Icon } from "../../components/ui/Icon";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { focusWithin } from "../../utils/scrollWithin";
 import type { MarkingProblem } from "../../domain/templateMarking";
@@ -14,6 +15,8 @@ export interface MenuGroup {
   explanation?: string;
   // Why none of the group's markers fit the selected text.
   problem?: MarkingProblem | null;
+  // Fields of the table's example row: set apart, so they read as such.
+  table?: boolean;
   entries: MarkerCatalogEntry[];
 }
 
@@ -68,11 +71,20 @@ export function MarkerMenu({
   const searchRef = useRef<HTMLInputElement>(null);
   const titleId = useId();
   const [query, setQuery] = useState("");
+  // In each group the markers still to assign come first and the ones
+  // already in the document last (they can be used again), each part in
+  // catalog order.
   const visibleGroups = groups
-    .map((group) => ({
-      ...group,
-      entries: group.entries.filter((entry) => matches(entry, query)),
-    }))
+    .map((group) => {
+      const fit = group.entries.filter((entry) => matches(entry, query));
+      return {
+        ...group,
+        entries: [
+          ...fit.filter((entry) => !used.has(entry.key)),
+          ...fit.filter((entry) => used.has(entry.key)),
+        ],
+      };
+    })
     .filter((group) => group.entries.length > 0);
   const found = visibleGroups.reduce(
     (count, group) => count + group.entries.length,
@@ -252,6 +264,53 @@ export function MarkerMenu({
     }
   }
 
+  // One marker. Its group says whether it fits the selected text and whether
+  // it belongs in the table.
+  function renderItem(
+    entry: MarkerCatalogEntry,
+    group: MenuGroup,
+    describedBy: (string | false | null | undefined)[],
+  ) {
+    const disabled = Boolean(group.problem);
+    const ids = describedBy.filter(Boolean);
+    return (
+      <div
+        key={entry.key}
+        role="menuitem"
+        tabIndex={-1}
+        className="marker-menu__item"
+        data-table={group.table || undefined}
+        aria-disabled={disabled || undefined}
+        aria-describedby={ids.length > 0 ? ids.join(" ") : undefined}
+        onClick={() => {
+          if (!disabled) onPick(entry);
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          if (!disabled) onPick(entry);
+        }}
+      >
+        <span className="marker-menu__item-head">
+          <span className="marker-menu__label">{entry.label}</span>
+          {group.table && (
+            <span className="marker-menu__in-table">
+              <TableIcon />
+              En la tabla
+            </span>
+          )}
+          {entry.required && (
+            <span className="marker-menu__badge">Obligatorio</span>
+          )}
+          {used.has(entry.key) && (
+            <span className="marker-menu__assigned">Ya asignado</span>
+          )}
+        </span>
+        <span className="marker-menu__description">{entry.description}</span>
+      </div>
+    );
+  }
+
   return (
     <>
       {phone && <div className="marker-menu__scrim" aria-hidden="true" />}
@@ -308,87 +367,61 @@ export function MarkerMenu({
             </p>
           )}
           {visibleGroups.map((group) => {
-            const reasonId = `${titleId}-${group.id}`;
+            const groupId = `${titleId}-${group.id}`;
             return (
               <div
                 key={group.id}
                 role="group"
-                aria-labelledby={`${reasonId}-title`}
+                aria-labelledby={`${groupId}-title`}
                 className="marker-menu__group"
+                data-table={group.table || undefined}
               >
                 <div className="marker-menu__group-head" role="presentation">
                   <p
-                    id={`${reasonId}-title`}
+                    id={`${groupId}-title`}
                     className="marker-menu__group-title"
                   >
+                    {group.table && <TableIcon />}
                     {group.title}
                   </p>
                   {group.explanation && (
                     <p
-                      id={`${reasonId}-text`}
+                      id={`${groupId}-text`}
                       className="marker-menu__group-text"
                     >
                       {group.explanation}
                     </p>
                   )}
                   {group.problem && (
-                    <p id={reasonId} className="marker-menu__group-problem">
+                    <p
+                      id={`${groupId}-problem`}
+                      className="marker-menu__group-problem"
+                    >
                       {MARKING_PROBLEM_MESSAGES[group.problem]}
                     </p>
                   )}
                 </div>
-                {group.entries.map((entry) => {
-                  const disabled = Boolean(group.problem);
-                  const assigned = used.has(entry.key);
-                  const describedBy = [
-                    group.explanation && `${reasonId}-text`,
-                    disabled && reasonId,
-                  ]
-                    .filter(Boolean)
-                    .join(" ");
-                  return (
-                    <div
-                      key={entry.key}
-                      role="menuitem"
-                      tabIndex={-1}
-                      className="marker-menu__item"
-                      aria-disabled={disabled || undefined}
-                      aria-describedby={describedBy || undefined}
-                      onClick={() => {
-                        if (!disabled) onPick(entry);
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key !== "Enter" && event.key !== " ") return;
-                        event.preventDefault();
-                        if (!disabled) onPick(entry);
-                      }}
-                    >
-                      <span className="marker-menu__item-head">
-                        <span className="marker-menu__label">
-                          {entry.label}
-                        </span>
-                        {entry.required && (
-                          <span className="marker-menu__badge">
-                            Obligatorio
-                          </span>
-                        )}
-                        {assigned && (
-                          <span className="marker-menu__assigned">
-                            Ya asignado
-                          </span>
-                        )}
-                      </span>
-                      <span className="marker-menu__description">
-                        {entry.description}
-                      </span>
-                    </div>
-                  );
-                })}
+                {group.entries.map((entry) =>
+                  renderItem(entry, group, [
+                    group.explanation && `${groupId}-text`,
+                    group.problem && `${groupId}-problem`,
+                  ]),
+                )}
               </div>
             );
           })}
         </div>
       </div>
     </>
+  );
+}
+
+// A small grid: the markers that go in the table's example row.
+function TableIcon() {
+  return (
+    <Icon>
+      <rect x="2" y="3" width="12" height="10" rx="1" />
+      <path d="M2 6.5h12M2 9.8h12M6.5 6.5V13" />
+    </Icon>
   );
 }

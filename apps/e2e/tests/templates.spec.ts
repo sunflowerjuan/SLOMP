@@ -69,6 +69,15 @@ test.beforeEach(async ({ page }) => {
   ).toBeVisible();
 });
 
+// "N de M obligatorios" where it shows: beside the steps on a desktop, and
+// shortened to "N de M" on the phone's Marcadores button.
+function progress(page: Page, done: number, total: number) {
+  return page
+    .getByText(new RegExp(`^${done} de ${total}( obligatorios)?$`))
+    .filter({ visible: true })
+    .first();
+}
+
 async function upload(page: Page, type: string, name: FixtureName) {
   await page.getByRole("radio", { name: type }).click();
   // Each document has its own address: its panel is the one to use.
@@ -201,15 +210,11 @@ for (const { type, name, markings, required, documentName } of [
     await expect(
       page.getByText(new RegExp(`^Nueva plantilla de ${documentName} · `)),
     ).toBeVisible();
-    await expect(
-      page.getByText(`0 de ${required} obligatorios`).first(),
-    ).toBeVisible();
+    await expect(progress(page, 0, required)).toBeVisible();
     await expectNoTechnicalNames(page);
 
     for (const marking of markings) await mark(page, marking);
-    await expect(
-      page.getByText(`${required} de ${required} obligatorios`).first(),
-    ).toBeVisible();
+    await expect(progress(page, required, required)).toBeVisible();
 
     // The title is the name it is saved under: the uploaded file's until
     // the pencil changes it.
@@ -314,7 +319,7 @@ test("el borrador sobrevive a una recarga y Cancelar pide confirmación si hay m
   await mark(page, LIQUIDATION[0]);
 
   await page.reload();
-  await expect(page.getByText("1 de 5 obligatorios").first()).toBeVisible();
+  await expect(progress(page, 1, 5)).toBeVisible();
   await expect(
     page.locator(".marking-doc__mark[data-source=lawyer]"),
   ).toContainText("Número de resolución");
@@ -324,7 +329,7 @@ test("el borrador sobrevive a una recarga y Cancelar pide confirmación si hay m
     name: "¿Descartar este borrador?",
   });
   await dialog.getByRole("button", { name: "Seguir marcando" }).click();
-  await expect(page.getByText("1 de 5 obligatorios").first()).toBeVisible();
+  await expect(progress(page, 1, 5)).toBeVisible();
 
   await page.getByRole("button", { name: "Cancelar" }).click();
   await dialog.getByRole("button", { name: "Descartar borrador" }).click();
@@ -359,7 +364,7 @@ test("una selección que cruza párrafos se avisa y no asigna nada", async ({
     "Selecciona texto dentro de un solo párrafo o de una sola celda. No se asignó ningún marcador.",
   );
   await expect(page.getByRole("menu")).toBeHidden();
-  await expect(page.getByText("0 de 5 obligatorios").first()).toBeVisible();
+  await expect(progress(page, 0, 5)).toBeVisible();
 
   await page.getByRole("button", { name: "Cancelar" }).click();
 });
@@ -537,7 +542,7 @@ test("una tabla llena se marca en su fila de ejemplo y las demás filas se quita
   ]) {
     await mark(page, marking);
   }
-  await expect(page.getByText("5 de 5 obligatorios").first()).toBeVisible();
+  await expect(progress(page, 5, 5)).toBeVisible();
 
   // Marking the example row removed the other rows of values at once:
   // crossed out, explained, and each one can come back.

@@ -94,6 +94,18 @@ export function requiredProgress(
   };
 }
 
+// The list of markers: what is still missing first, what is already in the
+// document last, each part in catalog order (required ones lead it).
+export function splitByAssigned<T extends { key: string }>(
+  entries: readonly T[],
+  counts: ReadonlyMap<string, number>,
+): { pending: T[]; assigned: T[] } {
+  return {
+    pending: entries.filter((entry) => !(counts.get(entry.key) ?? 0)),
+    assigned: entries.filter((entry) => (counts.get(entry.key) ?? 0) > 0),
+  };
+}
+
 // "3 de 5 obligatorios".
 export function progressText({ done, total }: RequiredProgress): string {
   return `${done} de ${total} obligatorios`;

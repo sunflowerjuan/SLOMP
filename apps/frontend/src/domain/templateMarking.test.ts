@@ -15,6 +15,7 @@ import {
   rowKey,
   segmentsBetween,
   sortSelections,
+  splitByAssigned,
   surplusRows,
   templateNameOf,
   templateNameProblem,
@@ -296,5 +297,25 @@ describe("the name a template is saved under", () => {
     expect(templateNameProblem("a".repeat(121))).toBe("TOO_LONG");
     expect(templateNameProblem("carpeta/plantilla")).toBe("FORBIDDEN");
     expect(templateNameProblem("carpeta\\plantilla")).toBe("FORBIDDEN");
+  });
+});
+
+describe("the list of markers", () => {
+  it("puts what is still missing first and what is assigned last, in catalog order", () => {
+    const counts = new Map([
+      ["resolutionNumber", 2],
+      ["rows.year", 1],
+    ]);
+    const { pending, assigned } = splitByAssigned(CATALOG, counts);
+    expect(pending.map((entry) => entry.key)).toEqual([
+      "totalAmount",
+      "rows",
+      "propertyName",
+      "rows.capital",
+    ]);
+    expect(assigned.map((entry) => entry.key)).toEqual([
+      "resolutionNumber",
+      "rows.year",
+    ]);
   });
 });
