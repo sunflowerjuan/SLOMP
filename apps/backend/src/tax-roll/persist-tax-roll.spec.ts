@@ -259,6 +259,10 @@ function buildRow(overrides: Partial<TaxRollRowDto> = {}): TaxRollRowDto {
   return {
     cadastralCode: '000100010001',
     landUse: LandUse.RURAL,
+    ruralDistrict: null,
+    neighborhood: null,
+    latitude: null,
+    longitude: null,
     appraisalValue: 1000000,
     taxId: '00123456789',
     documentType: null,
