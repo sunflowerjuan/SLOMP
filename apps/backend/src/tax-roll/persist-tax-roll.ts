@@ -1,5 +1,4 @@
-import { SettlementStatus } from '@prisma/client';
-import type { PrismaService } from '../prisma/prisma.service.js';
+import { type Prisma, SettlementStatus } from '@prisma/client';
 import type { TaxRollRowDto } from './tax-roll-row.dto.js';
 import { CodedError } from '../common/errors/coded-error.js';
 import { ErrorCode } from '../common/errors/error-codes.js';
@@ -52,7 +51,7 @@ const SETTLEMENT_DETAIL_CONCEPTS: {
 export const NO_OWNER_NAME_PLACEHOLDER = 'Propietario sin nombre registrado';
 
 export async function persistTaxRoll(
-  prisma: PrismaService,
+  prisma: Prisma.TransactionClient,
   municipalityId: number,
   rows: TaxRollRowDto[],
   confirmReplace: boolean,
@@ -110,60 +109,58 @@ export async function persistTaxRoll(
     );
   }
 
-  await Promise.all(
-    [...rowByCadastralCode.values()].map((row) =>
-      prisma.property.upsert({
-        where: { cadastralCode: row.cadastralCode },
-        create: {
-          cadastralCode: row.cadastralCode,
-          address: row.propertyName,
+  // One after another: they run on the import's transaction connection, which
+  // takes a single query at a time.
+  for (const row of rowByCadastralCode.values()) {
+    await prisma.property.upsert({
+      where: { cadastralCode: row.cadastralCode },
+      create: {
+        cadastralCode: row.cadastralCode,
+        address: row.propertyName,
+        ruralDistrict: row.ruralDistrict,
+        neighborhood: row.neighborhood,
+        latitude: row.latitude,
+        longitude: row.longitude,
+        landUse: row.landUse,
+        appraisalValue: row.appraisalValue,
+        municipalityId,
+      },
+      update: {
+        address: row.propertyName,
+        ...(row.ruralDistrict !== null && {
           ruralDistrict: row.ruralDistrict,
+        }),
+        ...(row.neighborhood !== null && {
           neighborhood: row.neighborhood,
-          latitude: row.latitude,
-          longitude: row.longitude,
-          landUse: row.landUse,
-          appraisalValue: row.appraisalValue,
-          municipalityId,
-        },
-        update: {
-          address: row.propertyName,
-          ...(row.ruralDistrict !== null && {
-            ruralDistrict: row.ruralDistrict,
-          }),
-          ...(row.neighborhood !== null && {
-            neighborhood: row.neighborhood,
-          }),
-          ...(row.latitude !== null && { latitude: row.latitude }),
-          ...(row.longitude !== null && { longitude: row.longitude }),
-          // An unrecognized value in a later file must not erase a known one.
-          ...(row.landUse !== null && { landUse: row.landUse }),
-          appraisalValue: row.appraisalValue,
-        },
-      }),
-    ),
-  );
+        }),
+        ...(row.latitude !== null && { latitude: row.latitude }),
+        ...(row.longitude !== null && { longitude: row.longitude }),
+        // An unrecognized value in a later file must not erase a known one.
+        ...(row.landUse !== null && { landUse: row.landUse }),
+        appraisalValue: row.appraisalValue,
+      },
+    });
+  }
 
-  await Promise.all(
-    [...rowByTaxId.values()].map((row) =>
-      prisma.owner.upsert({
-        where: {
-          municipalityId_documentId: { municipalityId, documentId: row.taxId },
-        },
-        create: {
-          municipalityId,
-          documentId: row.taxId,
-          documentType: row.documentType,
-          name: row.ownerName ?? NO_OWNER_NAME_PLACEHOLDER,
-        },
-        // Same rule as the name: what the file states wins, but a row that
-        // states nothing never erases what's already known (SL-75).
-        update: {
-          ...(row.ownerName && { name: row.ownerName }),
-          ...(row.documentType && { documentType: row.documentType }),
-        },
-      }),
-    ),
-  );
+  for (const row of rowByTaxId.values()) {
+    await prisma.owner.upsert({
+      where: {
+        municipalityId_documentId: { municipalityId, documentId: row.taxId },
+      },
+      create: {
+        municipalityId,
+        documentId: row.taxId,
+        documentType: row.documentType,
+        name: row.ownerName ?? NO_OWNER_NAME_PLACEHOLDER,
+      },
+      // Same rule as the name: what the file states wins, but a row that
+      // states nothing never erases what's already known (SL-75).
+      update: {
+        ...(row.ownerName && { name: row.ownerName }),
+        ...(row.documentType && { documentType: row.documentType }),
+      },
+    });
+  }
 
   const properties = await prisma.property.findMany({
     where: {
@@ -281,31 +278,42 @@ export async function persistTaxRoll(
     });
   }
 
+  // Two statements for the whole file, with one array per column: Prisma
+  // keeps the arguments of its last 100 queries in memory (its debug history,
+  // even with logging off), and createMany, one object per row, kept ~250 MiB
+  // of the Páez roll alive after the load (SL-190).
   if (rowsToCreate.length > 0) {
-    const created = await prisma.settlement.createManyAndReturn({
-      data: rowsToCreate.map(({ row, propertyId }) => ({
-        propertyId,
-        period: row.period,
-        totalAmount: row.total,
-        status: SettlementStatus.VIGENTE,
-      })),
-      select: { id: true, propertyId: true, period: true },
-    });
+    const created = await prisma.$queryRaw<
+      { id: number; propertyId: number; period: number }[]
+    >`
+      INSERT INTO "settlements" ("propertyId", "period", "totalAmount", "status", "updatedAt")
+      SELECT r.*, ${SettlementStatus.VIGENTE}::"SettlementStatus", now()
+      FROM unnest(
+        ${rowsToCreate.map((entry) => entry.propertyId)}::int[],
+        ${rowsToCreate.map((entry) => entry.row.period)}::int[],
+        ${rowsToCreate.map((entry) => entry.row.total)}::numeric[]
+      ) AS r
+      RETURNING "id", "propertyId", "period"`;
     const createdIdByPropertyPeriod = new Map(
       created.map((s) => [`${s.propertyId}:${s.period}`, s.id]),
     );
 
-    await prisma.settlementDetail.createMany({
-      data: rowsToCreate.flatMap(({ row, propertyId }) =>
-        SETTLEMENT_DETAIL_CONCEPTS.map(({ key, concept }) => ({
-          settlementId: createdIdByPropertyPeriod.get(
-            `${propertyId}:${row.period}`,
-          )!,
-          concept,
-          amount: row[key],
-        })),
-      ),
-    });
+    const details = rowsToCreate.flatMap(({ row, propertyId }) =>
+      SETTLEMENT_DETAIL_CONCEPTS.map(({ key, concept }) => ({
+        settlementId: createdIdByPropertyPeriod.get(
+          `${propertyId}:${row.period}`,
+        )!,
+        concept,
+        amount: row[key],
+      })),
+    );
+    await prisma.$executeRaw`
+      INSERT INTO "settlement_details" ("settlementId", "concept", "amount")
+      SELECT * FROM unnest(
+        ${details.map((d) => d.settlementId)}::int[],
+        ${details.map((d) => d.concept)}::text[],
+        ${details.map((d) => d.amount)}::numeric[]
+      )`;
   }
 
   return {

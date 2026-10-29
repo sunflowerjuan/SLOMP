@@ -29,8 +29,8 @@ export interface TaxRollPersisted {
 }
 
 export interface TaxRollImportResult {
-  // Valid rows aren't typed field by field: the UI only uses the counts.
-  validRows: unknown[];
+  // How many rows were valid: the rows themselves are not sent back.
+  validRows: number;
   invalidRows: TaxRollRowIssue[];
   warnings: TaxRollRowIssue[];
   persisted: TaxRollPersisted;

@@ -179,19 +179,6 @@ class FakePrisma {
             where.property.municipalityId &&
           (where.replacedAt === undefined || s.replacedAt == null),
       ),
-    createManyAndReturn: async ({
-      data,
-    }: {
-      data: Omit<FakeSettlement, 'id' | 'replacedAt'>[];
-    }) => {
-      const created = data.map((d) => ({
-        id: this.nextId++,
-        replacedAt: null,
-        ...d,
-      }));
-      this.settlements.push(...created);
-      return created;
-    },
     updateMany: async ({
       where,
       data,
@@ -211,16 +198,60 @@ class FakePrisma {
     },
   };
 
-  settlementDetail = {
-    createMany: async ({
-      data,
-    }: {
-      data: Omit<FakeSettlementDetail, 'id'>[];
-    }) => {
-      this.settlementDetails.push(
-        ...data.map((d) => ({ id: this.nextId++, ...d })),
-      );
-    },
+  // The two INSERT ... unnest statements: one array argument per column.
+  $queryRaw = async (sql: TemplateStringsArray, ...columns: unknown[]) => {
+    expect(sql.join('?')).toContain('INSERT INTO "settlements"');
+    const [status, propertyIds, periods, totals] = columns as [
+      SettlementStatus,
+      number[],
+      number[],
+      number[],
+    ];
+    // Same as the partial unique index of the migration: a second current
+    // settlement for a property+period is refused, so a replacement has to
+    // mark the old one before creating the new one.
+    propertyIds.forEach((propertyId, i) => {
+      if (
+        this.settlements.some(
+          (s) =>
+            s.replacedAt == null &&
+            s.propertyId === propertyId &&
+            s.period === periods[i],
+        )
+      ) {
+        throw Object.assign(new Error('Unique constraint failed'), {
+          code: 'P2002',
+        });
+      }
+    });
+    const created = propertyIds.map((propertyId, i) => ({
+      id: this.nextId++,
+      propertyId,
+      period: periods[i],
+      totalAmount: totals[i],
+      status,
+      replacedAt: null,
+    }));
+    this.settlements.push(...created);
+    return created;
+  };
+
+  $executeRaw = async (sql: TemplateStringsArray, ...columns: unknown[][]) => {
+    expect(sql.join('?')).toContain('INSERT INTO "settlement_details"');
+    const [settlementIds, concepts, amounts] = columns as [
+      number[],
+      string[],
+      number[],
+    ];
+    this.settlementDetails.push(
+      ...settlementIds.map((settlementId, i) => ({
+        id: this.nextId++,
+        settlementId,
+        concept: concepts[i],
+        amount: amounts[i],
+      })),
+    );
+    return settlementIds.length;
   };
 }
 
@@ -718,6 +749,31 @@ describe('persistTaxRoll', () => {
     expect(result).toMatchObject({ settlements: 2, conflicts: [] });
     expect(prisma.settlements).toHaveLength(2);
     expectAtMostOneCurrentSettlementPerPropertyPeriod(prisma);
+  });
+
+  it('writes a large roll completely, each settlement with its own 6 detail lines (SL-190)', async () => {
+    const prisma = new FakePrisma();
+    const rows = Array.from({ length: 2501 }, (_, i) =>
+      buildRow({ cadastralCode: `0001${String(i).padStart(8, '0')}` }),
+    );
+
+    const result = await persistTaxRoll(
+      prisma as never,
+      MUNICIPALITY_ID,
+      rows,
+      false,
+    );
+
+    expect(result.settlements).toBe(2501);
+    expect(prisma.settlements).toHaveLength(2501);
+    expect(prisma.settlementDetails).toHaveLength(2501 * 6);
+    for (const settlement of prisma.settlements) {
+      expect(
+        prisma.settlementDetails.filter(
+          (d) => d.settlementId === settlement.id,
+        ),
+      ).toHaveLength(6);
+    }
   });
 
   it('allows the same period for distinct properties while preserving the invariant per property', async () => {

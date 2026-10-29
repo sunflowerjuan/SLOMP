@@ -54,19 +54,13 @@ describe('POST /municipalities/:slug/tax-roll/import (e2e, real Páez tax roll f
 
     const { validRows, invalidRows, warnings, persisted } = response.body;
 
-    expect(validRows.length + invalidRows.length).toBe(totalDataRows);
+    // Only the count of valid rows comes back, never the rows (SL-190).
+    expect(validRows + invalidRows.length).toBe(totalDataRows);
     expect(Array.isArray(warnings)).toBe(true);
-    for (const row of validRows) {
-      expect(row.cadastralCode).toBeTruthy();
-      expect(Number.isInteger(row.period)).toBe(true);
-      // No period outside 1980..current year may get through.
-      expect(row.period).toBeGreaterThanOrEqual(1980);
-      expect(row.period).toBeLessThanOrEqual(new Date().getFullYear());
-    }
     expect(persisted).toEqual({
       properties: 1004,
       owners: 809,
-      settlements: validRows.length,
+      settlements: validRows,
       conflicts: [],
       locked: [],
     });

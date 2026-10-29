@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
 } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { CodedError } from '../common/errors/coded-error.js';
 import { errorBody } from '../common/errors/error-body.js';
 import { ErrorCode } from '../common/errors/error-codes.js';
@@ -14,6 +15,10 @@ import { parseTaxRollUpload } from './parse-tax-roll-upload.js';
 import { persistTaxRoll } from './persist-tax-roll.js';
 import type { ParseTaxRollExcelResult } from './tax-roll-row.dto.js';
 import type { PersistTaxRollResult } from './persist-tax-roll.js';
+
+// The full Páez roll (11 202 rows) persists in ~2 s; the margin covers a
+// slower server and waiting for another load of the same municipality.
+const IMPORT_TIMEOUT_MS = 120_000;
 
 @Injectable()
 export class TaxRollService {
@@ -36,21 +41,23 @@ export class TaxRollService {
       municipality,
       parsed.validRows.map((row) => row.cadastralCode),
     );
-    await this.assertNoBulkJob(municipality.id);
-    const persisted = await this.persist(
+    const { persisted, importId } = await this.persist(
       municipality.id,
       parsed,
       confirmReplace,
-    );
-    const importId = await this.recordImport(
-      municipality.id,
       fileName,
       administratorId,
-      parsed,
-      persisted,
       previousImportId,
     );
-    return { ...parsed, persisted, importId };
+    // Counts only: echoing every valid row back (11 202 for Páez) doubled
+    // the memory of the request and the panel never used them (SL-190).
+    return {
+      validRows: parsed.validRows.length,
+      invalidRows: parsed.invalidRows,
+      warnings: parsed.warnings,
+      persisted,
+      importId,
+    };
   }
 
   // A history at /tax-roll/imports, newest first. No pagination for now:
@@ -79,6 +86,7 @@ export class TaxRollService {
   }
 
   private async recordImport(
+    tx: Prisma.TransactionClient,
     municipalityId: number,
     fileName: string,
     administratorId: number,
@@ -104,7 +112,7 @@ export class TaxRollService {
       // minimal safeguard: if the id doesn't match that file and that
       // admin, nothing gets updated and it falls through to the create
       // below.
-      const updated = await this.prisma.taxRollImport.updateMany({
+      const updated = await tx.taxRollImport.updateMany({
         where: {
           id: previousImportId,
           municipalityId,
@@ -118,17 +126,20 @@ export class TaxRollService {
       }
     }
 
-    const created = await this.prisma.taxRollImport.create({ data });
+    const created = await tx.taxRollImport.create({ data });
     return created.id;
   }
 
   // A bulk job carries its liquidations already assembled in Storage; a load
   // that replaced them meanwhile would leave the job out of date (Confluence
   // SL-118, section 10).
-  // ponytail: checked before persisting, not under a lock; a job created in
-  // the same instant is caught by the job's own settlement guard instead.
-  private async assertNoBulkJob(municipalityId: number): Promise<void> {
-    const active = await this.prisma.pdfJob.count({
+  // ponytail: checked under the import lock, which job creation does not take;
+  // a job created in the same instant is caught by its own settlement guard.
+  private async assertNoBulkJob(
+    tx: Prisma.TransactionClient,
+    municipalityId: number,
+  ): Promise<void> {
+    const active = await tx.pdfJob.count({
       where: { municipalityId, status: { in: ACTIVE_JOB_STATUSES } },
     });
     if (active > 0) {
@@ -141,17 +152,43 @@ export class TaxRollService {
     }
   }
 
+  // The whole load is one transaction: a crash halfway (it already happened
+  // with the backend out of memory) leaves the database as it was, and a
+  // confirmed replacement never leaves a period without its current
+  // settlement. Loads of one municipality run one at a time, so a second
+  // upload of the same file sees the first one's settlements as conflicts
+  // instead of duplicating them.
   private async persist(
     municipalityId: number,
     parsed: ParseTaxRollExcelResult,
     confirmReplace: boolean,
+    fileName: string,
+    administratorId: number,
+    previousImportId?: number,
   ) {
     try {
-      return await persistTaxRoll(
-        this.prisma,
-        municipalityId,
-        parsed.validRows,
-        confirmReplace,
+      return await this.prisma.$transaction(
+        async (tx) => {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('tax-roll-import'), ${municipalityId}::int)`;
+          await this.assertNoBulkJob(tx, municipalityId);
+          const persisted = await persistTaxRoll(
+            tx,
+            municipalityId,
+            parsed.validRows,
+            confirmReplace,
+          );
+          const importId = await this.recordImport(
+            tx,
+            municipalityId,
+            fileName,
+            administratorId,
+            parsed,
+            persisted,
+            previousImportId,
+          );
+          return { persisted, importId };
+        },
+        { timeout: IMPORT_TIMEOUT_MS },
       );
     } catch (error) {
       if (
