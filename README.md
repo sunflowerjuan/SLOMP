@@ -18,8 +18,8 @@ Plataforma que automatiza, para la cartera del impuesto predial del Municipio de
 slomp/
 ├── apps/
 │   ├── backend/         # API REST, autenticación, reglas de negocio
-│   ├── frontend/        # Panel Administrador + Consulta Pública
-│   └── pdf-function/    # Generación de PDF (Azure Function, en desarrollo)
+│   ├── frontend/        # Panel Administrador + Consulta Pública (Dockerfile + Caddyfile: proxy de producción)
+│   └── pdf-function/    # Servicio de PDF (LibreOffice, contenedor)
 ├── packages/
 │   └── shared/          # prisma/ (schema, migrations, seed), Prisma client, domain types
 ├── .github/
@@ -27,7 +27,10 @@ slomp/
 │   └── PULL_REQUEST_TEMPLATE.md
 ├── .husky/
 │   └── pre-commit       # corre lint-staged antes de cada commit
-├── docker-compose.yml
+├── infra/               # Bicep de Azure (referencia) y vps/provision.sh (aprovisionamiento de la VPS)
+├── docker-compose.yml       # desarrollo local
+├── docker-compose.prod.yml  # producción en la VPS
+├── .env.prod.example        # variables de producción (el .env.prod real solo vive en la VPS)
 ├── pnpm-workspace.yaml
 └── package.json          # config de lint-staged, scripts de la raíz
 ```
@@ -138,7 +141,7 @@ Sigue la Política de seguridad (Confluence, secciones 2 y 4.3, hallazgo SEC-09)
 
 ### Dónde viven los secretos
 
-Cada ambiente guarda los suyos en su Key Vault (servicio fijo de ADR-11). El App Service ya lee `JWT-SECRET` y `DATABASE-URL` como Key Vault references (`infra/compute.bicep`), pero ningún módulo Bicep crea los valores: se cargan a mano al levantar el ambiente. La decisión de hosting (ADR-13, SL-111) sigue abierta; si cambia, los secretos siguen en Key Vault y solo cambia cómo los recibe la aplicación.
+En producción (VPS, ADR-13) viven en `.env.prod`, solo en el servidor y con permiso `600` (ver [Producción](#producción-vps)). En la alternativa de Azure, cada ambiente los guarda en su Key Vault: el App Service ya lee `JWT-SECRET` y `DATABASE-URL` como Key Vault references (`infra/compute.bicep`), pero ningún módulo Bicep crea los valores y se cargan a mano al levantar el ambiente.
 
 ```bash
 SECRET=$(node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))")
@@ -164,6 +167,56 @@ Se corren con el `DATABASE_URL` del ambiente (en `apps/backend/.env` o en la ter
 ### Cambio obligatorio de la contraseña inicial
 
 Una contraseña que eligió otra persona (`admin:create` o `admin:rotate-password`) deja al administrador con `mustChangePassword`. Al iniciar sesión, el panel le muestra la pantalla "Cambia tu contraseña" en lugar del panel, y el backend responde `403 AUTH_PASSWORD_CHANGE_REQUIRED` en cualquier otra ruta hasta que la cambie con `POST /auth/password`. Ese endpoint pide la contraseña actual (los fallos cuentan para el bloqueo del login), aplica la política, rechaza repetir la misma y cierra las demás sesiones de la cuenta. El administrador que crea el seed en local no tiene la marca, para no estorbar el desarrollo ni los e2e.
+
+## Producción (VPS)
+
+Producción corre en una VPS con `docker-compose.prod.yml` (ADR-13). Caddy (`apps/frontend/Dockerfile` y `apps/frontend/Caddyfile`) es el único servicio con puertos publicados: obtiene y renueva solo el certificado, redirige HTTP a HTTPS, sirve el frontend compilado en `/` y la API en `/api`. La base de datos, Azurite, el servicio de PDF y el backend solo se ven dentro de la red de compose. Todos se reinician solos (`unless-stopped`), tienen chequeo de salud, límite de memoria y logs rotados (10 MB × 5 archivos). Producción no corre el seed.
+
+Requisitos: la VPS aprovisionada con `infra/vps/provision.sh` (Docker, usuario `deploy`, firewall y swap) y el registro DNS `A` del dominio apuntando a ella.
+
+### Primer arranque
+
+Como `deploy`, en la VPS:
+
+```bash
+git clone https://github.com/sunflowerjuan/SLOMP.git ~/slomp && cd ~/slomp
+cp .env.prod.example .env.prod && chmod 600 .env.prod   # llenar: dominio y un secreto nuevo por variable (openssl rand -hex 32)
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+docker compose --env-file .env.prod -f docker-compose.prod.yml ps   # todos en healthy; migrate en Exited (0)
+```
+
+El primer administrador se crea con `admin:create` (ver [Primer administrador](#primer-administrador-y-rotación-de-contraseñas)), usando el contenedor `migrate`:
+
+```bash
+docker compose --env-file .env.prod -f docker-compose.prod.yml run --rm migrate pnpm --filter backend admin:create --email persona@dominio.gov.co --name "Nombre"
+```
+
+### Actualizar
+
+```bash
+cd ~/slomp && git pull
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build   # aplica las migraciones nuevas antes de reiniciar el backend
+```
+
+### Logs y estado
+
+```bash
+docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f --tail 100 backend   # o proxy, pdf, db
+docker stats --no-stream
+```
+
+### Límites de memoria
+
+Para 1 vCPU y 3,8 GiB de RAM, con 2 GiB de swap. Se ajustan con mediciones reales: Node reserva para su heap cerca de la mitad del límite del contenedor, así que un límite bajo hace caer el backend antes de que Docker lo note.
+
+| Servicio | Límite | En reposo (medido en local) |
+|---|---|---|
+| `pdf` (LibreOffice) | 1 GiB | 76 MiB |
+| `backend` | 1 GiB (pico de ~750 MiB al importar la cartera de Páez, 11 202 filas) | 127 MiB |
+| `db` | 512 MiB | 19 MiB |
+| `azurite` | 256 MiB | 131 MiB |
+| `proxy` | 128 MiB | 12 MiB |
+| `migrate` (solo al arrancar) | 768 MiB | |
 
 ## Flujo de trabajo
 
