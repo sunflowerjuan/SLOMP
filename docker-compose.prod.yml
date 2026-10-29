@@ -1,0 +1,147 @@
+# Production stack on the VPS (ADR-13). Only the proxy publishes ports; the
+# rest talk over the compose network. Secrets come from .env.prod, which only
+# exists on the VPS (see .env.prod.example and the README, "Producción"):
+#   docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+# Memory limits are a starting point for the 1 vCPU / 3.8 GiB plan, to be
+# adjusted with the measurements of the first deployment (SL-146).
+name: slomp-prod
+
+x-service: &service
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "5"
+
+# ponytail: Azurite's published development account; it is only reachable
+# inside the compose network. Use a custom AZURITE_ACCOUNTS key if Storage is
+# ever exposed.
+x-storage: &storage DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;
+
+services:
+  db:
+    <<: *service
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.prod}
+      POSTGRES_DB: slomp
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d slomp"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Templates, PDF queues and the temporary bulk ZIP (risk R3 in ADR-13).
+  azurite:
+    <<: *service
+    image: mcr.microsoft.com/azure-storage/azurite
+    command: azurite -l /data --blobHost 0.0.0.0 --queueHost 0.0.0.0 --skipApiVersionCheck
+    volumes:
+      - storage_data:/data
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('net').connect(10000, '127.0.0.1').on('connect', () => process.exit(0)).on('error', () => process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  pdf:
+    <<: *service
+    build:
+      context: .
+      dockerfile: apps/pdf-function/Dockerfile
+    environment:
+      PDF_SERVICE_KEY: ${PDF_SERVICE_KEY:?set PDF_SERVICE_KEY in .env.prod}
+      AZURE_STORAGE_CONNECTION_STRING: *storage
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      azurite:
+        condition: service_healthy
+
+  # One-shot: applies Prisma migrations and exits. No seed in production; the
+  # first administrator is created with admin:create (SL-146).
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+      target: tooling
+    command: pnpm --filter shared db:migrate:deploy
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/slomp
+    mem_limit: 768m
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  backend:
+    <<: *service
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+      target: runtime
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/slomp
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env.prod}
+      CORS_ORIGIN: https://${DOMAIN:?set DOMAIN in .env.prod}
+      # Caddy is the only hop; req.ip is then the client's address (SEC-18).
+      TRUST_PROXY_HOPS: 1
+      # The browser reaches the session endpoints under /api.
+      REFRESH_COOKIE_PATH: /api/auth
+      PDF_SERVICE_URL: http://pdf:3001
+      PDF_SERVICE_KEY: ${PDF_SERVICE_KEY}
+      AZURE_STORAGE_CONNECTION_STRING: *storage
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      pdf:
+        condition: service_healthy
+
+  # Caddy: TLS, HTTP -> HTTPS, the built frontend at / and the API at /api.
+  proxy:
+    <<: *service
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+      args:
+        VITE_API_URL: https://${DOMAIN}/api
+    environment:
+      DOMAIN: ${DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # Certificates: losing them means asking Let's Encrypt again (rate limited).
+      - caddy_data:/data
+      - caddy_config:/config
+    mem_limit: 128m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://127.0.0.1:2019/config/"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  pg_data:
+  storage_data:
+  caddy_data:
+  caddy_config:

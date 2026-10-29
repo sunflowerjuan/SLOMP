@@ -7,7 +7,7 @@
 
 FROM node:24-bookworm-slim AS build
 ENV HUSKY=0
-RUN npm install -g pnpm@11.24.0
+RUN npm install -g --ignore-scripts pnpm@11.24.0
 WORKDIR /repo
 
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
