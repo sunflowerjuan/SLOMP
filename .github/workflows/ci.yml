@@ -19,6 +19,9 @@ jobs:
             - run: pnpm install --frozen-lockfile
             - run: pnpm --filter shared run db:generate
             - run: pnpm -r --if-present run lint
+            # Includes the specs: nest build (tsconfig.build.json) skips them and
+            # Vitest doesn't check types.
+            - run: pnpm -r --if-present run typecheck
             - run: pnpm -r --if-present run build
             - run: pnpm -r --if-present --filter '!backend' run test
             # Fails the PR if any coverage metric drops below the thresholds
