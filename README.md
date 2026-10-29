@@ -212,7 +212,7 @@ Para 1 vCPU y 3,8 GiB de RAM, con 2 GiB de swap. Se ajustan con mediciones reale
 | Servicio | Límite | En reposo (medido en local) |
 |---|---|---|
 | `pdf` (LibreOffice) | 1 GiB | 76 MiB |
-| `backend` | 1 GiB (pico de ~750 MiB al importar la cartera de Páez, 11 202 filas) | 127 MiB |
+| `backend` | 768 MiB (al importar la cartera de Páez, 11 202 filas: pico de ~460 MiB, ~600 MiB con dos cargas a la vez) | 127 MiB |
 | `db` | 512 MiB | 19 MiB |
 | `azurite` | 256 MiB | 131 MiB |
 | `proxy` | 128 MiB | 12 MiB |

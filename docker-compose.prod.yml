@@ -100,10 +100,10 @@ services:
       PDF_SERVICE_URL: http://pdf:3001
       PDF_SERVICE_KEY: ${PDF_SERVICE_KEY}
       AZURE_STORAGE_CONNECTION_STRING: *storage
-    # Node sizes its heap to about half of this limit. With 512m (259 MB of
-    # heap) importing the 11202-row tax roll of Paez ran out of memory; with
-    # 1g it peaks at about 750 MiB (SL-146).
-    mem_limit: 1g
+    # Node sizes its heap to about half of this limit. Importing the 11202-row
+    # tax roll of Paez peaks at about 460 MiB (about 600 MiB with two uploads
+    # at once); before SL-190 it took about 750 MiB and failed with 512m.
+    mem_limit: 768m
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
       interval: 15s
