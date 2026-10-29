@@ -192,6 +192,8 @@ model Settlement {
 
   details SettlementDetail[]
 
+  // At most one current (replacedAt null) settlement per property and period:
+  // partial unique index created by hand in the migration.
   @@index([propertyId, period])
   @@index([resolutionId])
   @@index([paymentOrderId])
