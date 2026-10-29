@@ -6,6 +6,7 @@ import {
 import { SettlementStatus } from '@prisma/client';
 import { describe, expect, it, vi } from 'vitest';
 import { SettlementsService } from './settlements.service.js';
+import { ErrorCode } from '../common/errors/error-codes.js';
 
 function buildPrisma(properties: unknown[]) {
   return { property: { findMany: vi.fn().mockResolvedValue(properties) } };
@@ -182,16 +183,20 @@ describe('SettlementsService', () => {
       siblings: { id: number; period?: number }[] = [],
       firstPaymentOrder: { issuedAt: Date } | null = null,
     ) {
-      return {
+      const prisma = {
         settlement: {
           findFirst: vi.fn().mockResolvedValue(current),
           findMany: vi.fn().mockResolvedValue(siblings),
-          updateMany: vi.fn().mockResolvedValue({ count: siblings.length }),
+          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
         },
         paymentOrder: {
           findFirst: vi.fn().mockResolvedValue(firstPaymentOrder),
         },
+        $transaction: vi.fn(async (run: (tx: unknown) => unknown) =>
+          run(prisma),
+        ),
       };
+      return prisma;
     }
 
     const daysAgo = (days: number) =>
@@ -317,6 +322,30 @@ describe('SettlementsService', () => {
         details: { from: 'EN_FIRME', to: 'VIGENTE' },
       });
       expect(prisma.settlement.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('answers 409, changing nothing, when the status changed after it was read (SL-190)', async () => {
+      const prisma = buildPrismaForStatusChange(
+        inResolution(SettlementStatus.VIGENTE, 10),
+        [{ id: 1 }, { id: 2 }],
+      );
+      // Another tab (or the EN_FIRME sweep) already moved it out of VIGENTE.
+      prisma.settlement.updateMany.mockResolvedValueOnce({ count: 0 });
+      const service = new SettlementsService(prisma as never);
+
+      const error = await service
+        .changeStatus(MUNICIPALITY_ID, 1, SettlementStatus.PAGADA)
+        .catch((e) => e);
+
+      expect(error).toBeInstanceOf(ConflictException);
+      expect(error.getResponse()).toMatchObject({
+        code: ErrorCode.SETTLEMENT_STATUS_CHANGED,
+      });
+      expect(prisma.settlement.updateMany).toHaveBeenCalledTimes(1);
+      expect(prisma.settlement.updateMany).toHaveBeenCalledWith({
+        where: { id: 1, status: SettlementStatus.VIGENTE, replacedAt: null },
+        data: { status: SettlementStatus.PAGADA },
+      });
     });
 
     it('only allows PRESCRITA from EN_FIRME once the payment order is 5 years old', async () => {

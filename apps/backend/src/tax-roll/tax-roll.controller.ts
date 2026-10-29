@@ -72,27 +72,10 @@ export class TaxRollController {
   @ApiResponse({
     status: 201,
     description:
-      'Excel leído y procesado. Puede incluir filas inválidas (no se persisten, van en "invalidRows") y conflictos de reemplazo no confirmados (van en "persisted.conflicts").',
+      'Excel leído y procesado en una sola transacción: si algo falla no queda nada escrito. "validRows" es el número de filas válidas (las filas no se devuelven). Puede incluir filas inválidas (no se persisten, van en "invalidRows") y conflictos de reemplazo no confirmados (van en "persisted.conflicts").',
     schema: {
       example: {
-        validRows: [
-          {
-            cadastralCode: '041-01-0023-000',
-            landUse: 'URBAN',
-            appraisalValue: 85000000,
-            taxId: '900123456',
-            ownerName: 'María Fernanda Ríos',
-            propertyName: 'Calle 45 # 12-30',
-            period: 2024,
-            propertyTax: 340000,
-            propertyTaxInterest: 0,
-            environmentalFee: 12000,
-            environmentalFeeInterest: 0,
-            fireSurcharge: 5000,
-            fireSurchargeInterest: 0,
-            total: 357000,
-          },
-        ],
+        validRows: 1,
         invalidRows: [
           { row: 8, reason: 'Missing cadastral code' },
           {

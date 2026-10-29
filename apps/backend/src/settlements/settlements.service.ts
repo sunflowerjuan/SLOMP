@@ -268,9 +268,27 @@ export class SettlementsService {
       );
     }
 
-    await this.prisma.settlement.updateMany({
-      where: { id: { in: settlementIds }, property: { municipalityId } },
-      data: { status: status as SettlementStatus },
+    await this.prisma.$transaction(async (tx) => {
+      // Applies only if the settlement still has the status the transition
+      // was checked against: another tab or the EN_FIRME sweep changing it
+      // in between answers 409 instead of an unchecked transition. The row
+      // lock also holds a concurrent change of the same group until commit.
+      const claimed = await tx.settlement.updateMany({
+        where: { id, status: settlement.status, replacedAt: null },
+        data: { status: status as SettlementStatus },
+      });
+      if (claimed.count === 0) {
+        throw new ConflictException(
+          errorBody(
+            ErrorCode.SETTLEMENT_STATUS_CHANGED,
+            'The settlement changed while this request was in progress. Reload it and try again.',
+          ),
+        );
+      }
+      await tx.settlement.updateMany({
+        where: { id: { in: settlementIds }, property: { municipalityId } },
+        data: { status: status as SettlementStatus },
+      });
     });
 
     // The whole group now shares one state, so the mark only survives a

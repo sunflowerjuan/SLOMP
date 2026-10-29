@@ -92,6 +92,22 @@ const EXPECTED_IMPORT_DATA = {
   conflicts: 0,
 };
 
+// Prisma with an interactive transaction that runs on `tx` and, like the
+// real one, only commits when the callback resolves.
+function transactional(tx: Record<string, unknown>) {
+  const prisma = {
+    committed: false,
+    $transaction: vi.fn(async (run: (tx: unknown) => Promise<unknown>) => {
+      const result = await run(tx);
+      prisma.committed = true;
+      return result;
+    }),
+  };
+  return prisma;
+}
+
+const lockFree = () => ({ $executeRaw: vi.fn().mockResolvedValue(1) });
+
 describe('TaxRollService', () => {
   it('turns a parser failure (e.g. a blank Excel file) into a 400, not an unhandled 500', async () => {
     const workbook = new ExcelJS.Workbook();
@@ -109,12 +125,14 @@ describe('TaxRollService', () => {
     const buffer = await buildOneRowWorkbook();
 
     const taxRollImportCreate = vi.fn().mockResolvedValue({ id: 42 });
-    // persistTaxRoll is mocked, so prisma only needs to support the history
-    // write that TaxRollService itself makes.
-    const prisma = {
+    // persistTaxRoll is mocked, so the transaction only needs to support the
+    // history write that TaxRollService itself makes.
+    const tx = {
+      ...lockFree(),
       taxRollImport: { create: taxRollImportCreate },
       pdfJob: { count: vi.fn().mockResolvedValue(0) },
     };
+    const prisma = transactional(tx);
     vi.mocked(persistTaxRoll).mockResolvedValue(PERSISTED_RESULT);
 
     const service = new TaxRollService(prisma as never);
@@ -126,15 +144,17 @@ describe('TaxRollService', () => {
       7,
     );
 
-    expect(result.validRows).toHaveLength(1);
+    // Only the count: the rows themselves are not echoed back (SL-190).
+    expect(result.validRows).toBe(1);
     expect(result.persisted).toEqual(PERSISTED_RESULT);
     expect(result.importId).toBe(42);
     expect(persistTaxRoll).toHaveBeenCalledWith(
-      prisma,
+      tx,
       MUNICIPALITY.id,
-      result.validRows,
+      [expect.objectContaining({ cadastralCode: '000100010001' })],
       true,
     );
+    expect(prisma.committed).toBe(true);
     expect(taxRollImportCreate).toHaveBeenCalledWith({
       data: EXPECTED_IMPORT_DATA,
     });
@@ -145,13 +165,14 @@ describe('TaxRollService', () => {
 
     const taxRollImportCreate = vi.fn();
     const taxRollImportUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
-    const prisma = {
+    const prisma = transactional({
+      ...lockFree(),
       taxRollImport: {
         create: taxRollImportCreate,
         updateMany: taxRollImportUpdateMany,
       },
       pdfJob: { count: vi.fn().mockResolvedValue(0) },
-    };
+    });
     vi.mocked(persistTaxRoll).mockResolvedValue(PERSISTED_RESULT);
 
     const service = new TaxRollService(prisma as never);
@@ -181,7 +202,9 @@ describe('TaxRollService', () => {
     const buffer = await buildOneRowWorkbook();
     vi.mocked(persistTaxRoll).mockClear();
     const count = vi.fn().mockResolvedValue(1);
-    const service = new TaxRollService({ pdfJob: { count } } as never);
+    const service = new TaxRollService(
+      transactional({ ...lockFree(), pdfJob: { count } }) as never,
+    );
 
     const error = await service
       .import(MUNICIPALITY, buffer, true, 'roll.xlsx', 7)
@@ -198,6 +221,70 @@ describe('TaxRollService', () => {
       },
     });
     expect(persistTaxRoll).not.toHaveBeenCalled();
+  });
+
+  describe('atomic load (SL-190)', () => {
+    it('takes the municipality lock before checking bulk jobs or writing anything', async () => {
+      const buffer = await buildOneRowWorkbook();
+      const tx = {
+        ...lockFree(),
+        taxRollImport: { create: vi.fn().mockResolvedValue({ id: 1 }) },
+        pdfJob: { count: vi.fn().mockResolvedValue(0) },
+      };
+      vi.mocked(persistTaxRoll).mockResolvedValue(PERSISTED_RESULT);
+
+      await new TaxRollService(transactional(tx) as never).import(
+        MUNICIPALITY,
+        buffer,
+        false,
+        'roll.xlsx',
+        7,
+      );
+
+      const [strings, ...values] = tx.$executeRaw.mock.calls[0];
+      expect(strings.join('?')).toContain('pg_advisory_xact_lock');
+      expect(values).toEqual([MUNICIPALITY.id]);
+      const lockedAt = tx.$executeRaw.mock.invocationCallOrder[0];
+      expect(lockedAt).toBeLessThan(
+        tx.pdfJob.count.mock.invocationCallOrder[0],
+      );
+      expect(lockedAt).toBeLessThan(
+        vi.mocked(persistTaxRoll).mock.invocationCallOrder.at(-1)!,
+      );
+    });
+
+    it('rolls everything back when a step after the settlements fails: nothing is committed', async () => {
+      const buffer = await buildOneRowWorkbook();
+      const tx = {
+        ...lockFree(),
+        taxRollImport: {
+          create: vi.fn().mockRejectedValue(new Error('connection lost')),
+        },
+        pdfJob: { count: vi.fn().mockResolvedValue(0) },
+      };
+      const prisma = transactional(tx);
+      vi.mocked(persistTaxRoll).mockResolvedValue(PERSISTED_RESULT);
+
+      await expect(
+        new TaxRollService(prisma as never).import(
+          MUNICIPALITY,
+          buffer,
+          true,
+          'roll.xlsx',
+          7,
+        ),
+      ).rejects.toThrow('connection lost');
+
+      // The settlements were written through the transaction, never through
+      // the root client, and the transaction did not commit.
+      expect(persistTaxRoll).toHaveBeenLastCalledWith(
+        tx,
+        MUNICIPALITY.id,
+        expect.any(Array),
+        true,
+      );
+      expect(prisma.committed).toBe(false);
+    });
   });
 
   describe('municipality of the file', () => {
