@@ -234,6 +234,8 @@ const ERROR_MESSAGES: Record<string, CatalogEntry> = {
     "No se puede cambiar el estado de una liquidación que ya fue reemplazada.",
   SETTLEMENT_STATUS_TRANSITION_NOT_ALLOWED:
     "Ese cambio de estado no está permitido para esta liquidación.",
+  SETTLEMENT_STATUS_CHANGED:
+    "Otra persona o proceso cambió esta liquidación mientras la editabas. Actualiza la búsqueda e intenta de nuevo.",
 
   // Payment orders
   PAYMENT_ORDER_CONCURRENT_GENERATION:
