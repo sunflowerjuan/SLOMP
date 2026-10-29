@@ -35,6 +35,7 @@ import {
   type DocxContent,
   type Selection,
 } from './guided-marking.js';
+import { templateFileName } from './template-file-name.js';
 import { buildTemplateCatalog } from './template-catalog.js';
 import { PREVIEW_DATA } from './template-preview-data.js';
 import {
@@ -398,6 +399,7 @@ export class TemplatesService implements OnModuleInit, OnModuleDestroy {
     userId: number,
     draftId: string,
     selections: Selection[],
+    removedRows: string[] = [],
   ): Promise<Buffer> {
     const { draft, original } = await this.openDraft(
       municipalityId,
@@ -405,7 +407,7 @@ export class TemplatesService implements OnModuleInit, OnModuleDestroy {
       draftId,
     );
     const marked = asBadRequest(() =>
-      applySelections(original, draft.documentType, selections),
+      applySelections(original, draft.documentType, selections, removedRows),
     );
     const sha256 = createHash('sha256').update(marked).digest('hex');
     // The PDF service reads templates from Storage by path and hash.
@@ -546,6 +548,8 @@ export class TemplatesService implements OnModuleInit, OnModuleDestroy {
     draftId: string,
     selections: Selection[],
     replaceConfirmed: boolean,
+    removedRows: string[] = [],
+    fileName?: string,
   ): Promise<TemplateView> {
     const { draft, original } = await this.openDraft(
       municipality.id,
@@ -553,13 +557,16 @@ export class TemplatesService implements OnModuleInit, OnModuleDestroy {
       draftId,
     );
     const marked = asBadRequest(() =>
-      applySelections(original, draft.documentType, selections),
+      applySelections(original, draft.documentType, selections, removedRows),
     );
     const fields = this.checkedFields(draft.documentType, marked, true);
     const view = await this.storeVersion(
       municipality,
       draft.documentType,
-      { buffer: marked, originalname: draft.fileName },
+      {
+        buffer: marked,
+        originalname: templateFileName(fileName, draft.fileName),
+      },
       userId,
       { fields, replaceConfirmed },
     );

@@ -6,6 +6,11 @@
 //   Informal "tú", full sentences ending in a period.
 
 import { paymentOrderNumberLabel } from "../domain/paymentOrder";
+import { MAX_TEMPLATE_NAME_LENGTH } from "../domain/templateMarking";
+import type {
+  MarkingProblem,
+  TemplateNameProblem,
+} from "../domain/templateMarking";
 import { formatNumber } from "../utils/formatCount";
 import { formatPeriods } from "../utils/formatPeriods";
 
@@ -109,6 +114,50 @@ function passwordPolicyMessage(details: ErrorDetails): string {
   return sentences.join(" ");
 }
 
+// Why a text selection of the guided marking can't take a marker. The screen
+// checks it before asking the backend, which answers the same cases with
+// TEMPLATE_SELECTION_INVALID or TEMPLATE_SELECTION_OVERLAP.
+export const MARKING_PROBLEM_MESSAGES: Record<MarkingProblem, string> = {
+  CROSSES_BLOCKS:
+    "Selecciona texto dentro de un solo párrafo o de una sola celda. No se asignó ningún marcador.",
+  EMPTY:
+    "Selecciona las palabras que quieres reemplazar por el marcador, no solo espacios.",
+  OVERLAP:
+    "Ese texto ya tiene un marcador. Quítalo primero o selecciona otro texto.",
+  OUTSIDE_TABLE:
+    "Los campos de la tabla solo se marcan en la fila de ejemplo de una tabla del documento.",
+  OTHER_ROW:
+    "Los campos de la tabla van todos en la misma fila de ejemplo: usa la fila que ya marcaste.",
+  IN_REMOVED_ROW:
+    "Esa fila se quitará del documento. Restáurala si quieres marcar en ella.",
+};
+
+// Why the name a template is saved under can't be used (checked on screen,
+// like the backend's TEMPLATE_FILE_NAME_INVALID).
+export const TEMPLATE_NAME_MESSAGES: Record<TemplateNameProblem, string> = {
+  EMPTY: "Escribe el nombre con el que se guardará la plantilla.",
+  TOO_LONG: `El nombre puede tener hasta ${MAX_TEMPLATE_NAME_LENGTH} caracteres.`,
+  FORBIDDEN: "El nombre no puede tener barras (/ o \\).",
+};
+
+// Why a table row can't be left out of the template (`reason` of
+// TEMPLATE_SELECTION_INVALID when removing rows).
+const REMOVED_ROW_MESSAGES: Record<string, string> = {
+  REMOVED_ROW_HAS_MARKER:
+    "Una de las filas que quitaste tiene marcadores. Quita sus marcadores o restaura la fila e intenta de nuevo.",
+  REMOVED_ROW_LAST:
+    "No se pueden quitar todas las filas de una tabla. Restaura al menos una e intenta de nuevo.",
+  REMOVED_ROW_OUTSIDE_TABLE:
+    "Una de las filas que quitaste ya no está en una tabla. Restáurala e intenta de nuevo.",
+};
+
+const SELECTION_REASON_PROBLEMS: Record<string, MarkingProblem> = {
+  EMPTY: "EMPTY",
+  ROW_FIELD_OUTSIDE_TABLE: "OUTSIDE_TABLE",
+  ROWS_IN_SEVERAL_ROWS: "OTHER_ROW",
+  ROWS_IN_SEVERAL_TABLES: "OTHER_ROW",
+};
+
 const ERROR_MESSAGES: Record<string, CatalogEntry> = {
   // Generic
   BAD_REQUEST: GENERIC_ERROR_MESSAGES.invalidRequest,
@@ -204,14 +253,21 @@ const ERROR_MESSAGES: Record<string, CatalogEntry> = {
       : [];
     return `La plantilla no se activó porque tiene marcadores mal escritos${markers.length > 0 ? ` (${joinWithY([...new Set(markers)])})` : ""}. Revisa que cada llave abierta se cierre y que cada sección {#campo} termine con {/campo}.`;
   },
+  // `missing` holds technical names, never shown: the screen that knows the
+  // catalog puts their Spanish names in `missingLabels`. `unknown` are
+  // markers the lawyer wrote in the file, so they are shown as written.
   TEMPLATE_FIELDS_INVALID: (details) => {
-    const braces = (items: string[]) => items.map((item) => `{${item}}`);
-    const missing = braces(stringList(details.missing));
-    const unknown = braces(stringList(details.unknown));
+    const missingLabels = stringList(details.missingLabels).map(
+      (label) => `«${label}»`,
+    );
+    const missingCount = stringList(details.missing).length;
+    const unknown = stringList(details.unknown).map((item) => `{${item}}`);
     const parts = [
-      missing.length > 0
-        ? `le ${missing.length > 1 ? "faltan" : "falta"} ${joinWithY(missing)}`
-        : "",
+      missingLabels.length > 0
+        ? `le ${missingLabels.length > 1 ? "faltan" : "falta"} ${joinWithY(missingLabels)}`
+        : missingCount > 0
+          ? "le faltan marcadores obligatorios"
+          : "",
       unknown.length > 0
         ? `${unknown.length > 1 ? "tiene marcadores" : "tiene un marcador"} que el sistema no reconoce: ${joinWithY(unknown)}`
         : "",
@@ -222,6 +278,32 @@ const ERROR_MESSAGES: Record<string, CatalogEntry> = {
     "Todavía no se pueden cargar plantillas de este tipo de documento.",
   TEMPLATE_NOT_FOUND:
     "No encontramos la plantilla. Actualiza la lista e intenta de nuevo.",
+  TEMPLATE_DRAFT_NOT_FOUND:
+    "Este borrador ya no existe. Vuelve a subir el documento para marcarlo.",
+  TEMPLATE_DRAFT_EXPIRED:
+    "El borrador venció: se conserva 24 horas. Vuelve a subir el documento para marcarlo.",
+  TEMPLATE_BLOCK_NOT_FOUND:
+    "Una parte del documento que marcaste ya no se encuentra. Cancela el borrador y vuelve a subir el documento.",
+  TEMPLATE_SELECTION_INVALID: (details) => {
+    const reason = typeof details.reason === "string" ? details.reason : "";
+    if (reason === "TOO_MANY") {
+      return "Asignaste demasiados marcadores. Quita algunos e intenta de nuevo.";
+    }
+    if (REMOVED_ROW_MESSAGES[reason]) return REMOVED_ROW_MESSAGES[reason];
+    const problem = SELECTION_REASON_PROBLEMS[reason];
+    return problem
+      ? MARKING_PROBLEM_MESSAGES[problem]
+      : "Uno de los marcadores no se pudo aplicar. Quítalo, vuelve a asignarlo e intenta de nuevo.";
+  },
+  TEMPLATE_SELECTION_OVERLAP: MARKING_PROBLEM_MESSAGES.OVERLAP,
+  TEMPLATE_FIELD_UNKNOWN:
+    "Uno de los marcadores no existe para este tipo de documento. Quítalo, vuelve a asignarlo e intenta de nuevo.",
+  TEMPLATE_REPLACE_NOT_CONFIRMED:
+    "Este municipio ya tiene una plantilla activa de este tipo. Confirma el reemplazo para guardar la nueva.",
+  TEMPLATE_FILE_NAME_INVALID: (details) =>
+    `El nombre de la plantilla debe tener entre 1 y ${numberOr(details.maxLength, "120")} caracteres, sin barras (/ o \\). Corrígelo e intenta de nuevo.`,
+  TEMPLATE_PREVIEW_FAILED:
+    "No se pudo generar la vista previa. Intenta de nuevo; si el problema continúa, contacta al equipo de soporte.",
 
   // Settlements (Administrator panel)
   SETTLEMENT_SEARCH_CRITERIA_REQUIRED:

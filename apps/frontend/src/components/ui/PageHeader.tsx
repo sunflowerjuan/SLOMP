@@ -2,7 +2,8 @@ import type { ReactNode } from "react";
 import "./PageHeader.css";
 
 interface PageHeaderProps {
-  title: string;
+  // Usually text; a screen may put an editable title in its place.
+  title: ReactNode;
   subtitle?: string;
   children?: ReactNode;
 }

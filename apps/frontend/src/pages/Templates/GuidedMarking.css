@@ -1,0 +1,1315 @@
+/* A compact head, so the document gets the height: the name with the step's
+   actions beside it, one line about the file, then where the flow is and
+   its progress on one row. */
+.guided-marking.ui-screen {
+  gap: var(--space-12);
+}
+
+.guided-marking .ui-screen__head {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+
+.guided-marking .ui-page-header {
+  gap: var(--space-4);
+}
+
+.guided-marking .ui-page-header__title {
+  font-size: var(--text-xl);
+}
+
+.guided-marking .ui-page-header__subtitle {
+  max-width: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guided-marking__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8) var(--space-24);
+}
+
+.guided-marking__controls .ui-steps__list {
+  gap: var(--space-8) var(--space-16);
+}
+
+/* The title: the name the template is saved under, and its pencil. */
+/* One line with its pencil: a long name ends in an ellipsis (it shows whole
+   when edited). */
+.template-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4) var(--space-8);
+  max-width: 100%;
+}
+
+.template-name__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.template-name__edit {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--tap-size);
+  height: var(--tap-size);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-ctl);
+  background: none;
+  color: var(--semantic-primary);
+  cursor: pointer;
+}
+
+.template-name__edit:hover {
+  background-color: var(--semantic-hover);
+}
+
+.template-name__edit:focus-visible {
+  outline: var(--focus-ring);
+}
+
+.template-name__edit svg {
+  width: 20px;
+  height: 20px;
+}
+
+.template-name--editing {
+  flex-direction: column;
+  align-items: stretch;
+  width: min(640px, 100%);
+}
+
+/* The title takes the width there is, so the box (with its large type)
+   never pushes the header past the edge of the screen. */
+.guided-marking .ui-screen__head > .ui-page-header {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.template-name__field {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+}
+
+.template-name__input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-4) var(--space-8);
+  border: 1px solid var(--grafito-500);
+  border-radius: var(--radius-default);
+  background-color: var(--semantic-surface);
+  font: inherit;
+  letter-spacing: inherit;
+  color: var(--semantic-text);
+}
+
+.template-name__input:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+  border-color: var(--semantic-primary);
+}
+
+.template-name__input[aria-invalid] {
+  border-color: var(--semantic-danger);
+}
+
+.template-name__extension {
+  font-size: var(--text-lg);
+  font-weight: 400;
+  color: var(--semantic-text-muted);
+}
+
+.template-name__error {
+  font-size: var(--text-sm);
+  font-weight: 400;
+  letter-spacing: normal;
+  color: var(--semantic-danger-hover);
+}
+
+.guided-marking__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8) var(--space-16);
+}
+
+.guided-marking__summary {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.guided-marking__summary strong,
+.guided-marking__summary[data-missing] {
+  font-weight: 600;
+  color: var(--semantic-text);
+}
+
+.guided-marking__progress-button {
+  min-height: var(--tap-size);
+  padding: 0 var(--space-16);
+  border: 1px solid var(--semantic-border);
+  border-radius: var(--radius-pill);
+  background-color: var(--semantic-surface);
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--semantic-text);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
+.guided-marking__progress-button:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.guided-marking__actions {
+  display: flex;
+  flex: none;
+  gap: var(--space-8);
+  margin-left: auto;
+}
+
+/* The step on screen. Marking: the document and the list each scroll on
+   their own, so the list stays in view while the document is read. */
+.guided-marking__step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.guided-marking__step:focus {
+  outline: none;
+}
+
+.ui-screen__body > .guided-marking__step[data-step="mark"] {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.guided-marking__retry,
+.template-preview__error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-12);
+  max-height: none;
+}
+
+.guided-marking__workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: var(--space-24);
+  flex: 1;
+  min-height: 0;
+}
+
+.guided-marking__document,
+.guided-marking__aside {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.guided-marking__document {
+  display: flex;
+  flex-direction: column;
+  /* Room for the focus ring of the paragraphs. */
+  padding: var(--space-4);
+}
+
+.guided-marking__aside {
+  padding: var(--space-24);
+  border: 1px solid var(--semantic-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--semantic-surface);
+}
+
+/* A refused selection is said where the lawyer is reading, over the page:
+   the text doesn't jump away from under the mouse. */
+.guided-marking__problem {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: 0;
+  overflow: visible;
+}
+
+.guided-marking__problem .ui-notice {
+  margin: var(--space-8);
+  box-shadow: var(--shadow-overlay);
+}
+
+/* The document, as a page. */
+.guided-marking__paper {
+  flex: none;
+  padding: var(--space-40) var(--space-48);
+  border: 1px solid var(--semantic-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--semantic-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.guided-marking__paper--loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.guided-marking__paper--loading i {
+  display: block;
+  height: 14px;
+  border-radius: var(--radius-default);
+  background-color: var(--semantic-surface-muted);
+  animation: guided-marking-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes guided-marking-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Phone: one column; the list of markers is a bottom sheet. */
+.guided-marking__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  background-color: var(--overlay);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--duration-base) ease,
+    visibility 0s var(--duration-base);
+}
+
+.guided-marking__scrim[data-open="true"] {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity var(--duration-base) ease;
+}
+
+.guided-marking__sheet {
+  position: fixed;
+  right: var(--space-8);
+  bottom: max(var(--space-8), env(safe-area-inset-bottom, 0px));
+  left: var(--space-8);
+  z-index: 7;
+  max-height: calc(100dvh - var(--space-48));
+  padding: var(--space-8) var(--space-20) var(--space-24);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--radius-xl);
+  background-color: var(--semantic-surface);
+  box-shadow: var(--shadow-overlay);
+  transform: translateY(calc(100% + var(--space-8)));
+  visibility: hidden;
+  transition:
+    transform var(--duration-base) var(--ease-sheet-soft),
+    visibility 0s var(--duration-base);
+}
+
+.guided-marking__sheet[data-open="true"] {
+  transform: none;
+  visibility: visible;
+  transition:
+    transform var(--duration-sheet-slow) var(--ease-sheet-soft),
+    visibility 0s;
+}
+
+.guided-marking__sheet:focus-visible {
+  outline: none;
+}
+
+/* The header is the drag handle; the grip says so. */
+.guided-marking__sheet-head {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  min-height: var(--tap-size);
+  touch-action: pan-x;
+}
+
+.guided-marking__sheet-head::before {
+  content: "";
+  position: absolute;
+  top: var(--space-4);
+  left: 50%;
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background-color: var(--grafito-400);
+  transform: translateX(-50%);
+}
+
+.guided-marking__sheet-close,
+.marker-menu__close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--tap-size);
+  height: var(--tap-size);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-ctl);
+  background: none;
+  color: var(--semantic-text);
+  cursor: pointer;
+}
+
+.guided-marking__sheet-close svg,
+.marker-menu__close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.guided-marking__sheet-close:focus-visible,
+.marker-menu__close:focus-visible {
+  outline: var(--focus-ring);
+}
+
+@media (max-width: 900px) {
+  .guided-marking__workspace {
+    display: block;
+  }
+
+  .ui-screen__body > .guided-marking__step[data-step="mark"] {
+    flex: none;
+  }
+
+  .guided-marking__document {
+    overflow: visible;
+  }
+
+  .guided-marking__paper {
+    padding: var(--space-24) var(--space-16) var(--space-24) var(--space-20);
+  }
+}
+
+/* Phone: the name on its own line, the actions under it; the file line
+   may wrap. */
+@media (max-width: 900px) {
+  .guided-marking .ui-screen__head {
+    flex-wrap: wrap;
+  }
+
+  .guided-marking .ui-page-header {
+    flex-basis: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .guided-marking__controls,
+  .guided-marking__bar {
+    gap: var(--space-8);
+  }
+
+  .guided-marking__actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+    margin-left: 0;
+  }
+
+  /* The step's main action first, across the whole bar. */
+  .guided-marking__save {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .guided-marking__progress-button {
+    padding: 0 var(--space-12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guided-marking__sheet {
+    transform: none;
+    opacity: 0;
+    transition:
+      opacity var(--duration-fast) linear,
+      visibility 0s var(--duration-fast);
+  }
+
+  .guided-marking__sheet[data-open="true"] {
+    opacity: 1;
+    transition: opacity var(--duration-fast) linear;
+  }
+}
+
+/* ---- The document ---- */
+
+.marking-doc {
+  font-size: var(--text-md);
+  line-height: 1.7;
+  color: var(--semantic-text);
+}
+
+.marking-doc__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.marking-doc__part + .marking-doc__part {
+  margin-top: var(--space-24);
+  padding-top: var(--space-16);
+  border-top: 1px dashed var(--grafito-400);
+}
+
+.marking-doc__part-label {
+  margin: 0 0 var(--space-8);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--semantic-text-muted);
+  user-select: none;
+}
+
+.marking-doc__block {
+  position: relative;
+  margin: 0 0 0.75em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.marking-doc__block:last-child {
+  margin-bottom: 0;
+}
+
+.marking-doc__bold {
+  font-weight: 600;
+}
+
+.marking-doc__italic {
+  font-style: italic;
+}
+
+/* Keyboard access to a paragraph: invisible to the mouse (selection goes
+   through it), a ring around the paragraph when focused. */
+.marking-doc__focus {
+  position: absolute;
+  inset: calc(var(--space-4) * -1) calc(var(--space-8) * -1);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-default);
+  background: none;
+  pointer-events: none;
+  user-select: none;
+}
+
+.marking-doc__focus:focus-visible {
+  outline: var(--focus-ring);
+}
+
+.marking-doc__focus:focus-visible::after {
+  content: "Enter: marcar texto";
+  position: absolute;
+  top: calc(var(--space-12) * -1);
+  right: var(--space-8);
+  padding: 0 var(--space-8);
+  border-radius: var(--radius-pill);
+  background-color: var(--semantic-primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--semantic-on-primary);
+}
+
+.marking-doc__mark {
+  padding: 1px 2px;
+  border-radius: 4px;
+  background-color: var(--semantic-bg-selected);
+  box-shadow: inset 0 -2px 0 var(--semantic-primary);
+  color: inherit;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* A marker the file already had: only its name, nothing to remove. */
+.marking-doc__mark[data-source="file"] {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.marking-doc__mark[data-source="file"] .marking-doc__tag {
+  margin-left: 0;
+  border: 1px dashed var(--semantic-primary);
+  background-color: var(--semantic-bg-selected);
+  color: var(--tinta-700);
+}
+
+/* The text selected while its marker is being chosen. */
+.marking-doc__mark[data-source="pending"] {
+  background-color: var(--semantic-warning-bg);
+  box-shadow: inset 0 -2px 0 var(--semantic-warning);
+}
+
+.marking-doc__mark[data-flash] {
+  animation: marking-doc-flash var(--duration-intro) var(--ease-out) 2;
+}
+
+@keyframes marking-doc-flash {
+  50% {
+    outline: 3px solid var(--semantic-warning);
+    outline-offset: 2px;
+  }
+}
+
+.marking-doc__tag {
+  display: inline-block;
+  margin-left: var(--space-4);
+  padding: 0 var(--space-8);
+  border-radius: var(--radius-pill);
+  background-color: var(--semantic-primary);
+  font-size: 0.75rem;
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--semantic-on-primary);
+  vertical-align: 0.1em;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* The marker's name with its x: one pill that never splits. */
+.marking-doc__chip {
+  display: inline-flex;
+  align-items: center;
+  margin-left: var(--space-4);
+  border-radius: var(--radius-pill);
+  background-color: var(--semantic-primary);
+  vertical-align: 0.1em;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.marking-doc__chip .marking-doc__tag {
+  margin-left: 0;
+}
+
+/* In a narrow cell the name may take two lines, with the x beside it. */
+.marking-doc__table .marking-doc__chip {
+  border-radius: var(--radius-default);
+}
+
+.marking-doc__mark[data-source="file"] .marking-doc__chip {
+  margin-left: 0;
+  background: none;
+}
+
+/* Removes the marker: an x inside the pill, after the name. */
+.marking-doc__remove {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin: 0 2px 0 -4px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--semantic-on-primary);
+  cursor: pointer;
+}
+
+.marking-doc__remove svg {
+  width: 11px;
+  height: 11px;
+}
+
+.marking-doc__remove:hover {
+  background-color: var(--semantic-primary-active);
+}
+
+.marking-doc__remove:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+}
+
+/* Touch: a bigger target for the finger, the same small x. */
+@media (pointer: coarse) {
+  .marking-doc__remove {
+    width: 28px;
+    height: 28px;
+    margin: -4px -2px -4px -6px;
+  }
+}
+
+.marking-doc__table-wrap {
+  margin: 0 0 1em;
+  overflow-x: auto;
+}
+
+.marking-doc__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.marking-doc__table td {
+  min-width: 4rem;
+  padding: var(--space-8);
+  border: 1px solid var(--grafito-400);
+  vertical-align: top;
+}
+
+/* Whole words in a cell: a narrow screen scrolls the table sideways
+   instead of breaking them. */
+.marking-doc__table .marking-doc__block {
+  margin: 0;
+  overflow-wrap: normal;
+}
+
+.marking-doc__table .marking-doc__block + .marking-doc__block {
+  margin-top: var(--space-4);
+}
+
+.marking-doc__table tr[data-repeats] td {
+  background-color: var(--semantic-success-bg);
+}
+
+.marking-doc__repeat-note {
+  margin: var(--space-8) 0 0;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+.marking-doc__repeat-note::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: var(--space-8);
+  border-radius: 2px;
+  background-color: var(--semantic-success-bg);
+  box-shadow: inset 0 0 0 1px var(--semantic-success);
+}
+
+/* Keyboard selection of a paragraph's text. */
+.marking-doc__picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin: var(--space-8) 0;
+  padding: var(--space-12);
+  border-radius: var(--radius-lg);
+  background-color: var(--semantic-surface-muted);
+  white-space: normal;
+}
+
+.marking-doc__picker-label {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.marking-doc__picker-text {
+  width: 100%;
+  padding: var(--space-8) var(--space-12);
+  border: 1px solid var(--grafito-400);
+  border-radius: var(--radius-default);
+  background-color: var(--semantic-surface);
+  font: inherit;
+  line-height: 1.6;
+  color: var(--semantic-text);
+  resize: vertical;
+}
+
+.marking-doc__picker-text:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.marking-doc__picker-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-8);
+}
+
+/* Touch: the selection is confirmed from a bar within thumb reach. */
+.marking-doc__touch-bar {
+  position: fixed;
+  right: var(--space-16);
+  bottom: calc(
+    var(--shell-tabbar-height) + var(--space-16) +
+      max(var(--space-8), env(safe-area-inset-bottom, 0px))
+  );
+  left: var(--space-16);
+  z-index: 5;
+  animation: rise-in var(--duration-base) var(--ease-out) backwards;
+}
+
+.marking-doc__touch-bar .ui-button {
+  box-shadow: var(--shadow-overlay);
+}
+
+/* ---- The menu of markers ---- */
+
+.marker-menu {
+  position: fixed;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  width: 380px;
+  max-width: calc(100vw - 2 * var(--space-16));
+  max-height: min(60vh, 520px);
+  border: 1px solid var(--semantic-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--semantic-surface);
+  box-shadow: var(--shadow-overlay);
+  animation: fade-in var(--duration-fast) var(--ease-out);
+}
+
+.marker-menu[data-variant="sheet"] {
+  right: var(--space-8);
+  bottom: max(var(--space-8), env(safe-area-inset-bottom, 0px));
+  left: var(--space-8);
+  width: auto;
+  max-width: none;
+  max-height: calc(100dvh - var(--space-64));
+  border-radius: var(--radius-xl);
+  animation: rise-in var(--duration-sheet) var(--ease-sheet);
+}
+
+.marker-menu__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 7;
+  background-color: var(--overlay);
+  animation: fade-in var(--duration-base) ease;
+}
+
+.marker-menu__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-8) var(--space-12) var(--space-16);
+  border-bottom: 1px solid var(--semantic-border);
+}
+
+.marker-menu__title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.marker-menu__quote {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.marker-menu__search {
+  padding: var(--space-8) var(--space-8) 0;
+}
+
+.marker-menu__search-input {
+  width: 100%;
+  height: 40px;
+  padding: 0 var(--space-12);
+  border: 1px solid var(--grafito-400);
+  border-radius: var(--radius-default);
+  background-color: var(--semantic-surface);
+  font: inherit;
+  font-size: var(--text-md);
+  color: var(--semantic-text);
+}
+
+.marker-menu__search-input::placeholder {
+  color: var(--semantic-text-muted);
+}
+
+.marker-menu__search-input:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+  border-color: var(--semantic-primary);
+}
+
+.marker-menu__empty {
+  margin: 0;
+  padding: var(--space-12) var(--space-8);
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+.marker-menu__list {
+  padding: var(--space-8);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.marker-menu__group + .marker-menu__group {
+  margin-top: var(--space-8);
+  padding-top: var(--space-8);
+  border-top: 1px solid var(--semantic-border);
+}
+
+.marker-menu__group-head {
+  padding: var(--space-4) var(--space-8);
+}
+
+/* The table's title carries its grid icon. */
+.marker-menu__group-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--semantic-text-muted);
+}
+
+.marker-menu__group-text,
+.marker-menu__group-problem {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  color: var(--semantic-text-muted);
+}
+
+.marker-menu__group-problem {
+  color: var(--semantic-danger-hover);
+}
+
+/* The table's fields, set apart: a tinted box with a grid icon. */
+.marker-menu__group[data-table] {
+  padding: var(--space-4);
+  border: 1px solid var(--tinta-100);
+  border-radius: var(--radius-lg);
+  background-color: var(--semantic-bg-selected);
+}
+
+.marker-menu__group[data-table] + .marker-menu__group {
+  border-top: 0;
+}
+
+.marker-menu__group[data-table] .marker-menu__group-title {
+  color: var(--tinta-700);
+}
+
+.marker-menu__group[data-table] .marker-menu__group-text {
+  color: var(--semantic-text);
+}
+
+.marker-menu__group-title svg,
+.marker-menu__in-table svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.marker-menu__group[data-table] .marker-menu__item {
+  background-color: var(--semantic-surface);
+}
+
+.marker-menu__group[data-table] .marker-menu__item + .marker-menu__item {
+  margin-top: var(--space-4);
+}
+
+.marker-menu__in-table {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 0 var(--space-8);
+  border-radius: var(--radius-pill);
+  background-color: var(--semantic-bg-selected);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--tinta-700);
+}
+
+.marker-menu__group[data-table] .marker-menu__in-table {
+  background-color: var(--tinta-50);
+}
+
+.marker-menu__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: var(--tap-size);
+  padding: var(--space-8);
+  border-radius: var(--radius-default);
+  cursor: pointer;
+}
+
+.marker-menu__item:hover {
+  background-color: var(--semantic-hover);
+}
+
+.marker-menu__item:focus-visible,
+.marker-menu__item:focus {
+  outline: var(--focus-ring);
+  outline-offset: -2px;
+  background-color: var(--semantic-bg-selected);
+}
+
+.marker-menu__item[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.marker-menu__item[aria-disabled="true"]:hover {
+  background: none;
+}
+
+.marker-menu__item-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4) var(--space-8);
+}
+
+.marker-menu__label {
+  font-weight: 500;
+}
+
+.marker-menu__badge,
+.marker-menu__assigned,
+.marker-list__required {
+  padding: 0 var(--space-8);
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--semantic-text);
+}
+
+.marker-menu__badge,
+.marker-list__required {
+  background-color: var(--semantic-warning-bg);
+}
+
+.marker-menu__assigned {
+  background-color: var(--semantic-success-bg);
+}
+
+.marker-menu__description {
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  color: var(--semantic-text-muted);
+}
+
+/* ---- The list of markers ---- */
+
+.marker-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.marker-list__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.marker-list__title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+.marker-list__progress {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.marker-list__progress strong {
+  color: var(--semantic-text);
+}
+
+.marker-list__bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background-color: var(--semantic-surface-muted);
+}
+
+.marker-list__bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background-color: var(--semantic-success);
+  transition: width var(--duration-base) var(--ease-out);
+}
+
+.marker-list__hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+.marker-list__items {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.marker-list__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-12) 0;
+  border-bottom: 1px solid var(--semantic-border);
+}
+
+.marker-list__items > li:last-child > .marker-list__item:last-child,
+.marker-list__items > .marker-list__item:last-child {
+  border-bottom: 0;
+}
+
+.marker-list__item-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.marker-list__item-head .ui-status-badge {
+  flex: none;
+  min-height: 24px;
+  padding: 0 var(--space-8);
+  font-size: 0.75rem;
+}
+
+.marker-list__label {
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.marker-list__description {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  color: var(--semantic-text-muted);
+}
+
+.marker-list__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.marker-list__meta:empty {
+  display: none;
+}
+
+.marker-list__locate {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--semantic-primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.marker-list__locate:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* The table's fields, under the table they repeat in. */
+.marker-list__group > .marker-list__items {
+  margin-left: var(--space-12);
+  padding-left: var(--space-12);
+  border-left: 2px solid var(--semantic-border);
+}
+
+/* ---- Preview ---- */
+
+.template-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.template-preview__frame {
+  width: 100%;
+  height: 72dvh;
+  min-height: 420px;
+  border: 1px solid var(--semantic-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--semantic-surface-muted);
+}
+
+.template-preview__frame--loading,
+.template-preview__frame--phone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-16);
+  color: var(--semantic-text-muted);
+}
+
+.template-preview__frame--loading p,
+.template-preview__frame--phone p {
+  margin: 0;
+}
+
+.template-preview__frame--phone {
+  height: auto;
+  min-height: 0;
+  padding: var(--space-32) var(--space-16);
+  background-color: var(--semantic-surface);
+}
+
+.template-preview__spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--semantic-border);
+  border-top-color: var(--semantic-primary);
+  border-radius: 50%;
+  animation: template-preview-spin 0.8s linear infinite;
+}
+
+@keyframes template-preview-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .template-preview__spinner {
+    animation-duration: 2.4s;
+  }
+}
+
+.template-preview__open {
+  align-self: flex-start;
+  font-size: var(--text-sm);
+  color: var(--semantic-primary);
+}
+
+/* Rows of the table that repeats: the example one, and the ones that can be
+   left out of the template. Outside the table's own borders. */
+.marking-doc__table td.marking-doc__row-tools {
+  min-width: 0;
+  padding: 0 0 0 var(--space-8);
+  border: 0;
+  background: none;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.marking-doc__row-tag {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  color: var(--semantic-success);
+}
+
+.marking-doc__row-tag svg,
+.marking-doc__row-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.marking-doc__row-button {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--tinta-100);
+  border-radius: var(--radius-default);
+  background: var(--semantic-surface);
+  color: var(--semantic-danger-hover);
+  cursor: pointer;
+  user-select: none;
+}
+
+.marking-doc__row-button[data-removed] {
+  color: var(--semantic-primary-hover);
+}
+
+.marking-doc__row-button:hover {
+  background-color: var(--tinta-50);
+}
+
+.marking-doc__row-button:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+}
+
+@media (pointer: coarse) {
+  .marking-doc__row-button {
+    width: var(--tap-size);
+    height: var(--tap-size);
+  }
+}
+
+/* In a cell the marker's name may take two lines: the table fits the page
+   instead of hiding its last columns. */
+.marking-doc__table .marking-doc__tag {
+  border-radius: var(--radius-default);
+  white-space: normal;
+}
+
+/* A removed row: still in sight, crossed out, not to be marked. */
+.marking-doc__table tr[data-removed] td:not(.marking-doc__row-tools) {
+  background-color: var(--semantic-surface-muted);
+  color: var(--semantic-text-muted);
+  text-decoration: line-through;
+  user-select: none;
+}
+
+.marking-doc__surplus {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8) var(--space-16);
+  margin-top: var(--space-8);
+  padding: var(--space-12) var(--space-16);
+  border-radius: var(--radius-default);
+  background-color: var(--semantic-warning-bg);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  white-space: normal;
+}
+
+.marking-doc__surplus p {
+  flex: 1 1 260px;
+  margin: 0;
+}
+
+.marking-doc__removed-note {
+  margin: var(--space-8) 0 0;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+@media (max-width: 900px) {
+  .marking-doc__table td.marking-doc__row-tools {
+    padding: 0 var(--space-8) 0 0;
+  }
+}

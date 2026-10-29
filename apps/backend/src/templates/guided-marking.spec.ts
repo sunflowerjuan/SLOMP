@@ -318,6 +318,107 @@ describe('applySelections', () => {
     expect(textOf(marked, 'body:p0')).toBe('{startYear}{endYear}');
   });
 
+  describe('removed rows', () => {
+    // Header, example row (2024), two more rows of example values, total.
+    const FILLED = docxFromXml(
+      tableXml([
+        ['Año', 'Cobro', 'Interés', 'Capital'],
+        ['2024', 'Impuesto predial', '$80.000', '$350.000'],
+        ['2024', 'Sobretasa ambiental', '$8.000', '$7.000'],
+        ['2025', 'Impuesto predial', '$90.000', '$400.000'],
+        ['TOTAL', '$938.000', '', ''],
+      ]),
+    );
+    const blockOf = (docx: Buffer, text: string) =>
+      readDocxContent(docx, 'LIQUIDACION').blocks.find(
+        (block) => block.text === text,
+      )!.blockId;
+    const YEAR: Selection = {
+      blockId: blockOf(FILLED, '2024'),
+      start: 0,
+      end: 4,
+      field: 'rows.year',
+    };
+    const reject = (removedRows: string[], docx = FILLED) =>
+      codeOf(() => applySelections(docx, 'LIQUIDACION', [YEAR], removedRows))
+        .details;
+
+    it('leaves out the rows of example values, so only the example row repeats', () => {
+      const marked = applySelections(
+        FILLED,
+        'LIQUIDACION',
+        [YEAR],
+        [blockOf(FILLED, 'Sobretasa ambiental'), blockOf(FILLED, '2025')],
+      );
+
+      const texts = readDocxContent(marked, 'LIQUIDACION').blocks.map(
+        (block) => block.text,
+      );
+      expect(texts).not.toContain('Sobretasa ambiental');
+      expect(texts).not.toContain('2025');
+      expect(texts).toEqual(
+        expect.arrayContaining(['{#rows}{year}', 'TOTAL', '$938.000']),
+      );
+      const text = render(marked, PREVIEW_DATA.LIQUIDACION);
+      expect(text).not.toContain('Sobretasa ambiental');
+      expect(text).toContain('2023Impuesto predial$80.000$350.000');
+    });
+
+    it('names a row by any of its blocks, more than once', () => {
+      const sobretasa = blockOf(FILLED, 'Sobretasa ambiental');
+      const sameRow = blockOf(FILLED, '$8.000');
+      const marked = applySelections(
+        FILLED,
+        'LIQUIDACION',
+        [YEAR],
+        [sobretasa, sameRow, sobretasa],
+      );
+      expect(
+        readDocxContent(marked, 'LIQUIDACION').blocks.some(
+          (block) => block.text === '$8.000',
+        ),
+      ).toBe(false);
+    });
+
+    it('rejects a row with a marker, a block outside a table and a whole table', () => {
+      expect(reject([YEAR.blockId])).toEqual({
+        blockId: YEAR.blockId,
+        reason: 'REMOVED_ROW_HAS_MARKER',
+      });
+      const withMarker = docxFromXml(
+        tableXml([['{#rows}{year}{/rows}'], ['2025']]) + paragraphXml('Texto'),
+      );
+      expect(
+        codeOf(() =>
+          applySelections(withMarker, 'LIQUIDACION', [], ['body:p0']),
+        ).details,
+      ).toEqual({ blockId: 'body:p0', reason: 'REMOVED_ROW_HAS_MARKER' });
+      expect(
+        codeOf(() =>
+          applySelections(withMarker, 'LIQUIDACION', [], ['body:p2']),
+        ).details,
+      ).toEqual({ blockId: 'body:p2', reason: 'REMOVED_ROW_OUTSIDE_TABLE' });
+
+      const oneRow = docxFromXml(tableXml([['2025', '$1']]));
+      expect(
+        codeOf(() => applySelections(oneRow, 'LIQUIDACION', [], ['body:p0']))
+          .details,
+      ).toEqual({ blockId: 'body:p0', reason: 'REMOVED_ROW_LAST' });
+      expect(
+        codeOf(() => applySelections(FILLED, 'LIQUIDACION', [], ['body:p99'])),
+      ).toEqual({
+        code: ErrorCode.TEMPLATE_BLOCK_NOT_FOUND,
+        details: { blockId: 'body:p99' },
+      });
+    });
+
+    it('changes nothing when a row is refused', () => {
+      const before = Buffer.from(FILLED);
+      reject([YEAR.blockId]);
+      expect(FILLED.equals(before)).toBe(true);
+    });
+  });
+
   describe('rejects', () => {
     const reject = (selections: Selection[], docx = DOCX) =>
       codeOf(() => applySelections(docx, 'LIQUIDACION', selections));

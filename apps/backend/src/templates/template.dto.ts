@@ -96,6 +96,17 @@ export class PreviewDraftDto {
   @ValidateNested({ each: true })
   @Type(() => SelectionDto)
   selections!: SelectionDto[];
+
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      'Filas de tabla que se quitan del documento, cada una nombrada por el blockId de uno de sus párrafos. Sirve para las filas con valores de ejemplo que trae la tabla además de su fila de ejemplo. No pueden tener marcadores ni ser todas las filas de una tabla.',
+    example: ['body:p24'],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  removedRows?: string[];
 }
 
 export class SaveDraftDto extends PreviewDraftDto {
@@ -107,6 +118,15 @@ export class SaveDraftDto extends PreviewDraftDto {
   @IsOptional()
   @IsBoolean()
   replaceConfirmed?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Nombre con el que se guarda la versión (y se descarga). Sin él, queda el del archivo subido. Se le agrega .docx; hasta 120 caracteres, sin barras.',
+    example: 'Liquidación oficial 2026',
+  })
+  @IsOptional()
+  @IsString()
+  fileName?: string;
 }
 
 export class DraftViewDto {

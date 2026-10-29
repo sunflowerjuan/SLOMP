@@ -1,5 +1,49 @@
+.consultation-link {
+  gap: var(--space-16);
+}
+
+/* The address takes the room; the buttons sit at the end of its line. */
+.consultation-link__row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-12);
+}
+
+.consultation-link__row > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
 .consultation-link__url {
+  text-overflow: ellipsis;
+  color: var(--semantic-text-muted);
+}
+
+.consultation-link__actions {
+  display: flex;
+  flex: none;
+  gap: var(--space-8);
+}
+
+.consultation-link__status {
+  min-height: 1.5em;
   margin: 0;
-  font-size: var(--text-lg, 1.125rem);
-  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--semantic-text);
+}
+
+.consultation-link__status:empty {
+  min-height: 0;
+}
+
+/* Phone: the address on its own line, the buttons across under it. */
+@media (max-width: 600px) {
+  .consultation-link__row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .consultation-link__actions .ui-button {
+    flex: 1;
+  }
 }

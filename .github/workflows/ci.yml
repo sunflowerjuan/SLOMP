@@ -54,6 +54,11 @@ jobs:
               env:
                   SEED_ADMIN_EMAIL: ${{ env.E2E_ADMIN_EMAIL }}
                   SEED_ADMIN_PASSWORD: ${{ env.E2E_ADMIN_PASSWORD }}
+                  # Azurite's public development account (not a secret), as
+                  # .env.example describes: without it the backend and the PDF
+                  # service start with no storage, and template drafts,
+                  # previews and versions answer 503.
+                  AZURE_STORAGE_CONNECTION_STRING: DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;
               run: |
                   docker compose up -d --build db azurite pdf migrate backend
                   docker compose run --rm migrate pnpm --filter shared db:seed

@@ -73,7 +73,12 @@ A `.docx` without markers can be marked from the panel instead: `POST
 .../templates/drafts` stores it as a draft (unactivated, 24 hours, under
 `templates/<slug>/drafts/<id>/`), `GET .../drafts/:id/content` lists its
 paragraphs, and `POST .../drafts/:id/preview` and `.../save` apply the
-selected text as markers (`src/templates/guided-marking.ts`). Preview fills it
+selected text as markers (`src/templates/guided-marking.ts`). Both also take
+`removedRows`: table rows to leave out, each named by the `blockId` of one of
+its paragraphs (the example values a table brings besides its example row);
+a row with markers, or every row of a table, is refused. Save also takes an
+optional `fileName`, the name the version is kept (and downloaded) under;
+without it the uploaded file's name stays. Preview fills it
 with fixed sample data through the PDF service; save validates it like an
 upload and activates it. `DELETE .../drafts/:id` cancels one, and an hourly
 sweep removes the expired ones. Routes, errors and sample data: Confluence page

@@ -1,0 +1,90 @@
+/* An assigned marker: shorter, and quieter than what is still to do. */
+.marker-list__item[data-assigned] {
+  gap: 2px;
+  padding: var(--space-8) 0;
+}
+
+.marker-list__item[data-assigned] .marker-list__label {
+  font-weight: 500;
+}
+
+/* The table: a section of its own, since its fields are marked in one
+   place only, the example row of the document's table. */
+.marker-list__items > li.marker-list__table {
+  margin: var(--space-8) 0;
+  padding: var(--space-12);
+  border: 1px solid var(--tinta-100);
+  border-radius: var(--radius-lg);
+  background-color: var(--semantic-bg-selected);
+}
+
+.marker-list__table-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-8);
+}
+
+.marker-list__table-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-default);
+  background-color: var(--semantic-surface);
+  color: var(--semantic-primary);
+}
+
+.marker-list__table-icon svg,
+.marker-list__in-table svg {
+  width: 16px;
+  height: 16px;
+}
+
+.marker-list__table-title {
+  flex: 1;
+  margin: 0;
+  padding-top: 3px;
+  font-size: var(--text-md);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.marker-list__table-head .ui-status-badge {
+  flex: none;
+  min-height: 24px;
+  padding: 0 var(--space-8);
+  font-size: 0.75rem;
+}
+
+.marker-list__table-text {
+  margin: var(--space-8) 0 var(--space-4);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  color: var(--tinta-700);
+}
+
+/* Its fields sit on white cards inside it. */
+.marker-list__table .marker-list__items {
+  gap: var(--space-8);
+}
+
+.marker-list__table .marker-list__item {
+  padding: var(--space-8) var(--space-12);
+  border: 0;
+  border-radius: var(--radius-default);
+  background-color: var(--semantic-surface);
+}
+
+.marker-list__in-table {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 0 var(--space-8);
+  border-radius: var(--radius-pill);
+  background-color: var(--semantic-bg-selected);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--tinta-700);
+}
