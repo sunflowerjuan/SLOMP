@@ -7,7 +7,7 @@ set -euo pipefail
 
 ADMINS="${ADMINS:-juan katalina}"
 
-[ "$(id -u)" = 0 ] || { echo "Run with sudo." >&2; exit 1; }
+[[ "$(id -u)" == 0 ]] || { echo "Run with sudo." >&2; exit 1; }
 for u in $ADMINS; do
   grep -qE '^(ssh-|ecdsa-)' "/home/$u/.ssh/authorized_keys" 2>/dev/null \
     || { echo "$u has no SSH key in /home/$u/.ssh/authorized_keys, aborting." >&2; exit 1; }
@@ -23,7 +23,7 @@ printf 'APT::Periodic::Update-Package-Lists "1";\nAPT::Periodic::Unattended-Upgr
 
 # 2 GiB of swap: with 3.8 GiB of RAM, a bulk LibreOffice run can otherwise get
 # the containers OOM-killed (SL-145).
-if [ ! -f /swapfile ]; then
+if [[ ! -f /swapfile ]]; then
   fallocate -l 2G /swapfile
   chmod 600 /swapfile
   mkswap /swapfile

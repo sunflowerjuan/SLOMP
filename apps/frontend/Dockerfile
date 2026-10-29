@@ -5,7 +5,7 @@
 
 FROM node:24-bookworm-slim AS build
 ENV HUSKY=0
-RUN npm install -g pnpm@11.24.0
+RUN npm install -g --ignore-scripts pnpm@11.24.0
 WORKDIR /repo
 
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
@@ -23,3 +23,7 @@ RUN test -n "$VITE_API_URL" && pnpm --filter frontend build
 FROM caddy:2.10-alpine AS runtime
 COPY apps/frontend/Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /repo/apps/frontend/dist /srv
+# The binary carries cap_net_bind_service for 80/443, and /data/caddy and
+# /config/caddy are world-writable in the image, so it doesn't need root.
+RUN adduser -D -H caddy
+USER caddy
