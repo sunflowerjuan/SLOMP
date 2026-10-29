@@ -17,7 +17,7 @@ services:
   # Storage/Queue emulator (Blob 10000, Queue 10001, Table 10002).
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite
-    command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --skipApiVersionCheck
+    command: azurite -l /data --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --skipApiVersionCheck
     ports:
       - "10000:10000"
       - "10001:10001"

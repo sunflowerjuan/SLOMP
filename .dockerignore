@@ -6,8 +6,7 @@
 .claude
 .env
 **/.env
-apps/frontend/**
-!apps/frontend/package.json
+.env.prod
 infra
 packages/shared/.agents
 packages/shared/.windsurf
