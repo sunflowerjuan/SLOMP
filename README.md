@@ -207,12 +207,12 @@ docker stats --no-stream
 
 ### Límites de memoria
 
-Para 1 vCPU y 3,8 GiB de RAM, con 2 GiB de swap. Son un punto de partida: se ajustan con la medición del primer despliegue (SL-146).
+Para 1 vCPU y 3,8 GiB de RAM, con 2 GiB de swap. Se ajustan con mediciones reales: Node reserva para su heap cerca de la mitad del límite del contenedor, así que un límite bajo hace caer el backend antes de que Docker lo note.
 
 | Servicio | Límite | En reposo (medido en local) |
 |---|---|---|
 | `pdf` (LibreOffice) | 1 GiB | 76 MiB |
-| `backend` | 512 MiB | 127 MiB |
+| `backend` | 1 GiB (pico de ~750 MiB al importar la cartera de Páez, 11 202 filas) | 127 MiB |
 | `db` | 512 MiB | 19 MiB |
 | `azurite` | 256 MiB | 131 MiB |
 | `proxy` | 128 MiB | 12 MiB |
