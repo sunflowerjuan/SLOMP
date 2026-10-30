@@ -59,9 +59,22 @@ export interface TemplateView {
   fields: string[];
   isActive: boolean;
   createdAt: Date;
+  // Who saved it: their name, or their email if they have none. Null once
+  // that administrator no longer exists.
+  savedBy: string | null;
 }
 
-function toView(template: Template): TemplateView {
+// Every read of a version that ends in a TemplateView brings this along.
+const WITH_AUTHOR = {
+  uploadedBy: { select: { name: true, email: true } },
+} satisfies Prisma.TemplateInclude;
+
+type TemplateWithAuthor = Prisma.TemplateGetPayload<{
+  include: typeof WITH_AUTHOR;
+}>;
+
+function toView(template: TemplateWithAuthor): TemplateView {
+  const author = template.uploadedBy;
   return {
     id: template.id,
     documentType: template.documentType,
@@ -71,6 +84,7 @@ function toView(template: Template): TemplateView {
     fields: template.fields,
     isActive: template.isActive,
     createdAt: template.createdAt,
+    savedBy: author?.name ?? author?.email ?? null,
   };
 }
 
@@ -211,6 +225,7 @@ export class TemplatesService implements OnModuleInit, OnModuleDestroy {
     const sha256 = createHash('sha256').update(file.buffer).digest('hex');
     const active = await this.prisma.template.findFirst({
       where: { municipalityId: municipality.id, documentType, isActive: true },
+      include: WITH_AUTHOR,
     });
     // The same file again is not a new version.
     if (active?.sha256 === sha256) return toView(active);
@@ -268,6 +283,7 @@ export class TemplatesService implements OnModuleInit, OnModuleDestroy {
               isActive: true,
               uploadedById,
             },
+            include: WITH_AUTHOR,
           });
           return toView(created);
         },
@@ -288,6 +304,7 @@ export class TemplatesService implements OnModuleInit, OnModuleDestroy {
   ): Promise<TemplateView[]> {
     const templates = await this.prisma.template.findMany({
       where: { municipalityId, ...(documentType && { documentType }) },
+      include: WITH_AUTHOR,
       orderBy: [{ documentType: 'asc' }, { version: 'desc' }],
     });
     return templates.map(toView);
@@ -301,6 +318,7 @@ export class TemplatesService implements OnModuleInit, OnModuleDestroy {
       // does not exist.
       const target = await tx.template.findFirst({
         where: { id, municipalityId },
+        include: WITH_AUTHOR,
       });
       if (!target) {
         throw new NotFoundException(
@@ -318,7 +336,11 @@ export class TemplatesService implements OnModuleInit, OnModuleDestroy {
         data: { isActive: false },
       });
       return toView(
-        await tx.template.update({ where: { id }, data: { isActive: true } }),
+        await tx.template.update({
+          where: { id },
+          data: { isActive: true },
+          include: WITH_AUTHOR,
+        }),
       );
     });
   }
