@@ -21,7 +21,7 @@ describe('isCompletePdf', () => {
 });
 
 describe('createProfile', () => {
-  it('seeds the profile with macros disabled before LibreOffice starts', async () => {
+  it('seeds the profile with macros disabled and the PDF export options before LibreOffice starts', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'profile-test-'));
     try {
       await createProfile(dir);
@@ -34,6 +34,12 @@ describe('createProfile', () => {
       );
       expect(xcu).toContain(
         '<prop oor:name="DisableMacrosExecution" oor:op="fuse"><value>true</value>',
+      );
+      expect(xcu).toContain(
+        '<prop oor:name="UseTaggedPDF" oor:op="fuse"><value>false</value>',
+      );
+      expect(xcu).toContain(
+        '<prop oor:name="ExportBookmarksToPDFDestination" oor:op="fuse"><value>true</value>',
       );
     } finally {
       await rm(dir, { recursive: true, force: true });

@@ -4,7 +4,7 @@
 #   docker build -f apps/pdf-function/Dockerfile .
 # Node 24 runs the TypeScript sources directly, so there is no build step.
 
-FROM node:24-bookworm-slim AS deploy
+FROM node:24-trixie-slim AS deploy
 ENV HUSKY=0
 RUN npm install -g --ignore-scripts pnpm@11.24.0
 WORKDIR /repo
@@ -19,17 +19,16 @@ RUN pnpm install --frozen-lockfile --ignore-scripts --filter pdf-function
 COPY apps/pdf-function apps/pdf-function
 RUN pnpm --filter pdf-function --prod --legacy deploy /out/pdf-function
 
-FROM node:24-bookworm-slim AS runtime
+# Debian 13: LibreOffice 25.2 starts in 0.4 s instead of 7.4's 1.8 s, enough
+# for a soffice process per individual PDF.
+FROM node:24-trixie-slim AS runtime
 # writer-only LibreOffice (no GUI/Java) plus metric-compatible fonts so the
-# PDF layout matches Word documents that use Arial/Times/Calibri. unoserver
-# keeps a LibreOffice running for /render (python3-uno is its UNO bridge);
-# pip is only needed to install it.
+# PDF layout matches Word documents that use Arial/Times/Calibri, and
+# Montserrat, the font of the Páez header and footer.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       libreoffice-writer fonts-liberation fonts-dejavu-core fonts-crosextra-carlito \
-      python3-uno python3-pip \
- && pip install --no-cache-dir --break-system-packages unoserver==3.7 \
- && apt-get purge -y --auto-remove python3-pip \
+      fonts-montserrat \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

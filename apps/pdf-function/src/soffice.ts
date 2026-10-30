@@ -43,21 +43,23 @@ export function isCompletePdf(pdf: Buffer): boolean {
 }
 
 // Seeded into every profile before LibreOffice first starts: highest macro
-// security and macro execution disabled. Templates are trusted, but a .docx
-// is still a document format that can carry active content.
-export const MACRO_LOCKDOWN_XCU = `<?xml version="1.0" encoding="UTF-8"?>
+// security and macro execution disabled (templates are trusted, but a .docx
+// can still carry active content). PDF export: untagged, since LibreOffice
+// 25.2 tags by default and that made a 40-document PDF 7 times heavier and
+// its split 3 times slower; Writer bookmarks become named destinations, which
+// is how a merged batch is split back (merge.ts).
+const PROFILE_XCU = `<?xml version="1.0" encoding="UTF-8"?>
 <oor:items xmlns:oor="http://openoffice.org/2001/registry" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 <item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="MacroSecurityLevel" oor:op="fuse"><value>3</value></prop></item>
 <item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="DisableMacrosExecution" oor:op="fuse"><value>true</value></prop></item>
+<item oor:path="/org.openoffice.Office.Common/Filter/PDF/Export"><prop oor:name="UseTaggedPDF" oor:op="fuse"><value>false</value></prop></item>
+<item oor:path="/org.openoffice.Office.Common/Filter/PDF/Export"><prop oor:name="ExportBookmarksToPDFDestination" oor:op="fuse"><value>true</value></prop></item>
 </oor:items>
 `;
 
 export async function createProfile(dir: string): Promise<void> {
   await mkdir(join(dir, 'user'), { recursive: true });
-  await writeFile(
-    join(dir, 'user', 'registrymodifications.xcu'),
-    MACRO_LOCKDOWN_XCU,
-  );
+  await writeFile(join(dir, 'user', 'registrymodifications.xcu'), PROFILE_XCU);
 }
 
 /** Converts .docx buffers to PDF; result i is the PDF of input i or its error. */
@@ -71,9 +73,10 @@ export interface Slot {
 // One LibreOffice profile per slot, reused for every batch it converts: the
 // profile bootstrap is most of the cost of a single conversion (1.33 s fresh
 // vs 0.28 s reused per PDF). A slot runs one conversion at a time; concurrent
-// soffice runs on the same profile collide on its lock. Bulk slots run at the
-// lowest CPU priority: on one vCPU an individual PDF converting next to a
-// batch took 5.5 to 6.1 s (RNF-01: under 5 s).
+// soffice runs on the same profile collide on its lock. LibreOffice 25.2
+// starts in 0.4 s on the VPS, so a process per conversion is cheap. Bulk slots
+// run at the lowest CPU priority: an individual PDF next to a batch takes
+// 2.2 s (max 3.1 s) on one vCPU (RNF-01: under 5 s).
 export async function createSofficeSlot(
   timeoutMs: number,
   lowPriority = false,
