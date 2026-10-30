@@ -12,8 +12,10 @@ export const apiUrl = stripTrailingSlashes(
 );
 export const allowRemote = process.env.E2E_ALLOW_REMOTE === "1";
 
-// The only municipality the suite reads or writes.
+// The municipalities the suite reads or writes: the main one and a second one
+// for the tests of isolation between municipalities.
 export const E2E_MUNICIPALITY_SLUG = "e2e-prueba";
+export const E2E_SECOND_MUNICIPALITY_SLUG = "e2e-segundo";
 
 export function adminCredentials(): { email: string; password: string } {
   const email = process.env.E2E_ADMIN_EMAIL;

@@ -4,8 +4,9 @@ import { E2E_MUNICIPALITY_SLUG } from "../src/env";
 import { adminPath } from "../src/paths";
 import { signIn } from "../src/session";
 
-// SL-170: the menu in two groups, Configuración with a tab per address (the
-// old addresses lead there), and the active municipality always in sight. It
+// SL-170: the menu in two groups, Configuración as one panel (the old
+// addresses, its former tabs among them, lead there), and the active
+// municipality always in sight. It
 // runs on both projects: desktop and a 390 px phone.
 
 // Created by the global setup: "Municipio de prueba E2E, Prueba".
@@ -15,8 +16,8 @@ const VIEWS = [
   "cargas",
   "liquidaciones",
   "mandamientos",
-  "configuracion/plantillas",
-  "configuracion/consulta",
+  "configuracion",
+  "configuracion/plantillas/liquidacion",
 ];
 
 function menu(page: Page) {
@@ -43,7 +44,7 @@ test.beforeEach(async ({ page }) => {
   await signIn(page);
 });
 
-test("el menú muestra Operación y Configuración, sin otras entradas", async ({
+test("el menú muestra Operación y Configuración, sin otras entradas @UAT-N/A", async ({
   page,
   isMobile,
 }) => {
@@ -73,7 +74,7 @@ test("el menú muestra Operación y Configuración, sin otras entradas", async (
   }
 });
 
-test("cada entrada del menú lleva a su pantalla y queda marcada", async ({
+test("cada entrada del menú lleva a su pantalla y queda marcada @UAT-N/A", async ({
   page,
 }) => {
   await open(page, "cargas");
@@ -81,7 +82,7 @@ test("cada entrada del menú lleva a su pantalla y queda marcada", async ({
   for (const [name, view] of [
     ["Liquidaciones", "liquidaciones"],
     ["Mandamientos", "mandamientos"],
-    ["Configuración", "configuracion/plantillas"],
+    ["Configuración", "configuracion"],
     ["Cartera", "cargas"],
   ]) {
     const link = menu(page).getByRole("link", { name, exact: true });
@@ -92,32 +93,42 @@ test("cada entrada del menú lleva a su pantalla y queda marcada", async ({
   }
 });
 
-test("las direcciones antiguas llevan a su pestaña de Configuración", async ({
+test("las direcciones antiguas llevan al panel de Configuración @UAT-N/A", async ({
   page,
 }) => {
-  await open(page, "plantillas");
-  await expect(page).toHaveURL(viewUrl("configuracion/plantillas"));
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Configuración",
-  );
-  await expect(page.getByRole("radio", { name: "Plantillas" })).toBeChecked();
-
-  await open(page, "consulta-publica");
-  await expect(page).toHaveURL(viewUrl("configuracion/consulta"));
-  await expect(
-    page.getByRole("radio", { name: "Enlace de consulta" }),
-  ).toBeChecked();
+  for (const old of [
+    "plantillas",
+    "consulta-publica",
+    "configuracion/plantillas",
+    "configuracion/consulta",
+  ]) {
+    await open(page, old);
+    await expect(page).toHaveURL(viewUrl("configuracion"));
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      "Configuración",
+    );
+  }
   await expect(
     menu(page).getByRole("link", { name: "Configuración" }),
   ).toHaveAttribute("aria-current", "page");
 
-  // Each tab has its own address.
-  await page.getByRole("radio", { name: "Plantillas" }).click();
-  await expect(page).toHaveURL(viewUrl("configuracion/plantillas"));
-  await expect(page.getByRole("radio", { name: "Plantillas" })).toBeChecked();
+  // One panel: the templates in use and the consultation link, no tabs.
+  await expect(page.getByRole("radio")).toHaveCount(0);
+  await expect(
+    page.getByRole("region", { name: "Plantilla de liquidación" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Enlace de consulta pública" }),
+  ).toBeVisible();
+
+  // A templates screen still belongs to Configuración in the menu.
+  await open(page, "configuracion/plantillas/mandamiento");
+  await expect(
+    menu(page).getByRole("link", { name: "Configuración" }),
+  ).toHaveAttribute("aria-current", "page");
 });
 
-test("el municipio activo se ve en cada pantalla y su pastilla abre el selector", async ({
+test("el municipio activo se ve en cada pantalla y su pastilla abre el selector @UAT-28", async ({
   page,
 }) => {
   for (const view of VIEWS) {
@@ -141,7 +152,7 @@ test("el municipio activo se ve en cada pantalla y su pastilla abre el selector"
   await expect(municipalityPill(page)).toBeFocused();
 });
 
-test("el menú se recorre con teclado y el enlace de salto lleva al contenido", async ({
+test("el menú se recorre con teclado y el enlace de salto lleva al contenido @UAT-N/A", async ({
   page,
   isMobile,
 }) => {

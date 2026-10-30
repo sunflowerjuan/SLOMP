@@ -1,7 +1,6 @@
-/* The tabs, then the document type of Plantillas; each keeps its own width. */
-.settings-page__controls {
+/* The templates of each document, then the public consultation link. */
+.settings-page__panel {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-12);
+  gap: var(--space-24);
 }

@@ -8,8 +8,11 @@ import { SettlementStatus } from '@prisma/client';
 // consultation as soon as it is generated).
 export const EN_FIRME_DAYS = 60;
 
-// An EN_FIRME liquidation can only be marked PRESCRITA once its payment order
-// (mandamiento de pago) is at least this old.
+// A liquidation in a payment order (mandamiento de pago) can only be marked
+// PRESCRITA once that payment order is at least this old. One in no payment
+// order can be marked PRESCRITA at any time: that state answers something
+// the taxpayer claims, not the passing of time (Confluence "Diseño de
+// Slompsim").
 export const PRESCRIPTION_AFTER_PAYMENT_ORDER_YEARS = 5;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -18,8 +21,9 @@ export interface StatusContext {
   current: SettlementStatus;
   // Null while the periods don't have a resolution yet.
   resolutionIssuedAt: Date | null;
-  // Earliest payment order of the group; null when none was issued.
-  firstPaymentOrderAt: Date | null;
+  // Issue date of this liquidation's own payment order; null when it is in
+  // none. The other periods of its resolution don't count.
+  paymentOrderAt: Date | null;
   now: Date;
 }
 
@@ -53,12 +57,11 @@ function yearsLater(date: Date, years: number): Date {
 export function allowedStatuses(context: StatusContext): SettlementStatus[] {
   const base = baseStatus(context.resolutionIssuedAt, context.now);
   const canPrescribe =
-    base === SettlementStatus.VIGENTE ||
-    (context.firstPaymentOrderAt !== null &&
-      yearsLater(
-        context.firstPaymentOrderAt,
-        PRESCRIPTION_AFTER_PAYMENT_ORDER_YEARS,
-      ).getTime() <= context.now.getTime());
+    context.paymentOrderAt === null ||
+    yearsLater(
+      context.paymentOrderAt,
+      PRESCRIPTION_AFTER_PAYMENT_ORDER_YEARS,
+    ).getTime() <= context.now.getTime();
 
   const allowed = new Set<SettlementStatus>([
     context.current,

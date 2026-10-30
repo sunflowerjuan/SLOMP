@@ -1,5 +1,6 @@
 import {
   E2E_MUNICIPALITY_SLUG,
+  E2E_SECOND_MUNICIPALITY_SLUG,
   adminCredentials,
   allowRemote,
   apiUrl,
@@ -57,21 +58,30 @@ export default async function globalSetup(): Promise<void> {
     throw new Error(`No se pudo listar los municipios (${list.status}).`);
   }
   const municipalities = (await list.json()) as { slug: string }[];
-  if (municipalities.some((m) => m.slug === E2E_MUNICIPALITY_SLUG)) return;
+  const existing = new Set(municipalities.map((m) => m.slug));
 
-  const created = await request("/municipalities", {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
+  for (const municipality of [
+    {
       name: "Municipio de prueba E2E",
-      state: "Prueba",
       daneCode: "99999",
       slug: E2E_MUNICIPALITY_SLUG,
-    }),
-  });
-  if (!created.ok) {
-    throw new Error(
-      `No se pudo crear el municipio ${E2E_MUNICIPALITY_SLUG} (${created.status}). Si el código DANE 99999 ya lo usa otro municipio, resuélvelo a mano.`,
-    );
+    },
+    {
+      name: "Segundo municipio de prueba E2E",
+      daneCode: "99998",
+      slug: E2E_SECOND_MUNICIPALITY_SLUG,
+    },
+  ]) {
+    if (existing.has(municipality.slug)) continue;
+    const created = await request("/municipalities", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ state: "Prueba", ...municipality }),
+    });
+    if (!created.ok) {
+      throw new Error(
+        `No se pudo crear el municipio ${municipality.slug} (${created.status}). Si el código DANE ${municipality.daneCode} ya lo usa otro municipio, resuélvelo a mano.`,
+      );
+    }
   }
 }

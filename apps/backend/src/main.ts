@@ -8,6 +8,7 @@ import { assertDeploymentSecrets } from './common/deployment-secrets.js';
 import { validationExceptionFactory } from './common/errors/error-body.js';
 import { setupSecurityHeaders, setupSwagger } from './http-hardening.js';
 import { setupRequestLogging } from './request-logging.js';
+import { setupAssistantBodyLimit } from './assistant/assistant-body-limit.js';
 
 // Plain require (not an import) so this doesn't need "resolveJsonModule" in
 // tsconfig just to read one field off package.json.
@@ -32,6 +33,7 @@ async function bootstrap() {
 
   setupSecurityHeaders(app);
   setupRequestLogging(app);
+  setupAssistantBodyLimit(app);
 
   // whitelist strips any @Body() property with no class-validator decorator
   // on a real class-typed DTO (interfaces and primitive @Body('x') pulls are

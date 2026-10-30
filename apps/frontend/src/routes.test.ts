@@ -5,8 +5,7 @@ import {
   parseAdminRoute,
   parsePublicConsultationRoute,
   publicConsultationHref,
-  settingsTabOf,
-  settingsView,
+  templatesSegmentOf,
 } from "./routes";
 
 describe("parseAdminRoute", () => {
@@ -16,39 +15,33 @@ describe("parseAdminRoute", () => {
       view: "liquidaciones",
       isAlias: false,
     });
-    expect(parseAdminRoute("#/municipio-b/configuracion/plantillas")).toEqual({
+    expect(parseAdminRoute("#/municipio-b/configuracion/?x=1")).toEqual({
       slug: "municipio-b",
-      view: "configuracion/plantillas",
+      view: "configuracion",
       isAlias: false,
     });
     expect(
-      parseAdminRoute("#/municipio-a/configuracion/consulta/?x=1"),
+      parseAdminRoute("#/municipio-a/configuracion/plantillas/mandamiento"),
     ).toEqual({
       slug: "municipio-a",
-      view: "configuracion/consulta",
+      view: "configuracion/plantillas/mandamiento",
       isAlias: false,
     });
   });
 
-  it("takes the old Plantillas and Consulta pública addresses to their tab", () => {
-    expect(parseAdminRoute("#/municipio-a/plantillas")).toEqual({
-      slug: "municipio-a",
-      view: "configuracion/plantillas",
-      isAlias: true,
-    });
-    expect(parseAdminRoute("#/municipio-a/consulta-publica?x=1")).toEqual({
-      slug: "municipio-a",
-      view: "configuracion/consulta",
-      isAlias: true,
-    });
-  });
-
-  it("opens the first tab of Configuración when the address has none", () => {
-    expect(parseAdminRoute("#/municipio-a/configuracion")).toEqual({
-      slug: "municipio-a",
-      view: "configuracion/plantillas",
-      isAlias: true,
-    });
+  it("takes the old addresses of Plantillas, Consulta pública and the tabs of Configuración to its panel", () => {
+    for (const hash of [
+      "#/municipio-a/plantillas",
+      "#/municipio-a/consulta-publica?x=1",
+      "#/municipio-a/configuracion/plantillas",
+      "#/municipio-a/configuracion/consulta",
+    ]) {
+      expect(parseAdminRoute(hash)).toEqual({
+        slug: "municipio-a",
+        view: "configuracion",
+        isAlias: true,
+      });
+    }
   });
 
   it("opens Cartera when the view is missing or unknown", () => {
@@ -85,7 +78,7 @@ describe("parseAdminRoute", () => {
     });
     expect(parseAdminRoute("#/plantillas")).toEqual({
       slug: null,
-      view: "configuracion/plantillas",
+      view: "configuracion",
       isAlias: true,
     });
   });
@@ -100,8 +93,9 @@ describe("parseAdminRoute", () => {
       "cargas",
       "liquidaciones",
       "mandamientos",
-      "configuracion/plantillas",
-      "configuracion/consulta",
+      "configuracion",
+      "configuracion/plantillas/liquidacion",
+      "configuracion/plantillas/mandamiento",
     ] as const) {
       expect(parseAdminRoute(adminHref("municipio-b", view))).toEqual({
         slug: "municipio-b",
@@ -110,23 +104,34 @@ describe("parseAdminRoute", () => {
       });
     }
     expect(adminHref("municipio-a")).toBe("#/municipio-a/cargas");
-    expect(adminHref("municipio-a", settingsView("consulta"))).toBe(
-      "#/municipio-a/configuracion/consulta",
+    expect(adminHref("municipio-a", "configuracion")).toBe(
+      "#/municipio-a/configuracion",
     );
   });
 });
 
-describe("adminSectionOf and settingsTabOf", () => {
-  it("puts both tabs of Configuración under its single menu entry", () => {
-    expect(adminSectionOf("configuracion/plantillas")).toBe("configuracion");
-    expect(adminSectionOf("configuracion/consulta")).toBe("configuracion");
-    expect(settingsTabOf("configuracion/consulta")).toBe("consulta");
+describe("adminSectionOf and templatesSegmentOf", () => {
+  it("keeps Configuración and the templates of each document under its menu entry", () => {
+    expect(adminSectionOf("configuracion")).toBe("configuracion");
+    expect(adminSectionOf("configuracion/plantillas/mandamiento")).toBe(
+      "configuracion",
+    );
+    expect(templatesSegmentOf("configuracion/plantillas/mandamiento")).toBe(
+      "mandamiento",
+    );
+    expect(templatesSegmentOf("configuracion")).toBeNull();
   });
 
-  it("leaves the other views as their own entry, with no tab", () => {
+  it("does not take an unknown document as a templates screen", () => {
+    expect(
+      parseAdminRoute("#/municipio-a/configuracion/plantillas/otra").view,
+    ).toBe("cargas");
+  });
+
+  it("leaves the other views as their own entry", () => {
     for (const view of ["cargas", "liquidaciones", "mandamientos"] as const) {
       expect(adminSectionOf(view)).toBe(view);
-      expect(settingsTabOf(view)).toBeNull();
+      expect(templatesSegmentOf(view)).toBeNull();
     }
   });
 });
@@ -171,7 +176,7 @@ describe("parsePublicConsultationRoute", () => {
       "#/cargas",
       "#/liquidaciones",
       "#/consulta-publica",
-      "#/municipio-a/configuracion/consulta",
+      "#/municipio-a/configuracion",
       "#/consultas/municipio-a",
     ]) {
       expect(parsePublicConsultationRoute(hash)).toBeNull();

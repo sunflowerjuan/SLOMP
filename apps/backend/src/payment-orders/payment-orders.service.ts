@@ -1,5 +1,7 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
+import { AssistantToolsService } from '../assistant/assistant-tools.service.js';
+import type { AssistantSettlement } from '../assistant/assistant-settlement.js';
 import { errorBody } from '../common/errors/error-body.js';
 import { ErrorCode } from '../common/errors/error-codes.js';
 import type { MunicipalityContext } from '../municipalities/municipality-context.js';
@@ -62,6 +64,11 @@ export interface PaymentOrderImportPreview {
   // Row problems found by the tax roll parser (same rules as the tax roll).
   invalidRows: TaxRollRowIssue[];
   warnings: TaxRollRowIssue[];
+  // For every property in the file, its current settlements whose period
+  // the file leaves out: the panel warns about them without going
+  // through the model. Same output as Slompsim's find_unlisted_periods, so
+  // no owner names, documents or addresses.
+  unlisted: AssistantSettlement[];
 }
 
 export interface GeneratePaymentOrdersResult {
@@ -93,7 +100,10 @@ function candidateOf(settlement: SettlementForOrder) {
 
 @Injectable()
 export class PaymentOrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly assistantTools: AssistantToolsService,
+  ) {}
 
   // Reads the payment orders Excel (same columns and same validations as the
   // tax roll, including the municipality of the cadastral codes) and says, for
@@ -148,6 +158,11 @@ export class PaymentOrdersService {
       ineligible: [],
       invalidRows: parsed.invalidRows,
       warnings: parsed.warnings,
+      unlisted: await this.assistantTools.findUnlistedPeriods(
+        municipality.id,
+        [...pairs.values()],
+        now,
+      ),
     };
     for (const [key, pair] of pairs) {
       const settlement = settlementByPair.get(key);

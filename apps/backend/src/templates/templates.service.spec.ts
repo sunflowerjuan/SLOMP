@@ -24,6 +24,7 @@ const PAEZ: MunicipalityContext = {
   daneCode: '15514',
 };
 const ADMIN_ID = 7;
+const ADMIN = { name: 'Ana Ruiz', email: 'ana@paez.gov.co' };
 
 interface Row {
   id: number;
@@ -36,6 +37,7 @@ interface Row {
   fields: string[];
   isActive: boolean;
   createdAt: Date;
+  uploadedBy?: { name: string | null; email: string } | null;
 }
 
 function row(overrides: Partial<Row> = {}): Row {
@@ -82,21 +84,27 @@ function build(
       ([key, value]) =>
         (r as unknown as Record<string, unknown>)[key] === value,
     );
+  // Like the database, the author only comes when the query asks for it.
+  const asRead = (r: Row, include?: unknown): Row =>
+    include ? r : { ...r, uploadedBy: undefined };
   const template = {
     findFirst: vi.fn(
       async (args: {
         where: Record<string, unknown>;
         orderBy?: { version: 'desc' };
+        include?: unknown;
       }) => {
         const found = rows.filter((r) => matches(args.where, r));
         if (args.orderBy) found.sort((a, b) => b.version - a.version);
-        return found[0] ?? null;
+        return found[0] ? asRead(found[0], args.include) : null;
       },
     ),
-    findMany: vi.fn(async (args: { where: Record<string, unknown> }) =>
-      rows
-        .filter((r) => matches(args.where, r))
-        .sort((a, b) => b.version - a.version),
+    findMany: vi.fn(
+      async (args: { where: Record<string, unknown>; include?: unknown }) =>
+        rows
+          .filter((r) => matches(args.where, r))
+          .sort((a, b) => b.version - a.version)
+          .map((r) => asRead(r, args.include)),
     ),
     updateMany: vi.fn(
       async (args: { where: Record<string, unknown>; data: Partial<Row> }) => {
@@ -106,21 +114,31 @@ function build(
       },
     ),
     update: vi.fn(
-      async (args: { where: { id: number }; data: Partial<Row> }) => {
+      async (args: {
+        where: { id: number };
+        data: Partial<Row>;
+        include?: unknown;
+      }) => {
         const found = rows.find((r) => r.id === args.where.id)!;
-        return Object.assign(found, args.data);
+        return asRead(Object.assign(found, args.data), args.include);
       },
     ),
-    create: vi.fn(async (args: { data: Omit<Row, 'id' | 'createdAt'> }) => {
-      if (options.failCreate) throw new Error('database down');
-      const created = {
-        id: 100 + rows.length,
-        createdAt: new Date('2026-10-14T00:00:00Z'),
-        ...args.data,
-      } as Row;
-      rows.push(created);
-      return created;
-    }),
+    create: vi.fn(
+      async (args: {
+        data: Omit<Row, 'id' | 'createdAt'>;
+        include?: unknown;
+      }) => {
+        if (options.failCreate) throw new Error('database down');
+        const created = {
+          id: 100 + rows.length,
+          createdAt: new Date('2026-10-14T00:00:00Z'),
+          uploadedBy: ADMIN,
+          ...args.data,
+        } as Row;
+        rows.push(created);
+        return asRead(created, args.include);
+      },
+    ),
   };
   const templateDraft = {
     create: vi.fn(async (args: { data: DraftRow }) => {
@@ -235,8 +253,13 @@ describe('TemplatesService.upload', () => {
         isActive: true,
         uploadedById: ADMIN_ID,
       }),
+      include: expect.anything(),
     });
-    expect(view).toMatchObject({ version: 1, isActive: true });
+    expect(view).toMatchObject({
+      version: 1,
+      isActive: true,
+      savedBy: 'Ana Ruiz',
+    });
     expect(view).not.toHaveProperty('blobPath');
   });
 
@@ -458,6 +481,22 @@ describe('TemplatesService.list', () => {
       expect.objectContaining({ where: { municipalityId: PAEZ.id } }),
     );
   });
+
+  it.each([
+    ['their name', ADMIN, 'Ana Ruiz'],
+    [
+      'their email when they have no name',
+      { name: null, email: ADMIN.email },
+      ADMIN.email,
+    ],
+    ['nobody once that administrator is gone', null, null],
+  ])('says who saved each version: %s', async (_, uploadedBy, savedBy) => {
+    const { service } = build([row({ uploadedBy })]);
+
+    const [view] = await service.list(PAEZ.id, 'LIQUIDACION');
+
+    expect(view!.savedBy).toBe(savedBy);
+  });
 });
 
 describe('TemplatesService.activate', () => {
@@ -471,6 +510,16 @@ describe('TemplatesService.activate', () => {
 
     expect(view).toMatchObject({ version: 1, isActive: true });
     expect(rows.find((r) => r.id === 2)?.isActive).toBe(false);
+  });
+
+  it('keeps saying who saved the version, reactivated or already active', async () => {
+    const { service } = build([
+      row({ id: 1, version: 1, isActive: false, uploadedBy: ADMIN }),
+      row({ id: 2, version: 2, isActive: true, uploadedBy: ADMIN }),
+    ]);
+
+    expect((await service.activate(PAEZ.id, 1)).savedBy).toBe('Ana Ruiz');
+    expect((await service.activate(PAEZ.id, 1)).savedBy).toBe('Ana Ruiz');
   });
 
   it('answers not found for a template of another municipality', async () => {

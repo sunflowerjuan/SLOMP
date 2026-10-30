@@ -80,7 +80,12 @@ A `.docx` without markers can be marked from the panel instead: `POST
 .../templates/drafts` stores it as a draft (unactivated, 24 hours, under
 `templates/<slug>/drafts/<id>/`), `GET .../drafts/:id/content` lists its
 paragraphs, and `POST .../drafts/:id/preview` and `.../save` apply the
-selected text as markers (`src/templates/guided-marking.ts`). Preview fills it
+selected text as markers (`src/templates/guided-marking.ts`). Both also take
+`removedRows`: table rows to leave out, each named by the `blockId` of one of
+its paragraphs (the example values a table brings besides its example row);
+a row with markers, or every row of a table, is refused. Save also takes an
+optional `fileName`, the name the version is kept (and downloaded) under;
+without it the uploaded file's name stays. Preview fills it
 with fixed sample data through the PDF service; save validates it like an
 upload and activates it. `DELETE .../drafts/:id` cancels one, and an hourly
 sweep removes the expired ones. Routes, errors and sample data: Confluence page
@@ -95,6 +100,83 @@ format, with each `appliedMarkers` entry also carrying the catalog `label`;
 preview; and `GET .../:id/download` returns the stored `.docx` (images already
 resampled) byte for byte, under the name it was uploaded with. A template of another municipality
 answers 404 `TEMPLATE_NOT_FOUND`, same as a missing one.
+
+## Settlement status changes and Slompsim's tools (SL-154)
+
+A status change applies to one settlement (a property and period), never to
+the rest of its resolution, and is checked with
+`src/settlements/settlement-status-rules.ts`. A settlement in no payment
+order can become `PRESCRITA` at any time; one in a payment order, 5 years
+after that payment order. Every change an Administrator makes is recorded in
+`settlement_events` in the same transaction, with the previous and new
+status, the source (`MANUAL` from `PATCH .../settlements/:id/status`,
+`ASSISTANT` from a confirmed proposal), the optional note and the
+Administrator. Rules and decisions: Confluence pages "Diseño de Slompsim"
+(D3, D4, D5, D7) and "Slompsim: arquitectura y modelo".
+
+The assistant's tools live in `src/assistant/assistant-tools.service.ts`.
+They are internal services, not routes, and none of them writes:
+
+- `searchSettlements`: by `cadastralCode` or by `settlementId`, exactly one
+  of them, at most 50 results. Never by owner or address.
+- `findUnlistedPeriods`: given the rows of the payment orders Excel (up to
+  5000), the current settlements of each property in it whose period the
+  file leaves out. `POST .../payment-orders/import` returns the same list as
+  `unlisted`.
+- `proposeStatusChange`: up to 100 changes, each `accepted` or `rejected`
+  with `TRANSITION_NOT_ALLOWED`, `NOT_FOUND` (also for another
+  municipality's settlement) or `REPLACED`, plus the allowed states, the
+  current one and its payment order.
+
+All three return only `id`, `cadastralCode`, `period`, `status`,
+`allowedStatuses` and `hasPaymentOrder`: never names, documents or addresses.
+
+The panel applies a proposal without going through the model:
+`POST /municipalities/:slug/assistant/changes/preview` validates like
+`proposeStatusChange`, and `POST .../assistant/changes/confirm` with
+`{ changes, note? }` (note up to 500 characters) checks every change again
+with the rows locked. It applies all of them or none: if one no longer
+applies it answers 409 `ASSISTANT_CHANGES_REJECTED` with the rejected ones in
+`details.rejected`. A settlement already in the requested state comes back
+in `unchanged` and records nothing.
+
+### Conversation with the model (SL-155)
+
+`POST /municipalities/:slug/assistant/messages` with
+`{ message, history?, context? }` answers `{ reply, proposals }`.
+
+- **Request:**
+  - `history` holds the last turns (at most 10, `{ role: "user" | "assistant", content }`). The client keeps it: the server stores no conversation.
+  - `context.paymentOrderRows` can carry the rows of the payment orders Excel (up to 5000), which `find_unlisted_periods` uses. The model never copies them.
+- **Response:** `proposals` is the last proposal of the message, already validated (`accepted`, `rejected`, optional `note`), or `null`. The panel applies it with `changes/confirm`.
+- **Limits:** at most 5 tool calls and 30 seconds per message, and 20 messages per minute per Administrator.
+- **Errors:**
+  - 422 `ASSISTANT_TOO_MANY_TOOL_CALLS`;
+  - 503 `ASSISTANT_UNAVAILABLE` (no model configured, the model failed or ran out of time; `details.reason` says which);
+  - 429 `ASSISTANT_RATE_LIMITED`, with `Retry-After`.
+
+The loop (`src/assistant/assistant-conversation.service.ts`) only knows the
+interface in `src/assistant/model/assistant-model.ts`. The provider comes
+from the environment (`apps/backend/.env.example`):
+
+- `ASSISTANT_PROVIDER=anthropic` with `ASSISTANT_API_KEY` uses Claude.
+  Optional: `ASSISTANT_MODEL` (default `claude-haiku-5-5`) and
+  `ASSISTANT_EFFORT` (default `low`).
+- `ASSISTANT_PROVIDER=fake` answers a fixed text without a key, to work on
+  the panel.
+- Unset, the assistant is off and only this route answers 503.
+
+What reaches the model:
+
+- the tools' output, which has no names, documents or addresses;
+- the text the Administrator wrote, with every 6 to 10 digits after CC, CE,
+  NIT, TI or PP replaced by `[DOC]` (`src/assistant/mask-documents.ts`). A
+  name typed by hand can't be detected: the chat asks not to write any.
+
+Each message writes one JSON log line (`"event":"assistant.message"`) with
+the request id, provider and model, the tools called, the duration, the
+result code and the token counts. It never includes the conversation's text
+or the tools' arguments.
 
 ## Run tests
 

@@ -103,6 +103,12 @@ services:
       PDF_SERVICE_URL: http://pdf:3001
       PDF_SERVICE_KEY: ${PDF_SERVICE_KEY}
       AZURE_STORAGE_CONNECTION_STRING: *storage
+      # Slompsim's model. Without a provider and key the assistant
+      # answers 503 and the rest of the panel works as usual.
+      ASSISTANT_PROVIDER: ${ASSISTANT_PROVIDER:-}
+      ASSISTANT_API_KEY: ${ASSISTANT_API_KEY:-}
+      ASSISTANT_MODEL: ${ASSISTANT_MODEL:-}
+      ASSISTANT_EFFORT: ${ASSISTANT_EFFORT:-}
     # Node sizes its heap to about half of this limit. Importing the 11202-row
     # tax roll of Paez peaks at about 460 MiB (about 600 MiB with two uploads
     # at once); before SL-190 it took about 750 MiB and failed with 512m.

@@ -355,16 +355,65 @@ function overlaps(a: { start: number; end: number }, b: typeof a): boolean {
   return a.start < b.end && b.start < a.end;
 }
 
+function invalidRow(blockId: string, reason: string): CodedError {
+  return new CodedError(
+    ErrorCode.TEMPLATE_SELECTION_INVALID,
+    `The row of block ${blockId} cannot be removed: ${reason}.`,
+    { blockId, reason },
+  );
+}
+
+// The rows `removedRows` name, checked: each one in a table, without any
+// marker (the example row has them), and never every row of a table.
+function rowsToRemove(
+  blocks: ReadonlyMap<string, Paragraph>,
+  removedRows: readonly string[],
+  marks: readonly Selection[],
+): Set<Element> {
+  const named = new Map<Element, string>();
+  for (const blockId of removedRows) {
+    const paragraph = blocks.get(blockId);
+    if (!paragraph) {
+      throw new CodedError(
+        ErrorCode.TEMPLATE_BLOCK_NOT_FOUND,
+        `Block ${blockId} does not exist in the document.`,
+        { blockId },
+      );
+    }
+    if (!paragraph.row) throw invalidRow(blockId, 'REMOVED_ROW_OUTSIDE_TABLE');
+    if (!named.has(paragraph.row)) named.set(paragraph.row, blockId);
+  }
+  for (const [row, blockId] of named) {
+    if (marks.some((mark) => blocks.get(mark.blockId)?.row === row)) {
+      throw invalidRow(blockId, 'REMOVED_ROW_HAS_MARKER');
+    }
+    const table = closest(row, 'tbl')!;
+    if (wordChildren(table, 'tr').every((other) => named.has(other))) {
+      throw invalidRow(blockId, 'REMOVED_ROW_LAST');
+    }
+  }
+  return new Set(named.keys());
+}
+
 // Applies the selections to the original file and returns the marked copy.
-// Every selection is validated before anything changes, so a rejected request
-// never yields a half-marked document. The markers the file already had stay.
+// `removedRows` are table rows to leave out, each named by one of its blocks:
+// the example values a lawyer's table brings besides its example row, which
+// would otherwise print in every document. Every selection and row is
+// validated before anything changes, so a rejected request never yields a
+// half-marked document. The markers the file already had stay.
 export function applySelections(
   docx: Buffer,
   type: PdfDocumentType,
   selections: readonly Selection[],
+  removedRows: readonly string[] = [],
 ): Buffer {
   const catalog = catalogOf(type);
-  if (selections.length > MAX_SELECTIONS) throw invalid(undefined, 'TOO_MANY');
+  if (
+    selections.length > MAX_SELECTIONS ||
+    removedRows.length > MAX_SELECTIONS
+  ) {
+    throw invalid(undefined, 'TOO_MANY');
+  }
   const kinds = new Map(
     buildTemplateCatalog(type).map((entry) => [entry.key, entry.kind]),
   );
@@ -421,6 +470,7 @@ export function applySelections(
   });
 
   const existing = parts.flatMap((part) => existingMarkers(part, catalog));
+  const rows = rowsToRemove(blocks, removedRows, [...selections, ...existing]);
   const byBlock = new Map<string, (Selection & { index: number })[]>();
   selections.forEach((selection, index) => {
     const group = byBlock.get(selection.blockId) ?? [];
@@ -475,6 +525,10 @@ export function applySelections(
       (name) => catalog.meta[name]?.kind === 'TABLE_ROW',
     )!;
     wrapRow(tableRow.row, loop, tableRow.row.ownerDocument!);
+  }
+  for (const row of rows) {
+    row.parentNode!.removeChild(row);
+    changed.add(parts.find((part) => part.doc === row.ownerDocument)!);
   }
 
   const serializer = new XMLSerializer();

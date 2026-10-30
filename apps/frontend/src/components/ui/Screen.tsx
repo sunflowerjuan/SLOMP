@@ -3,7 +3,7 @@ import { PageHeader } from "./PageHeader";
 import "./Screen.css";
 
 interface ScreenProps extends Omit<HTMLAttributes<HTMLDivElement>, "title"> {
-  title: string;
+  title: ReactNode;
   subtitle?: string;
   // Main action, beside the title.
   action?: ReactNode;

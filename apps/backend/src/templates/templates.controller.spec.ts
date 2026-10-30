@@ -357,7 +357,7 @@ describe('TemplatesController', () => {
 
       const response = await request(app.getHttpServer())
         .post(`${DRAFTS}/d1/preview`)
-        .send({ selections: [selection] })
+        .send({ selections: [selection], removedRows: ['body:p24'] })
         .expect(200);
 
       expect(response.headers['content-type']).toBe('application/pdf');
@@ -366,6 +366,7 @@ describe('TemplatesController', () => {
         7,
         'd1',
         [selection],
+        ['body:p24'],
       );
     });
 
@@ -377,6 +378,9 @@ describe('TemplatesController', () => {
       { selections: [{ ...selection, field: '' }] },
       { selections: [{ ...selection, extra: true }] },
       { selections: [], replaceConfirmed: 'yes' },
+      { selections: [], removedRows: 'body:p24' },
+      { selections: [], removedRows: [24] },
+      { selections: [], fileName: 7 },
     ])('validates the selections of the body %j', async (body) => {
       const preview = await request(app.getHttpServer())
         .post(`${DRAFTS}/d1/save`)
@@ -399,9 +403,15 @@ describe('TemplatesController', () => {
         .send({ selections: [selection], replaceConfirmed: true })
         .expect(201);
 
+      await request(app.getHttpServer())
+        .post(`${DRAFTS}/d1/save`)
+        .send({ selections: [selection], fileName: 'Liquidación 2026' })
+        .expect(201);
+
       expect(templatesService.saveDraft.mock.calls).toEqual([
-        [PAEZ, 7, 'd1', [selection], false],
-        [PAEZ, 7, 'd1', [selection], true],
+        [PAEZ, 7, 'd1', [selection], false, undefined, undefined],
+        [PAEZ, 7, 'd1', [selection], true, undefined, undefined],
+        [PAEZ, 7, 'd1', [selection], false, undefined, 'Liquidación 2026'],
       ]);
     });
 
