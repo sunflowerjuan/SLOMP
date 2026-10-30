@@ -8,15 +8,19 @@ import {
   blockPieces,
   entryProblem,
   fieldLabels,
+  isRowBoundary,
   isTableLoop,
   mergeAdjacent,
   rangeProblem,
+  repeatingRows,
   requiredProgress,
   rowKey,
+  sectionsOf,
   segmentsBetween,
   sortSelections,
   splitByAssigned,
   surplusRows,
+  tableGrid,
   templateNameOf,
   templateNameProblem,
   tableRowInUse,
@@ -224,6 +228,88 @@ describe("showing a paragraph", () => {
         selection("body:p0", 0, 3),
       ]).map((sorted) => `${sorted.blockId}@${sorted.start}`),
     ).toEqual(["body:p0@0", "body:p0@11", "body:p3@0"]);
+  });
+});
+
+describe("layout of a document", () => {
+  const cell = (id: number, rowIndex: number, colIndex: number) =>
+    block(`body:p${id}`, `r${rowIndex}c${colIndex}`, {
+      tableIndex: 0,
+      rowIndex,
+      colIndex,
+    });
+
+  it("gathers the cells of a table and keeps each part apart", () => {
+    const header = {
+      ...block("header1:p0", "Alcaldía"),
+      part: "header" as const,
+    };
+    const first = cell(1, 0, 0);
+    const second = cell(2, 0, 1);
+    const closing = block("body:p3", "Cierre");
+
+    expect(sectionsOf([header, first, second, closing])).toEqual([
+      { part: "header", items: [{ kind: "paragraph", block: header }] },
+      {
+        part: "body",
+        items: [
+          { kind: "table", key: "body:0", blocks: [first, second] },
+          { kind: "paragraph", block: closing },
+        ],
+      },
+    ]);
+  });
+
+  it("lays a table out by row and column, in order, with its widest row", () => {
+    const grid = tableGrid([
+      cell(3, 1, 0),
+      cell(1, 0, 0),
+      cell(2, 0, 2),
+      cell(4, 1, 0),
+    ]);
+
+    expect(grid.columns).toBe(3);
+    expect(grid.rows.map((row) => row.rowIndex)).toEqual([0, 1]);
+    expect(grid.rows[0].cells.get(1)).toBeUndefined();
+    expect(grid.rows[1].cells.get(0)?.map((b) => b.blockId)).toEqual([
+      "body:p3",
+      "body:p4",
+    ]);
+  });
+});
+
+describe("tags of a saved version", () => {
+  it.each([
+    ["{#rows}", true],
+    ["{/rows}", true],
+    ["{ #rows }", true],
+    ["{year}", false],
+    ["{#liquidations}{number}{separator}{/liquidations}", false],
+  ])("%s only marks a repeating row: %s", (tag, expected) => {
+    expect(isRowBoundary(tag)).toBe(expected);
+  });
+
+  it("finds the rows that repeat, by the tags in their cells", () => {
+    const position = { tableIndex: 0, colIndex: 0 };
+    const titles = block("body:p0", "Vigencia", { ...position, rowIndex: 0 });
+    const repeated = block("body:p1", "{#rows}{year}{/rows}", {
+      ...position,
+      rowIndex: 1,
+    });
+    const marks = [
+      selection("body:p1", 0, 7, "rows"),
+      selection("body:p1", 7, 13, "rows.year"),
+      selection("body:p1", 13, 20, "rows"),
+    ];
+
+    expect([...repeatingRows([titles, repeated], marks)]).toEqual(["body:0:1"]);
+  });
+
+  it("no row repeats when a marker is only inside a sentence", () => {
+    const paragraph = block("body:p0", "{#liquidations}{/liquidations}");
+    const marks = [selection("body:p0", 0, 15, "liquidations")];
+
+    expect(repeatingRows([paragraph], marks).size).toBe(0);
   });
 });
 

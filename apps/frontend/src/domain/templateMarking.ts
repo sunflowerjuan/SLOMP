@@ -111,6 +111,66 @@ export function progressText({ done, total }: RequiredProgress): string {
   return `${done} de ${total} obligatorios`;
 }
 
+export type DocumentItem =
+  | { kind: "paragraph"; block: DocumentBlock }
+  | { kind: "table"; key: string; blocks: DocumentBlock[] };
+
+export interface DocumentSection {
+  part: DocumentBlock["part"];
+  items: DocumentItem[];
+}
+
+// Consecutive blocks of a part, with the cells of one table gathered.
+export function sectionsOf(
+  blocks: readonly DocumentBlock[],
+): DocumentSection[] {
+  const sections: DocumentSection[] = [];
+  for (const block of blocks) {
+    let section = sections.at(-1);
+    if (section?.part !== block.part) {
+      section = { part: block.part, items: [] };
+      sections.push(section);
+    }
+    const last = section.items.at(-1);
+    const tableKey = block.table
+      ? `${block.blockId.slice(0, block.blockId.indexOf(":"))}:${block.table.tableIndex}`
+      : null;
+    if (tableKey && last?.kind === "table" && last.key === tableKey) {
+      last.blocks.push(block);
+    } else if (tableKey) {
+      section.items.push({ kind: "table", key: tableKey, blocks: [block] });
+    } else {
+      section.items.push({ kind: "paragraph", block });
+    }
+  }
+  return sections;
+}
+
+export interface TableGrid {
+  columns: number;
+  // In document order; each cell holds its paragraphs by column.
+  rows: { rowIndex: number; cells: Map<number, DocumentBlock[]> }[];
+}
+
+// The cells of one table, laid out as rows and columns.
+export function tableGrid(blocks: readonly DocumentBlock[]): TableGrid {
+  const rows = new Map<number, Map<number, DocumentBlock[]>>();
+  let columns = 0;
+  for (const block of blocks) {
+    const { rowIndex, colIndex } = block.table!;
+    const row = rows.get(rowIndex) ?? new Map<number, DocumentBlock[]>();
+    row.set(colIndex, [...(row.get(colIndex) ?? []), block]);
+    rows.set(rowIndex, row);
+    columns = Math.max(columns, colIndex + 1);
+  }
+  return {
+    columns,
+    rows: [...rows.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([rowIndex, cells]) => ({ rowIndex, cells })),
+  };
+}
+
 // A table row, unique in the whole document: table indexes count per part
 // (header1, body, footer2...), and the part is the prefix of the block id.
 export function rowKey(block: DocumentBlock): string | null {
@@ -346,6 +406,31 @@ export function blockPieces(
   }
   pushText(block.text.length);
   return pieces;
+}
+
+// A lone {#rows} or {/rows}: it only says where a row that repeats starts and
+// ends, so a saved version shows the row as repeating instead of naming the
+// tag. An inline list is no such thing: mergeAdjacent makes its four tags one.
+export function isRowBoundary(tagText: string): boolean {
+  return /^\{\s*[#/][^{}]*\}$/.test(tagText);
+}
+
+// The rows of a saved version that repeat in every document.
+export function repeatingRows(
+  blocks: readonly DocumentBlock[],
+  marks: readonly MarkerSelection[],
+): Set<string> {
+  const rows = new Set<string>();
+  for (const mark of marks) {
+    const block = blocks.find(
+      (candidate) => candidate.blockId === mark.blockId,
+    );
+    const row = block && rowKey(block);
+    if (row && isRowBoundary(block.text.slice(mark.start, mark.end))) {
+      rows.add(row);
+    }
+  }
+  return rows;
 }
 
 // The Spanish names of the markers a saved version has, in catalog order. The

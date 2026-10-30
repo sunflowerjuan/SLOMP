@@ -17,8 +17,9 @@ import { Dropzone } from "../../components/ui/Dropzone";
 import { Icon } from "../../components/ui/Icon";
 import { Notice } from "../../components/ui/Notice";
 import { StatusBadge } from "../../components/ui/StatusBadge";
-import { DATE_TIME_FORMATTER, DOCUMENT_TEXT } from "./documentText";
+import { DOCUMENT_TEXT, savedText } from "./documentText";
 import { TemplateVersionViewer } from "./TemplateVersionViewer";
+import { useTemplateDownload } from "./useTemplateDownload";
 import "./TemplatesPage.css";
 
 // Same limit the backend enforces (TEMPLATE_UPLOAD_LIMITS).
@@ -116,8 +117,8 @@ export function DocumentTemplates({
   );
 }
 
-// Every version of one document, newest first: each can be looked at as it
-// prints, and an earlier one activated again, which asks first.
+// Every version of one document, newest first: each can be read, seen as it
+// prints and downloaded, and an earlier one activated again, which asks first.
 function TemplateHistory({
   documentType,
 }: {
@@ -131,6 +132,7 @@ function TemplateHistory({
   const [toActivate, setToActivate] = useState<TemplateVersion | null>(null);
   const [activating, setActivating] = useState(false);
   const [activateError, setActivateError] = useState("");
+  const { downloadingId, downloadError, download } = useTemplateDownload();
 
   const reload = useCallback(async () => {
     try {
@@ -189,6 +191,7 @@ function TemplateHistory({
         className="templates-page__versions"
       >
         {activated && <Notice variant="success">{activated}</Notice>}
+        {downloadError && <Notice>{downloadError}</Notice>}
 
         {listError && (
           <Notice className="templates-page__retry">
@@ -236,21 +239,31 @@ function TemplateHistory({
                   <span className="templates-page__file">
                     {version.fileName}
                   </span>
-                  <span>
-                    {DATE_TIME_FORMATTER.format(new Date(version.createdAt))}
-                  </span>
+                  <span>{savedText(version)}</span>
                 </div>
                 <div className="templates-page__version-actions">
                   <Button
                     variant="secondary"
                     className="templates-page__view"
                     aria-label={`Ver la versión ${version.version}`}
-                    title="Ver cómo queda esta versión"
+                    title="Ver esta versión"
                     onClick={() => setViewing(version)}
                   >
                     <Icon>
                       <path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z" />
                       <circle cx="8" cy="8" r="2" />
+                    </Icon>
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="templates-page__view"
+                    aria-label={`Descargar la versión ${version.version}`}
+                    title="Descargar el documento de Word"
+                    loading={downloadingId === version.id}
+                    onClick={() => void download(version)}
+                  >
+                    <Icon>
+                      <path d="M8 2.5v8M4.5 7.5 8 11l3.5-3.5M2.5 13.5h11" />
                     </Icon>
                   </Button>
                   {version.isActive ? (

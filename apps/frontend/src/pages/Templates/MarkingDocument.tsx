@@ -5,16 +5,24 @@ import { Button } from "../../components/ui/Button";
 import { CloseIcon } from "../../components/ui/CloseIcon";
 import { Icon } from "../../components/ui/Icon";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
-import { blockPieces, rowKey, tableKeyOf } from "../../domain/templateMarking";
+import {
+  blockPieces,
+  rowKey,
+  sectionsOf,
+  tableGrid,
+  tableKeyOf,
+} from "../../domain/templateMarking";
 import type {
+  DocumentItem,
   MarkSource,
   MarkingProblem,
-  Segment,
   TableRow,
   TextRange,
 } from "../../domain/templateMarking";
 import { focusWithin } from "../../utils/scrollWithin";
+import { DocumentSegments } from "./DocumentSegments";
 import { clearSelection, readSelection } from "./documentSelection";
+import { PART_LABEL } from "./documentText";
 
 export interface DocumentMark {
   mark: MarkerSelection;
@@ -39,70 +47,12 @@ interface MarkingDocumentProps {
   onRemoveRows: (rows: TableRow[]) => void;
 }
 
-const PART_LABEL: Record<DocumentBlock["part"], string> = {
-  header: "Encabezado",
-  body: "Cuerpo del documento",
-  footer: "Pie de página",
-};
-
 // A touch selection is adjusted with the handles for a while: it is read once
 // it stops changing.
 const TOUCH_SETTLE_MS = 450;
 
-type Item =
-  | { kind: "paragraph"; block: DocumentBlock }
-  | { kind: "table"; key: string; blocks: DocumentBlock[] };
-
-interface Section {
-  part: DocumentBlock["part"];
-  items: Item[];
-}
-
-// Consecutive blocks of a part, with the cells of one table gathered.
-function sectionsOf(blocks: DocumentBlock[]): Section[] {
-  const sections: Section[] = [];
-  for (const block of blocks) {
-    let section = sections.at(-1);
-    if (section?.part !== block.part) {
-      section = { part: block.part, items: [] };
-      sections.push(section);
-    }
-    const last = section.items.at(-1);
-    const tableKey = block.table
-      ? `${block.blockId.slice(0, block.blockId.indexOf(":"))}:${block.table.tableIndex}`
-      : null;
-    if (tableKey && last?.kind === "table" && last.key === tableKey) {
-      last.blocks.push(block);
-    } else if (tableKey) {
-      section.items.push({ kind: "table", key: tableKey, blocks: [block] });
-    } else {
-      section.items.push({ kind: "paragraph", block });
-    }
-  }
-  return sections;
-}
-
 function preview(text: string): string {
   return text.length > 60 ? `${text.slice(0, 60)}…` : text;
-}
-
-function Segments({ segments }: { segments: Segment[] }) {
-  return segments.map((segment) => (
-    <span
-      key={segment.start}
-      data-start={segment.start}
-      className={
-        [
-          segment.bold && "marking-doc__bold",
-          segment.italic && "marking-doc__italic",
-        ]
-          .filter(Boolean)
-          .join(" ") || undefined
-      }
-    >
-      {segment.text}
-    </span>
-  ));
 }
 
 export function MarkingDocument({
@@ -238,7 +188,7 @@ export function MarkingDocument({
         {pieces.map((piece) => {
           if (piece.kind === "text") {
             return (
-              <Segments
+              <DocumentSegments
                 key={`t${piece.segments[0]?.start ?? 0}`}
                 segments={piece.segments}
               />
@@ -253,7 +203,7 @@ export function MarkingDocument({
                 className="marking-doc__mark"
                 data-source="pending"
               >
-                <Segments segments={piece.segments} />
+                <DocumentSegments segments={piece.segments} />
               </mark>
             );
           }
@@ -271,7 +221,9 @@ export function MarkingDocument({
                   ? `Marcador que ya traía el archivo: ${label}.`
                   : `Marcador ${label}, en lugar de: `}
               </span>
-              {source === "lawyer" && <Segments segments={piece.segments} />}
+              {source === "lawyer" && (
+                <DocumentSegments segments={piece.segments} />
+              )}
               {/* The name and its x as one chip: they never wrap apart. */}
               <span className="marking-doc__chip">
                 <span className="marking-doc__tag" aria-hidden="true">
@@ -325,16 +277,10 @@ export function MarkingDocument({
     }),
   );
 
-  function renderTable(item: Extract<Item, { kind: "table" }>): ReactNode {
-    const rows = new Map<number, Map<number, DocumentBlock[]>>();
-    let columns = 0;
-    for (const block of item.blocks) {
-      const { rowIndex, colIndex } = block.table!;
-      const row = rows.get(rowIndex) ?? new Map<number, DocumentBlock[]>();
-      row.set(colIndex, [...(row.get(colIndex) ?? []), block]);
-      rows.set(rowIndex, row);
-      columns = Math.max(columns, colIndex + 1);
-    }
+  function renderTable(
+    item: Extract<DocumentItem, { kind: "table" }>,
+  ): ReactNode {
+    const { rows, columns } = tableGrid(item.blocks);
     const holdsExample =
       repeatingRow !== null && tableKeyOf(repeatingRow) === item.key;
     const removedHere = [...removedRows].filter(
@@ -350,77 +296,75 @@ export function MarkingDocument({
       <div key={item.key} className="marking-doc__table-wrap">
         <table className="marking-doc__table">
           <tbody>
-            {[...rows.entries()]
-              .sort(([a], [b]) => a - b)
-              .map(([rowIndex, cells]) => {
-                const rowBlocks = [...cells.values()].flat();
-                const key = rowKey(rowBlocks[0])!;
-                const repeats = key === repeatingRow;
-                const removed = removedRows.has(key);
-                const text = rowBlocks
-                  .map((block) => block.text)
-                  .filter(Boolean)
-                  .join(" · ");
-                const toolsCell = tools && (
-                  <td className="marking-doc__row-tools">
-                    {repeats ? (
-                      <span
-                        className="marking-doc__row-tag"
-                        title="Fila de ejemplo: se repite en cada liquidación"
+            {rows.map(({ rowIndex, cells }) => {
+              const rowBlocks = [...cells.values()].flat();
+              const key = rowKey(rowBlocks[0])!;
+              const repeats = key === repeatingRow;
+              const removed = removedRows.has(key);
+              const text = rowBlocks
+                .map((block) => block.text)
+                .filter(Boolean)
+                .join(" · ");
+              const toolsCell = tools && (
+                <td className="marking-doc__row-tools">
+                  {repeats ? (
+                    <span
+                      className="marking-doc__row-tag"
+                      title="Fila de ejemplo: se repite en cada liquidación"
+                    >
+                      <Icon>
+                        <path d="M2.5 6.5a5 5 0 0 1 9-2.5M13.5 9.5a5 5 0 0 1-9 2.5" />
+                        <path d="M11.5 1.5v2.5H9M4.5 14.5V12H7" />
+                      </Icon>
+                      <span className="marking-doc__sr">Fila de ejemplo</span>
+                    </span>
+                  ) : (
+                    !markedRows.has(key) && (
+                      <button
+                        type="button"
+                        className="marking-doc__row-button"
+                        data-removed={removed || undefined}
+                        aria-label={`${removed ? "Restaurar" : "Quitar"} la fila «${preview(text)}»`}
+                        title={
+                          removed
+                            ? "Restaurar la fila"
+                            : "Quitar la fila de la plantilla"
+                        }
+                        onClick={() =>
+                          onToggleRow({
+                            row: key,
+                            blockId: rowBlocks[0].blockId,
+                          })
+                        }
                       >
                         <Icon>
-                          <path d="M2.5 6.5a5 5 0 0 1 9-2.5M13.5 9.5a5 5 0 0 1-9 2.5" />
-                          <path d="M11.5 1.5v2.5H9M4.5 14.5V12H7" />
+                          {removed ? (
+                            <path d="M3 6.5h7a3.5 3.5 0 0 1 0 7H6M5.5 3.5 2.5 6.5l3 3" />
+                          ) : (
+                            <path d="M2.5 4.5h11M6 4.5V2.5h4v2M4 4.5l.7 9h6.6l.7-9M6.8 7v4.5M9.2 7v4.5" />
+                          )}
                         </Icon>
-                        <span className="marking-doc__sr">Fila de ejemplo</span>
-                      </span>
-                    ) : (
-                      !markedRows.has(key) && (
-                        <button
-                          type="button"
-                          className="marking-doc__row-button"
-                          data-removed={removed || undefined}
-                          aria-label={`${removed ? "Restaurar" : "Quitar"} la fila «${preview(text)}»`}
-                          title={
-                            removed
-                              ? "Restaurar la fila"
-                              : "Quitar la fila de la plantilla"
-                          }
-                          onClick={() =>
-                            onToggleRow({
-                              row: key,
-                              blockId: rowBlocks[0].blockId,
-                            })
-                          }
-                        >
-                          <Icon>
-                            {removed ? (
-                              <path d="M3 6.5h7a3.5 3.5 0 0 1 0 7H6M5.5 3.5 2.5 6.5l3 3" />
-                            ) : (
-                              <path d="M2.5 4.5h11M6 4.5V2.5h4v2M4 4.5l.7 9h6.6l.7-9M6.8 7v4.5M9.2 7v4.5" />
-                            )}
-                          </Icon>
-                        </button>
-                      )
-                    )}
-                  </td>
-                );
-                return (
-                  <tr
-                    key={rowIndex}
-                    data-repeats={repeats || undefined}
-                    data-removed={removed || undefined}
-                  >
-                    {toolsFirst && toolsCell}
-                    {Array.from({ length: columns }, (_, colIndex) => (
-                      <td key={colIndex}>
-                        {(cells.get(colIndex) ?? []).map(renderBlock)}
-                      </td>
-                    ))}
-                    {tools && !toolsFirst && toolsCell}
-                  </tr>
-                );
-              })}
+                      </button>
+                    )
+                  )}
+                </td>
+              );
+              return (
+                <tr
+                  key={rowIndex}
+                  data-repeats={repeats || undefined}
+                  data-removed={removed || undefined}
+                >
+                  {toolsFirst && toolsCell}
+                  {Array.from({ length: columns }, (_, colIndex) => (
+                    <td key={colIndex}>
+                      {(cells.get(colIndex) ?? []).map(renderBlock)}
+                    </td>
+                  ))}
+                  {tools && !toolsFirst && toolsCell}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
         {holdsExample && (
