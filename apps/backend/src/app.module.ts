@@ -4,6 +4,7 @@ import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { createObserveModule } from '@nestjs/observe';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { AssistantModule } from './assistant/assistant.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { HealthModule } from './health/health.module.js';
 import { ApiExceptionFilter } from './common/errors/api-exception.filter.js';
@@ -34,6 +35,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     PaymentOrdersModule,
     SettlementsModule,
     TemplatesModule,
+    AssistantModule,
   ],
   controllers: [AppController],
   providers: [

@@ -82,6 +82,7 @@ model Municipality {
   pdfJobs              PdfJob[]
   templates            Template[]
   templateDrafts       TemplateDraft[]
+  settlementEvents     SettlementEvent[]
 
   @@map("municipalities")
 }
@@ -166,18 +167,18 @@ model PropertyOwner {
 // not implemented yet.
 // ----------------------------------------------------------------------------
 model Settlement {
-  id          Int              @id @default(autoincrement())
-  period      Int // Calendar year, e.g. 2026 (the tax roll only has annual periods)
-  status      SettlementStatus @default(VIGENTE)
-  replacedAt  DateTime? // Non-null once a newer import superseded this row
+  id           Int              @id @default(autoincrement())
+  period       Int // Calendar year, e.g. 2026 (the tax roll only has annual periods)
+  status       SettlementStatus @default(VIGENTE)
+  replacedAt   DateTime? // Non-null once a newer import superseded this row
   // Non-null once a later import brought this property without this period
   // (SL-136). Set on the first import that misses it; a later import that
   // brings the period back replaces this row, so the mark goes with it.
   missingSince DateTime?
-  issuedAt    DateTime         @default(now())
-  totalAmount Decimal          @db.Decimal(14, 2)
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  issuedAt     DateTime         @default(now())
+  totalAmount  Decimal          @db.Decimal(14, 2)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
   propertyId Int
   property   Property @relation(fields: [propertyId], references: [id])
@@ -191,6 +192,7 @@ model Settlement {
   paymentOrder   PaymentOrder? @relation(fields: [paymentOrderId], references: [id], onDelete: Restrict)
 
   details SettlementDetail[]
+  events  SettlementEvent[]
 
   // At most one current (replacedAt null) settlement per property and period:
   // partial unique index created by hand in the migration.
@@ -198,6 +200,51 @@ model Settlement {
   @@index([resolutionId])
   @@index([paymentOrderId])
   @@map("settlements")
+}
+
+// ----------------------------------------------------------------------------
+// SettlementEvent
+// Append-only audit of a settlement (first layer of the history design):
+// never updated or deleted, written in the same transaction as the change it
+// records. Only status changes made by an Administrator for now, by hand from
+// the panel (MANUAL) or confirmed from a Slompsim proposal (ASSISTANT); the
+// automatic EN_FIRME sweep and the other event types are not recorded yet.
+// ----------------------------------------------------------------------------
+enum SettlementEventType {
+  STATUS_CHANGED
+}
+
+enum SettlementEventSource {
+  MANUAL
+  ASSISTANT
+}
+
+model SettlementEvent {
+  id         Int                   @id @default(autoincrement())
+  type       SettlementEventType
+  fromStatus SettlementStatus
+  toStatus   SettlementStatus
+  source     SettlementEventSource
+  // Up to 500 characters (checked by the API).
+  note       String?
+  createdAt  DateTime              @default(now())
+
+  // Settlements are never deleted (a replaced one keeps its row), so an
+  // event never loses its settlement.
+  settlementId Int
+  settlement   Settlement @relation(fields: [settlementId], references: [id], onDelete: Restrict)
+
+  municipalityId Int
+  municipality   Municipality @relation(fields: [municipalityId], references: [id])
+
+  // Nullable so the row survives if the Administrator account is deleted.
+  administratorId Int?
+  administrator   Administrator? @relation(fields: [administratorId], references: [id], onDelete: SetNull)
+
+  @@index([settlementId, createdAt])
+  @@index([municipalityId, createdAt])
+  @@index([administratorId])
+  @@map("settlement_events")
 }
 
 // ----------------------------------------------------------------------------
@@ -340,12 +387,13 @@ model Administrator {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  taxRollImports TaxRollImport[]
-  paymentOrders  PaymentOrder[]
-  refreshTokens  RefreshToken[]
-  pdfJobs        PdfJob[]
-  templates      Template[]
-  templateDrafts TemplateDraft[]
+  taxRollImports   TaxRollImport[]
+  paymentOrders    PaymentOrder[]
+  refreshTokens    RefreshToken[]
+  pdfJobs          PdfJob[]
+  templates        Template[]
+  templateDrafts   TemplateDraft[]
+  settlementEvents SettlementEvent[]
 
   @@map("administrators")
 }
@@ -364,11 +412,11 @@ model RefreshToken {
   createdAt DateTime @default(now())
 
   // Idle limit: moves forward with every rotation.
-  expiresAt DateTime
+  expiresAt        DateTime
   // Absolute limit of the session, fixed at login and copied on rotation.
   sessionExpiresAt DateTime
   // Set when the token is rotated, on logout, or when reuse is detected.
-  revokedAt DateTime?
+  revokedAt        DateTime?
 
   administratorId Int
   administrator   Administrator @relation(fields: [administratorId], references: [id], onDelete: Cascade)
@@ -391,13 +439,13 @@ model TaxRollImport {
 
   // Counts from ParseTaxRollExcelResult / PersistTaxRollResult — see
   // apps/backend/src/tax-roll/tax-roll-row.dto.ts and persist-tax-roll.ts.
-  validRows      Int
-  invalidRows    Int
-  warnings       Int
-  properties     Int
-  owners         Int
-  settlements    Int
-  conflicts      Int
+  validRows   Int
+  invalidRows Int
+  warnings    Int
+  properties  Int
+  owners      Int
+  settlements Int
+  conflicts   Int
 
   // Nullable so the row survives if the Administrator account is later
   // deleted — the history entry is still meaningful without it.

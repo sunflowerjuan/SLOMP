@@ -111,7 +111,8 @@ describe('SettlementsService', () => {
         ],
       }),
       // Resolution issued 90 days ago: VIGENTE until the sweep runs, but it
-      // can only move to EN_FIRME, PAGADA or ACUERDO_DE_PAGO.
+      // can't go back to VIGENTE by hand once moved. In no payment order, so
+      // PRESCRITA is allowed.
       expect.objectContaining({
         settlementId: 3,
         resolutionNumber: 'LOIP 15514 2026-0007',
@@ -122,6 +123,7 @@ describe('SettlementsService', () => {
           SettlementStatus.EN_FIRME,
           SettlementStatus.PAGADA,
           SettlementStatus.ACUERDO_DE_PAGO,
+          SettlementStatus.PRESCRITA,
         ],
       }),
     ]);
@@ -178,20 +180,30 @@ describe('SettlementsService', () => {
   });
 
   describe('changeStatus', () => {
+    const ADMIN_ID = 42;
+
     function buildPrismaForStatusChange(
       current: unknown,
-      siblings: { id: number; period?: number }[] = [],
-      firstPaymentOrder: { issuedAt: Date } | null = null,
+      groupMembers: {
+        id: number;
+        period: number;
+        status?: SettlementStatus;
+        missingSince?: Date | null;
+      }[] = [],
     ) {
       const prisma = {
         settlement: {
           findFirst: vi.fn().mockResolvedValue(current),
-          findMany: vi.fn().mockResolvedValue(siblings),
+          findMany: vi.fn().mockResolvedValue(
+            groupMembers.map((member) => ({
+              status: SettlementStatus.VIGENTE,
+              missingSince: null,
+              ...member,
+            })),
+          ),
           updateMany: vi.fn().mockResolvedValue({ count: 1 }),
         },
-        paymentOrder: {
-          findFirst: vi.fn().mockResolvedValue(firstPaymentOrder),
-        },
+        settlementEvent: { create: vi.fn().mockResolvedValue({}) },
         $transaction: vi.fn(async (run: (tx: unknown) => unknown) =>
           run(prisma),
         ),
@@ -201,13 +213,21 @@ describe('SettlementsService', () => {
 
     const daysAgo = (days: number) =>
       new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    const inResolution = (status: SettlementStatus, issuedDaysAgo: number) => ({
+    const inResolution = (
+      status: SettlementStatus,
+      issuedDaysAgo: number,
+      paymentOrderDaysAgo: number | null = null,
+    ) => ({
       id: 1,
       replacedAt: null,
       resolutionId: 7,
       propertyId: 3,
       status,
       resolution: { issuedAt: daysAgo(issuedDaysAgo) },
+      paymentOrder:
+        paymentOrderDaysAgo === null
+          ? null
+          : { issuedAt: daysAgo(paymentOrderDaysAgo) },
     });
 
     it('rejects a status that is not a settlement state', async () => {
@@ -215,7 +235,7 @@ describe('SettlementsService', () => {
       const service = new SettlementsService(prisma as never);
 
       await expect(
-        service.changeStatus(MUNICIPALITY_ID, 1, 'ACTIVE'),
+        service.changeStatus(MUNICIPALITY_ID, ADMIN_ID, 1, 'ACTIVE'),
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(prisma.settlement.findFirst).not.toHaveBeenCalled();
     });
@@ -225,7 +245,12 @@ describe('SettlementsService', () => {
       const service = new SettlementsService(prisma as never);
 
       await expect(
-        service.changeStatus(MUNICIPALITY_ID, 1, SettlementStatus.PAGADA),
+        service.changeStatus(
+          MUNICIPALITY_ID,
+          ADMIN_ID,
+          1,
+          SettlementStatus.PAGADA,
+        ),
       ).rejects.toBeInstanceOf(NotFoundException);
       expect(prisma.settlement.updateMany).not.toHaveBeenCalled();
     });
@@ -236,13 +261,20 @@ describe('SettlementsService', () => {
       const service = new SettlementsService(prisma as never);
 
       await expect(
-        service.changeStatus(MUNICIPALITY_ID, 99, SettlementStatus.PAGADA),
+        service.changeStatus(
+          MUNICIPALITY_ID,
+          ADMIN_ID,
+          99,
+          SettlementStatus.PAGADA,
+        ),
       ).rejects.toBeInstanceOf(NotFoundException);
-      expect(prisma.settlement.findFirst).toHaveBeenCalledWith({
-        where: { id: 99, property: { municipalityId: MUNICIPALITY_ID } },
-        include: { resolution: { select: { issuedAt: true } } },
-      });
+      expect(prisma.settlement.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 99, property: { municipalityId: MUNICIPALITY_ID } },
+        }),
+      );
       expect(prisma.settlement.updateMany).not.toHaveBeenCalled();
+      expect(prisma.settlementEvent.create).not.toHaveBeenCalled();
     });
 
     it('rejects changing the status of an already-replaced settlement', async () => {
@@ -253,7 +285,12 @@ describe('SettlementsService', () => {
       const service = new SettlementsService(prisma as never);
 
       await expect(
-        service.changeStatus(MUNICIPALITY_ID, 1, SettlementStatus.PAGADA),
+        service.changeStatus(
+          MUNICIPALITY_ID,
+          ADMIN_ID,
+          1,
+          SettlementStatus.PAGADA,
+        ),
       ).rejects.toBeInstanceOf(ConflictException);
       expect(prisma.settlement.updateMany).not.toHaveBeenCalled();
     });
@@ -263,35 +300,32 @@ describe('SettlementsService', () => {
       SettlementStatus.ACUERDO_DE_PAGO,
       SettlementStatus.PRESCRITA,
     ])(
-      'applies an allowed change (%s) to every settlement of a generated resolution',
+      'changes only that period (%s), never the rest of its resolution',
       async (status) => {
         const prisma = buildPrismaForStatusChange(
           inResolution(SettlementStatus.VIGENTE, 10),
-          [{ id: 1 }, { id: 2 }],
+          [
+            { id: 1, period: 2020 },
+            { id: 2, period: 2021 },
+          ],
         );
         const service = new SettlementsService(prisma as never);
 
-        const result = await service.changeStatus(MUNICIPALITY_ID, 1, status);
-
-        expect(prisma.settlement.findMany).toHaveBeenCalledWith(
-          expect.objectContaining({
-            where: {
-              resolutionId: 7,
-              replacedAt: null,
-              property: { municipalityId: MUNICIPALITY_ID },
-            },
-          }),
+        const result = await service.changeStatus(
+          MUNICIPALITY_ID,
+          ADMIN_ID,
+          1,
+          status,
         );
+
+        expect(prisma.settlement.updateMany).toHaveBeenCalledTimes(1);
         expect(prisma.settlement.updateMany).toHaveBeenCalledWith({
-          where: {
-            id: { in: [1, 2] },
-            property: { municipalityId: MUNICIPALITY_ID },
-          },
+          where: { id: 1, status: SettlementStatus.VIGENTE, replacedAt: null },
           data: { status },
         });
         expect(result).toEqual({
           settlementId: 1,
-          settlementIds: [1, 2],
+          settlementIds: [1],
           status,
           allowedStatuses: expect.arrayContaining([status]),
           missingPeriods: [],
@@ -299,21 +333,72 @@ describe('SettlementsService', () => {
       },
     );
 
+    it('records the change as a MANUAL event with the administrator, in the same transaction', async () => {
+      const prisma = buildPrismaForStatusChange(
+        inResolution(SettlementStatus.EN_FIRME, 90),
+        [{ id: 1, period: 2020 }],
+      );
+      const service = new SettlementsService(prisma as never);
+
+      await service.changeStatus(
+        MUNICIPALITY_ID,
+        ADMIN_ID,
+        1,
+        SettlementStatus.PAGADA,
+      );
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      expect(prisma.settlementEvent.create).toHaveBeenCalledWith({
+        data: {
+          settlementId: 1,
+          municipalityId: MUNICIPALITY_ID,
+          type: 'STATUS_CHANGED',
+          fromStatus: SettlementStatus.EN_FIRME,
+          toStatus: SettlementStatus.PAGADA,
+          source: 'MANUAL',
+          administratorId: ADMIN_ID,
+        },
+      });
+    });
+
+    it('re-sending the current state changes and records nothing', async () => {
+      const prisma = buildPrismaForStatusChange(
+        inResolution(SettlementStatus.PAGADA, 10),
+        [{ id: 1, period: 2020 }],
+      );
+      const service = new SettlementsService(prisma as never);
+
+      const result = await service.changeStatus(
+        MUNICIPALITY_ID,
+        ADMIN_ID,
+        1,
+        SettlementStatus.PAGADA,
+      );
+
+      expect(result.status).toBe(SettlementStatus.PAGADA);
+      expect(prisma.settlement.updateMany).not.toHaveBeenCalled();
+      expect(prisma.settlementEvent.create).not.toHaveBeenCalled();
+    });
+
     it('rejects taking an EN_FIRME liquidation back to VIGENTE', async () => {
       const prisma = buildPrismaForStatusChange(
         inResolution(SettlementStatus.EN_FIRME, 90),
-        [{ id: 1 }],
+        [{ id: 1, period: 2020 }],
       );
       const service = new SettlementsService(prisma as never);
 
       const error = await service
-        .changeStatus(MUNICIPALITY_ID, 1, SettlementStatus.VIGENTE)
+        .changeStatus(MUNICIPALITY_ID, ADMIN_ID, 1, SettlementStatus.VIGENTE)
         .catch((caught: unknown) => caught);
 
-      // The rules need the resolution's issue date: the lookup must bring it.
+      // The rules need the resolution's issue date and the settlement's own
+      // payment order: the lookup must bring both.
       expect(prisma.settlement.findFirst).toHaveBeenCalledWith({
         where: { id: 1, property: { municipalityId: MUNICIPALITY_ID } },
-        include: { resolution: { select: { issuedAt: true } } },
+        include: {
+          resolution: { select: { issuedAt: true } },
+          paymentOrder: { select: { issuedAt: true } },
+        },
       });
 
       expect(error).toBeInstanceOf(ConflictException);
@@ -324,73 +409,90 @@ describe('SettlementsService', () => {
       expect(prisma.settlement.updateMany).not.toHaveBeenCalled();
     });
 
-    it('answers 409, changing nothing, when the status changed after it was read (SL-190)', async () => {
+    it('answers 409, changing and recording nothing, when the status changed after it was read', async () => {
       const prisma = buildPrismaForStatusChange(
         inResolution(SettlementStatus.VIGENTE, 10),
-        [{ id: 1 }, { id: 2 }],
+        [{ id: 1, period: 2020 }],
       );
       // Another tab (or the EN_FIRME sweep) already moved it out of VIGENTE.
       prisma.settlement.updateMany.mockResolvedValueOnce({ count: 0 });
       const service = new SettlementsService(prisma as never);
 
       const error = await service
-        .changeStatus(MUNICIPALITY_ID, 1, SettlementStatus.PAGADA)
+        .changeStatus(MUNICIPALITY_ID, ADMIN_ID, 1, SettlementStatus.PAGADA)
         .catch((e) => e);
 
       expect(error).toBeInstanceOf(ConflictException);
       expect(error.getResponse()).toMatchObject({
         code: ErrorCode.SETTLEMENT_STATUS_CHANGED,
       });
-      expect(prisma.settlement.updateMany).toHaveBeenCalledTimes(1);
-      expect(prisma.settlement.updateMany).toHaveBeenCalledWith({
-        where: { id: 1, status: SettlementStatus.VIGENTE, replacedAt: null },
-        data: { status: SettlementStatus.PAGADA },
-      });
+      expect(prisma.settlementEvent.create).not.toHaveBeenCalled();
     });
 
-    it('only allows PRESCRITA from EN_FIRME once the payment order is 5 years old', async () => {
-      const blocked = buildPrismaForStatusChange(
-        inResolution(SettlementStatus.EN_FIRME, 90),
-        [{ id: 1 }],
-      );
-      await expect(
-        new SettlementsService(blocked as never).changeStatus(
+    describe('PRESCRITA from EN_FIRME', () => {
+      it('is allowed when the settlement is in no payment order', async () => {
+        const prisma = buildPrismaForStatusChange(
+          inResolution(SettlementStatus.EN_FIRME, 90),
+          [{ id: 1, period: 2020 }],
+        );
+        await new SettlementsService(prisma as never).changeStatus(
           MUNICIPALITY_ID,
+          ADMIN_ID,
           1,
           SettlementStatus.PRESCRITA,
-        ),
-      ).rejects.toBeInstanceOf(ConflictException);
-
-      const allowed = buildPrismaForStatusChange(
-        inResolution(SettlementStatus.EN_FIRME, 3000),
-        [{ id: 1 }],
-        { issuedAt: daysAgo(6 * 366) },
-      );
-      await new SettlementsService(allowed as never).changeStatus(
-        MUNICIPALITY_ID,
-        1,
-        SettlementStatus.PRESCRITA,
-      );
-      expect(allowed.paymentOrder.findFirst).toHaveBeenCalledWith({
-        where: { settlements: { some: { id: { in: [1] } } } },
-        orderBy: { issuedAt: 'asc' },
-        select: { issuedAt: true },
+        );
+        expect(prisma.settlement.updateMany).toHaveBeenCalled();
       });
-      expect(allowed.settlement.updateMany).toHaveBeenCalled();
+
+      it('is rejected while its own payment order is younger than 5 years', async () => {
+        const prisma = buildPrismaForStatusChange(
+          inResolution(SettlementStatus.EN_FIRME, 900, 4 * 365),
+          [{ id: 1, period: 2020 }],
+        );
+        await expect(
+          new SettlementsService(prisma as never).changeStatus(
+            MUNICIPALITY_ID,
+            ADMIN_ID,
+            1,
+            SettlementStatus.PRESCRITA,
+          ),
+        ).rejects.toBeInstanceOf(ConflictException);
+        expect(prisma.settlement.updateMany).not.toHaveBeenCalled();
+      });
+
+      it('is allowed once its own payment order is 5 years old', async () => {
+        const prisma = buildPrismaForStatusChange(
+          inResolution(SettlementStatus.EN_FIRME, 3000, 6 * 366),
+          [{ id: 1, period: 2020 }],
+        );
+        await new SettlementsService(prisma as never).changeStatus(
+          MUNICIPALITY_ID,
+          ADMIN_ID,
+          1,
+          SettlementStatus.PRESCRITA,
+        );
+        expect(prisma.settlement.updateMany).toHaveBeenCalled();
+      });
     });
 
     it('returns a paid liquidation to EN_FIRME once 60 days have passed', async () => {
       const prisma = buildPrismaForStatusChange(
-        inResolution(SettlementStatus.PAGADA, 90),
-        [{ id: 1 }],
+        inResolution(SettlementStatus.PAGADA, 90, 30),
+        [{ id: 1, period: 2020 }],
       );
       const service = new SettlementsService(prisma as never);
 
       await expect(
-        service.changeStatus(MUNICIPALITY_ID, 1, SettlementStatus.VIGENTE),
+        service.changeStatus(
+          MUNICIPALITY_ID,
+          ADMIN_ID,
+          1,
+          SettlementStatus.VIGENTE,
+        ),
       ).rejects.toBeInstanceOf(ConflictException);
       const result = await service.changeStatus(
         MUNICIPALITY_ID,
+        ADMIN_ID,
         1,
         SettlementStatus.EN_FIRME,
       );
@@ -399,16 +501,9 @@ describe('SettlementsService', () => {
         SettlementStatus.PAGADA,
         SettlementStatus.ACUERDO_DE_PAGO,
       ]);
-      expect(prisma.settlement.updateMany).toHaveBeenCalledWith({
-        where: {
-          id: { in: [1] },
-          property: { municipalityId: MUNICIPALITY_ID },
-        },
-        data: { status: SettlementStatus.EN_FIRME },
-      });
     });
 
-    it('before a resolution exists, changes only the same-kind periods of that property', async () => {
+    it('reports the periods of the group still missing from the latest tax roll', async () => {
       // Periods 2000/2001 are always at prescription risk; 2999 never is.
       const prisma = buildPrismaForStatusChange(
         {
@@ -418,29 +513,25 @@ describe('SettlementsService', () => {
           propertyId: 3,
           status: SettlementStatus.VIGENTE,
           resolution: null,
+          paymentOrder: null,
         },
         [
           { id: 1, period: 2000 },
-          { id: 2, period: 2001 },
-          { id: 3, period: 2999 },
+          { id: 2, period: 2001, missingSince: new Date() },
+          { id: 3, period: 2999, missingSince: new Date() },
         ],
       );
       const service = new SettlementsService(prisma as never);
 
       const result = await service.changeStatus(
         MUNICIPALITY_ID,
+        ADMIN_ID,
         1,
         SettlementStatus.PAGADA,
       );
 
-      expect(result.settlementIds).toEqual([1, 2]);
-      expect(prisma.settlement.updateMany).toHaveBeenCalledWith({
-        where: {
-          id: { in: [1, 2] },
-          property: { municipalityId: MUNICIPALITY_ID },
-        },
-        data: { status: SettlementStatus.PAGADA },
-      });
+      expect(result.settlementIds).toEqual([1]);
+      expect(result.missingPeriods).toEqual([2001]);
     });
   });
 });

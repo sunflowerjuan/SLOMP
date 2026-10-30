@@ -4,7 +4,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { SettlementStatus } from '@prisma/client';
+import {
+  SettlementEventSource,
+  SettlementEventType,
+  SettlementStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { errorBody } from '../common/errors/error-body.js';
 import { ErrorCode } from '../common/errors/error-codes.js';
@@ -12,6 +16,7 @@ import { groupSettlementsForResolution } from '../resolutions/group-settlements-
 import { currentYearInColombia } from '../tax-roll/period-rules.js';
 import {
   groupSettlementsByResolution,
+  isMissingPeriod,
   type SettlementGroup,
 } from './group-search-results.js';
 import { allowedStatuses } from './settlement-status-rules.js';
@@ -24,7 +29,8 @@ export interface SettlementSearchCriteria {
 
 export interface SettlementStatusChangeResult {
   settlementId: number;
-  // Every settlement of the group (resolution) that changed with it.
+  // The settlements that changed: only this one. The other periods of its
+  // resolution keep their own status.
   settlementIds: number[];
   status: SettlementStatus;
   // What the selector may offer next, from the new state.
@@ -42,25 +48,6 @@ export interface SettlementSearchResult extends SettlementGroup {
   ownerName: string;
   // States the status selector may offer for this group right now.
   allowedStatuses: SettlementStatus[];
-}
-
-// Earliest payment order (mandamiento) of each resolution, from its
-// settlements' payment orders.
-function firstPaymentOrderByResolution(
-  settlements: {
-    resolutionId: number | null;
-    paymentOrder: { issuedAt: Date } | null;
-  }[],
-): Map<number, Date> {
-  const first = new Map<number, Date>();
-  for (const { resolutionId, paymentOrder } of settlements) {
-    if (resolutionId === null || paymentOrder === null) continue;
-    const current = first.get(resolutionId);
-    if (!current || paymentOrder.issuedAt < current) {
-      first.set(resolutionId, paymentOrder.issuedAt);
-    }
-  }
-  return first;
 }
 
 // How many properties a single search returns (each with all its groups, so
@@ -143,9 +130,6 @@ export class SettlementsService {
         })),
         currentYear,
       );
-      const firstPaymentOrders = firstPaymentOrderByResolution(
-        property.settlements,
-      );
       return groups.map((group) => {
         // The PATCH uses the clicked (first) settlement's state, so the
         // selector does too -- also for legacy MIXED groups.
@@ -160,10 +144,7 @@ export class SettlementsService {
           allowedStatuses: allowedStatuses({
             current: trigger.status,
             resolutionIssuedAt: trigger.resolution?.issuedAt ?? null,
-            firstPaymentOrderAt:
-              trigger.resolutionId === null
-                ? null
-                : (firstPaymentOrders.get(trigger.resolutionId) ?? null),
+            paymentOrderAt: trigger.paymentOrder?.issuedAt ?? null,
             now,
           }),
         };
@@ -171,15 +152,16 @@ export class SettlementsService {
     });
   }
 
-  // The status applies to the whole group the settlement belongs to (its
-  // Resolution, or the periods that will form one), because that is the unit
-  // the panel and the PDF show. Which states can be set depends on the
-  // current one, the resolution's age and its payment order
-  // (settlement-status-rules.ts). Only a current settlement can be changed —
-  // one already replaced isn't "the" settlement of its property+period
-  // anymore.
+  // Changes the status of this one settlement (a property and period): the
+  // other periods of its Resolution keep theirs. Which states
+  // can be set depends on the current one, the resolution's age and the
+  // settlement's own payment order (settlement-status-rules.ts). Only a
+  // current settlement can be changed: one already replaced isn't "the"
+  // settlement of its property+period anymore. The change and its audit
+  // event (source MANUAL) are written together.
   async changeStatus(
     municipalityId: number,
+    administratorId: number,
     id: number,
     status: unknown,
   ): Promise<SettlementStatusChangeResult> {
@@ -195,12 +177,16 @@ export class SettlementsService {
         ),
       );
     }
+    const target = status as SettlementStatus;
 
     // A settlement of another municipality is "not found", same as one that
     // does not exist.
     const settlement = await this.prisma.settlement.findFirst({
       where: { id, property: { municipalityId } },
-      include: { resolution: { select: { issuedAt: true } } },
+      include: {
+        resolution: { select: { issuedAt: true } },
+        paymentOrder: { select: { issuedAt: true } },
+      },
     });
     if (!settlement) {
       throw new NotFoundException(
@@ -219,6 +205,75 @@ export class SettlementsService {
       );
     }
 
+    const context = {
+      resolutionIssuedAt: settlement.resolution?.issuedAt ?? null,
+      paymentOrderAt: settlement.paymentOrder?.issuedAt ?? null,
+      now: new Date(),
+    };
+    const allowed = allowedStatuses({
+      ...context,
+      current: settlement.status,
+    });
+    if (!allowed.includes(target)) {
+      throw new ConflictException(
+        errorBody(
+          ErrorCode.SETTLEMENT_STATUS_TRANSITION_NOT_ALLOWED,
+          `Cannot change the status from ${settlement.status} to ${target}.`,
+          { from: settlement.status, to: target, allowed },
+        ),
+      );
+    }
+
+    // Re-sending the current state is a no-op: nothing to change or audit.
+    if (target !== settlement.status) {
+      await this.prisma.$transaction(async (tx) => {
+        // Applies only if the settlement still has the status the transition
+        // was checked against: another tab or the EN_FIRME sweep changing it
+        // in between answers 409 instead of an unchecked transition.
+        const claimed = await tx.settlement.updateMany({
+          where: { id, status: settlement.status, replacedAt: null },
+          data: { status: target },
+        });
+        if (claimed.count === 0) {
+          throw new ConflictException(
+            errorBody(
+              ErrorCode.SETTLEMENT_STATUS_CHANGED,
+              'The settlement changed while this request was in progress. Reload it and try again.',
+            ),
+          );
+        }
+        await tx.settlementEvent.create({
+          data: {
+            settlementId: id,
+            municipalityId,
+            type: SettlementEventType.STATUS_CHANGED,
+            fromStatus: settlement.status,
+            toStatus: target,
+            source: SettlementEventSource.MANUAL,
+            administratorId,
+          },
+        });
+      });
+    }
+
+    return {
+      settlementId: id,
+      settlementIds: [id],
+      status: target,
+      allowedStatuses: allowedStatuses({ ...context, current: target }),
+      missingPeriods: await this.missingPeriodsOfGroup(
+        municipalityId,
+        settlement,
+      ),
+    };
+  }
+
+  // Periods of the settlement's group (its Resolution, or the periods that
+  // will form one) still flagged as missing from the latest tax roll.
+  private async missingPeriodsOfGroup(
+    municipalityId: number,
+    settlement: { id: number; propertyId: number; resolutionId: number | null },
+  ): Promise<number[]> {
     const members =
       settlement.resolutionId !== null
         ? await this.prisma.settlement.findMany({
@@ -227,94 +282,39 @@ export class SettlementsService {
               replacedAt: null,
               property: { municipalityId },
             },
-            select: { id: true },
-          })
-        : groupSettlementsForResolution(
-            await this.prisma.settlement.findMany({
-              where: {
-                propertyId: settlement.propertyId,
-                property: { municipalityId },
-                replacedAt: null,
-                resolutionId: null,
-              },
-              select: { id: true, period: true },
-            }),
-            id,
-            currentYearInColombia(),
-          );
-    const settlementIds = members.map((member) => member.id);
-
-    const firstPaymentOrder = await this.prisma.paymentOrder.findFirst({
-      where: { settlements: { some: { id: { in: settlementIds } } } },
-      orderBy: { issuedAt: 'asc' },
-      select: { issuedAt: true },
-    });
-    const context = {
-      resolutionIssuedAt: settlement.resolution?.issuedAt ?? null,
-      firstPaymentOrderAt: firstPaymentOrder?.issuedAt ?? null,
-      now: new Date(),
-    };
-    const allowed = allowedStatuses({
-      ...context,
-      current: settlement.status,
-    });
-    if (!allowed.includes(status as SettlementStatus)) {
-      throw new ConflictException(
-        errorBody(
-          ErrorCode.SETTLEMENT_STATUS_TRANSITION_NOT_ALLOWED,
-          `Cannot change the status from ${settlement.status} to ${status}.`,
-          { from: settlement.status, to: status, allowed },
-        ),
-      );
-    }
-
-    await this.prisma.$transaction(async (tx) => {
-      // Applies only if the settlement still has the status the transition
-      // was checked against: another tab or the EN_FIRME sweep changing it
-      // in between answers 409 instead of an unchecked transition. The row
-      // lock also holds a concurrent change of the same group until commit.
-      const claimed = await tx.settlement.updateMany({
-        where: { id, status: settlement.status, replacedAt: null },
-        data: { status: status as SettlementStatus },
-      });
-      if (claimed.count === 0) {
-        throw new ConflictException(
-          errorBody(
-            ErrorCode.SETTLEMENT_STATUS_CHANGED,
-            'The settlement changed while this request was in progress. Reload it and try again.',
-          ),
-        );
-      }
-      await tx.settlement.updateMany({
-        where: { id: { in: settlementIds }, property: { municipalityId } },
-        data: { status: status as SettlementStatus },
-      });
-    });
-
-    // The whole group now shares one state, so the mark only survives a
-    // change back to VIGENTE.
-    const stillMissing =
-      status === SettlementStatus.VIGENTE
-        ? await this.prisma.settlement.findMany({
-            where: {
-              id: { in: settlementIds },
-              property: { municipalityId },
-              missingSince: { not: null },
+            select: {
+              id: true,
+              period: true,
+              status: true,
+              missingSince: true,
             },
-            select: { period: true },
-            orderBy: { period: 'asc' },
           })
-        : [];
-
-    return {
-      settlementId: id,
-      settlementIds,
-      status: status as SettlementStatus,
-      allowedStatuses: allowedStatuses({
-        ...context,
-        current: status as SettlementStatus,
-      }),
-      missingPeriods: stillMissing.map((member) => member.period),
-    };
+        : await this.prisma.settlement.findMany({
+            where: {
+              propertyId: settlement.propertyId,
+              property: { municipalityId },
+              replacedAt: null,
+              resolutionId: null,
+            },
+            select: {
+              id: true,
+              period: true,
+              status: true,
+              missingSince: true,
+            },
+          });
+    const groupIds = new Set(
+      settlement.resolutionId !== null
+        ? members.map((member) => member.id)
+        : groupSettlementsForResolution(
+            members,
+            settlement.id,
+            currentYearInColombia(),
+          ).map((member) => member.id),
+    );
+    return members
+      .filter((member) => groupIds.has(member.id) && isMissingPeriod(member))
+      .map((member) => member.period)
+      .sort((a, b) => a - b);
   }
 }

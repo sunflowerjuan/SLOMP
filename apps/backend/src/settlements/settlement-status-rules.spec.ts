@@ -20,8 +20,8 @@ const yearsAgo = (years: number) => {
 const context = (
   current: SettlementStatus,
   resolutionIssuedAt: Date | null,
-  firstPaymentOrderAt: Date | null = null,
-) => ({ current, resolutionIssuedAt, firstPaymentOrderAt, now: NOW });
+  paymentOrderAt: Date | null = null,
+) => ({ current, resolutionIssuedAt, paymentOrderAt, now: NOW });
 
 describe('baseStatus', () => {
   it('is EN_FIRME from the 60th day after the resolution was issued', () => {
@@ -57,26 +57,43 @@ describe('allowedStatuses', () => {
     expect(isTransitionAllowed(enFirme, ACUERDO_DE_PAGO)).toBe(true);
   });
 
-  it('only allows PRESCRITA from EN_FIRME 5 years after the payment order', () => {
-    expect(isTransitionAllowed(context(EN_FIRME, daysAgo(90)), PRESCRITA)).toBe(
-      false,
-    );
-    expect(
-      isTransitionAllowed(
-        context(EN_FIRME, yearsAgo(6), yearsAgo(4)),
-        PRESCRITA,
-      ),
-    ).toBe(false);
-    expect(
-      isTransitionAllowed(
-        context(EN_FIRME, yearsAgo(6), yearsAgo(5)),
-        PRESCRITA,
-      ),
-    ).toBe(true);
+  describe('PRESCRITA from EN_FIRME', () => {
+    it('is allowed at any time when the liquidation is in no payment order', () => {
+      expect(
+        isTransitionAllowed(context(EN_FIRME, daysAgo(90)), PRESCRITA),
+      ).toBe(true);
+    });
+
+    it('is rejected while its own payment order is younger than 5 years', () => {
+      expect(
+        isTransitionAllowed(
+          context(EN_FIRME, yearsAgo(6), yearsAgo(4)),
+          PRESCRITA,
+        ),
+      ).toBe(false);
+      expect(
+        allowedStatuses(context(EN_FIRME, daysAgo(90), daysAgo(1))),
+      ).toEqual([EN_FIRME, PAGADA, ACUERDO_DE_PAGO]);
+    });
+
+    it('is allowed once its own payment order is 5 years old or more', () => {
+      expect(
+        isTransitionAllowed(
+          context(EN_FIRME, yearsAgo(6), yearsAgo(5)),
+          PRESCRITA,
+        ),
+      ).toBe(true);
+      expect(
+        isTransitionAllowed(
+          context(EN_FIRME, yearsAgo(9), yearsAgo(7)),
+          PRESCRITA,
+        ),
+      ).toBe(true);
+    });
   });
 
   it('returns a paid liquidation to its base state: EN_FIRME after 60 days, VIGENTE before', () => {
-    expect(allowedStatuses(context(PAGADA, daysAgo(90)))).toEqual([
+    expect(allowedStatuses(context(PAGADA, daysAgo(90), daysAgo(1)))).toEqual([
       EN_FIRME,
       PAGADA,
       ACUERDO_DE_PAGO,
