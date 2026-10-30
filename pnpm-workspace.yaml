@@ -10,4 +10,6 @@ allowBuilds:
   esbuild: false
   msgpackr-extract: false
   prisma: true
+  # Prebuilt binaries come as @img/sharp-* packages; its script only checks them.
+  sharp: false
   workerd: false

@@ -35,6 +35,7 @@ import {
   type DocxContent,
   type Selection,
 } from './guided-marking.js';
+import { optimizeTemplateImages } from './optimize-template-images.js';
 import { buildTemplateCatalog } from './template-catalog.js';
 import { PREVIEW_DATA } from './template-preview-data.js';
 import {
@@ -149,9 +150,10 @@ export class TemplatesService implements OnModuleInit, OnModuleDestroy {
     clearInterval(this.timer);
   }
 
-  // Validates the .docx, stores it as the next version and makes it the active
-  // one; the previous versions stay. A template that fails validation leaves
-  // nothing behind: no row, no blob, and the active template is unchanged.
+  // Validates the .docx, stores it (images at 150 ppi) as the next version and
+  // makes it the active one; the previous versions stay. A template that fails
+  // validation leaves nothing behind: no row, no blob, and the active template
+  // is unchanged.
   async upload(
     municipality: MunicipalityContext,
     documentType: PdfDocumentType,
@@ -159,10 +161,14 @@ export class TemplatesService implements OnModuleInit, OnModuleDestroy {
     uploadedById: number,
   ): Promise<TemplateView> {
     const fields = this.checkedFields(documentType, file.buffer, true);
-    return this.storeVersion(municipality, documentType, file, uploadedById, {
-      fields,
-      replaceConfirmed: true,
-    });
+    const buffer = await optimizeTemplateImages(file.buffer);
+    return this.storeVersion(
+      municipality,
+      documentType,
+      { ...file, buffer },
+      uploadedById,
+      { fields, replaceConfirmed: true },
+    );
   }
 
   // The markers of the file, checked against the catalog. A draft may still
@@ -322,8 +328,9 @@ export class TemplatesService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  // Guided marking, step 1: keeps the original unactivated for 24 hours. It
-  // may come with valid markers already written; unknown ones are refused.
+  // Guided marking, step 1: keeps the original (images at 150 ppi, so the
+  // version saved from it is too) unactivated for 24 hours. It may come with
+  // valid markers already written; unknown ones are refused.
   async createDraft(
     municipality: MunicipalityContext,
     documentType: PdfDocumentType,
@@ -332,16 +339,13 @@ export class TemplatesService implements OnModuleInit, OnModuleDestroy {
   ): Promise<DraftView> {
     this.checkedFields(documentType, file.buffer, false);
     asBadRequest(() => readDocxContent(file.buffer, documentType));
+    const original = await optimizeTemplateImages(file.buffer);
 
     const id = randomUUID();
     const blobPrefix = `${this.pdf.config.templatesContainer}/${municipality.slug}/drafts/${id}/`;
     const storage = this.pdf.storage();
     try {
-      await storage.upload(
-        `${blobPrefix}original.docx`,
-        file.buffer,
-        DOCX_TYPE,
-      );
+      await storage.upload(`${blobPrefix}original.docx`, original, DOCX_TYPE);
     } catch (error) {
       throw storageUnavailable('Could not store the draft in Storage.', error);
     }
