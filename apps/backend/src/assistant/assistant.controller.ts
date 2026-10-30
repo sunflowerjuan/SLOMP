@@ -1,4 +1,13 @@
-import { Body, Controller, HttpCode, Post, UseGuards } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  Post,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import type { AuthenticatedUser } from '../auth/jwt.strategy.js';
@@ -10,10 +19,16 @@ import {
   StatusChangesDto,
 } from './assistant-changes.dto.js';
 import { AssistantChangesService } from './assistant-changes.service.js';
+import { AssistantConversationService } from './assistant-conversation.service.js';
+import { AssistantMessageDto } from './assistant-message.dto.js';
+import {
+  AssistantRateLimitedException,
+  AssistantRateLimiter,
+} from './assistant-rate-limiter.js';
 import { AssistantToolsService } from './assistant-tools.service.js';
 
-// Status changes proposed by Slompsim, or built by the panel's status
-// buttons, go through here without the model.
+// Slompsim's conversation, and the status changes it proposes (or that the
+// panel's status buttons build), which are applied without the model.
 @ApiTags('assistant')
 @ApiBearerAuth()
 @UseGuards(MunicipalityGuard)
@@ -22,7 +37,37 @@ export class AssistantController {
   constructor(
     private readonly tools: AssistantToolsService,
     private readonly changes: AssistantChangesService,
+    private readonly conversation: AssistantConversationService,
+    private readonly rateLimiter: AssistantRateLimiter,
   ) {}
+
+  @Post('messages')
+  @HttpCode(200)
+  @ApiOperation({
+    summary:
+      'Envía un mensaje a Slompsim con el historial que guarda el cliente. Responde el texto y los cambios propuestos ya validados, que se aplican con changes/confirm. No cambia nada.',
+  })
+  message(
+    @CurrentMunicipality() municipality: MunicipalityContext,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: AssistantMessageDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    try {
+      this.rateLimiter.consume(user.id);
+    } catch (error) {
+      if (error instanceof AssistantRateLimitedException) {
+        res.setHeader('Retry-After', String(error.retryAfterSeconds));
+      }
+      throw error;
+    }
+    const requestId = res.getHeader('X-Request-Id');
+    return this.conversation.reply(
+      municipality.id,
+      body,
+      typeof requestId === 'string' ? requestId : randomUUID(),
+    );
+  }
 
   @Post('changes/preview')
   @HttpCode(200)

@@ -78,6 +78,12 @@ services:
       PDF_SERVICE_URL: http://pdf:3001
       PDF_SERVICE_KEY: ${PDF_SERVICE_KEY:-local-compose-only-change-me}
       AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-}
+      # Slompsim's model; off (503) unless set in .env.
+      ASSISTANT_PROVIDER: ${ASSISTANT_PROVIDER:-}
+      ASSISTANT_API_KEY: ${ASSISTANT_API_KEY:-}
+      ASSISTANT_MODEL: ${ASSISTANT_MODEL:-}
+      ASSISTANT_EFFORT: ${ASSISTANT_EFFORT:-}
+      ASSISTANT_BASE_URL: ${ASSISTANT_BASE_URL:-}
     volumes:
       # The official template is client material and isn't in git. The backend
       # no longer reads it: upload it through the API (apps/backend/README.md,
