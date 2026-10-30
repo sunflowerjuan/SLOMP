@@ -27,6 +27,13 @@
   margin-top: auto;
 }
 
+/* The actions of a document's card, side by side while they fit. */
+.templates-page__go-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+
 .templates-page__upload,
 .templates-page__versions,
 .templates-page__type {
@@ -100,6 +107,10 @@
   margin: 0;
   font-size: var(--text-sm);
   color: var(--semantic-text-muted);
+}
+
+.templates-page__empty strong {
+  color: var(--semantic-text);
 }
 
 .templates-page__link {
@@ -199,8 +210,10 @@
   list-style: none;
 }
 
+/* The actions go under the text when the column can't hold both. */
 .templates-page__version {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-12);
@@ -220,6 +233,7 @@
 
 .templates-page__version > div {
   display: flex;
+  flex: 1 1 14rem;
   flex-direction: column;
   gap: var(--space-4);
   min-width: 0;
@@ -291,6 +305,42 @@
   min-height: 0;
 }
 
+.template-viewer__tabs {
+  display: flex;
+  flex: none;
+}
+
+/* Each tab takes the height left over; only what it shows scrolls. */
+.template-viewer__panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.template-viewer__panel[hidden] {
+  display: none;
+}
+
+.template-viewer__document {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-24) var(--space-32);
+  border: 1px solid var(--semantic-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--semantic-surface);
+}
+
+/* The longest marker names don't fit in a phone's line: they wrap like the
+   text around them. */
+.template-document .marking-doc__tag {
+  display: inline;
+  white-space: normal;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
 .template-viewer .template-preview {
   flex: 1;
   min-height: 0;
@@ -343,5 +393,23 @@
 
   .template-viewer__spacer {
     display: none;
+  }
+
+  .template-viewer {
+    gap: var(--space-12);
+  }
+
+  .template-viewer__meta {
+    gap: var(--space-4) var(--space-8);
+  }
+
+  /* Beside the badge: this fixed zone can't take more of the height. */
+  .template-viewer__meta .templates-page__file {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .template-viewer__document {
+    padding: var(--space-16);
   }
 }

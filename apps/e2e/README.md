@@ -13,7 +13,7 @@ arma la matriz de trazabilidad (SL-167) y se filtra una corrida:
 | Cartera | `tax-roll.spec.ts` | ambos |
 | Liquidaciones | `settlements.spec.ts` | ambos |
 | Mandamientos | `payment-orders.spec.ts` (Cargar y Revisar, SL-173), `payment-orders-generate.spec.ts` (generar) | ambos |
-| Plantillas | `templates.spec.ts` (marcado guiado SL-160, plantilla inválida, versión siguiente, historial) | ambos |
+| Plantillas | `templates.spec.ts` (marcado guiado SL-160, plantilla inválida, versión siguiente, historial, ver la plantilla guardada SL-174) | ambos |
 | Municipios | `municipalities.spec.ts` | ambos |
 | Consulta pública | `public-consultation.spec.ts` | solo `desktop` (no depende del ancho; el límite de consultas se cuenta por minuto) |
 | Navegación | `navigation.spec.ts` (SL-170) | ambos |

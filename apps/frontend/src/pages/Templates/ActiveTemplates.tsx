@@ -14,11 +14,8 @@ import { Notice } from "../../components/ui/Notice";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { fieldLabels } from "../../domain/templateMarking";
 import { adminHref, templatesView } from "../../routes";
-import {
-  DATE_TIME_FORMATTER,
-  DOCUMENT_TEXT,
-  TYPE_SEGMENT,
-} from "./documentText";
+import { DOCUMENT_TEXT, savedText, TYPE_SEGMENT } from "./documentText";
+import { TemplateVersionViewer } from "./TemplateVersionViewer";
 import "./TemplatesPage.css";
 
 const DOCUMENT_TYPES: TemplateDocumentType[] = ["LIQUIDACION", "MANDAMIENTO"];
@@ -28,9 +25,10 @@ type State =
   | { status: "error"; message: string }
   | { status: "ready"; active: TemplateVersion | null };
 
-// In Configuración, only which version of each document is in use, or that
-// there is none. The history, activating an earlier version and
-// uploading a new one are on each document's templates screen.
+// In Configuración, which version of each document is in use, to read it
+// without going through marking, or that there is none. The history,
+// activating an earlier version and uploading a new one are on each
+// document's templates screen.
 export function ActiveTemplates({ slug }: { slug: string }) {
   // A template left half marked in this browser, to come back to.
   const [draft] = useState(() => readStoredDraft());
@@ -77,6 +75,7 @@ function ActiveTemplateCard({
   const text = DOCUMENT_TEXT[documentType];
   const [state, setState] = useState<State>({ status: "loading" });
   const [catalog, setCatalog] = useState<MarkerCatalogEntry[]>([]);
+  const [viewing, setViewing] = useState(false);
   const href = adminHref(slug, templatesView(TYPE_SEGMENT[documentType]));
 
   function readyState(versions: TemplateVersion[]): State {
@@ -150,7 +149,7 @@ function ActiveTemplateCard({
           <p>
             <span className="templates-page__file">{active.fileName}</span>
             <br />
-            Subida el {DATE_TIME_FORMATTER.format(new Date(active.createdAt))}
+            {savedText(active)}
           </p>
           {labels.length > 0 && (
             <details className="templates-page__fields">
@@ -172,28 +171,32 @@ function ActiveTemplateCard({
 
       {state.status === "ready" && !active && (
         <div className="templates-page__empty">
-          <StatusBadge variant="warning">Sin plantilla activa</StatusBadge>
-          <p>
-            Mientras no haya una plantilla de {text.name} activa, no se pueden
-            generar sus PDF.
-          </p>
+          <strong>Aún no hay plantilla</strong>
+          <p>Sin ella no se pueden generar los PDF de {text.name}.</p>
         </div>
       )}
 
       {/* Without a template the next step is uploading one. */}
       {state.status === "ready" && !active ? (
         <ButtonLink className="templates-page__go" href={href}>
-          Subir una plantilla
+          Subir plantilla
         </ButtonLink>
       ) : (
-        <ButtonLink
-          variant="secondary"
-          className="templates-page__go"
-          href={href}
-        >
-          Ver historial y subir una nueva
-        </ButtonLink>
+        <div className="templates-page__go templates-page__go-group">
+          {active && (
+            <Button onClick={() => setViewing(true)}>Ver plantilla</Button>
+          )}
+          <ButtonLink variant="secondary" href={href}>
+            Ver historial y subir una nueva
+          </ButtonLink>
+        </div>
       )}
+
+      <TemplateVersionViewer
+        version={viewing ? active : null}
+        documentName={text.name}
+        onClose={() => setViewing(false)}
+      />
     </Card>
   );
 }

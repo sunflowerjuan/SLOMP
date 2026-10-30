@@ -126,7 +126,7 @@ export class TemplatesController {
   @Get()
   @ApiOperation({
     summary:
-      'Lista las versiones de plantillas del municipio (la activa lleva isActive), la más reciente primero.',
+      'Lista las versiones de plantillas del municipio (la activa lleva isActive y savedBy dice quién guardó cada una), la más reciente primero.',
   })
   list(
     @CurrentMunicipality() municipality: MunicipalityContext,

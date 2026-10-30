@@ -20,6 +20,8 @@ export interface TemplateVersion {
   fields: string[];
   isActive: boolean;
   createdAt: string;
+  // Who saved it; null once that administrator no longer exists.
+  savedBy: string | null;
 }
 
 // Newest version first.
@@ -162,6 +164,23 @@ export interface DraftContent {
   blocks: DocumentBlock[];
   // The {markers} the file already had; they stay on save.
   appliedMarkers: MarkerSelection[];
+}
+
+// A saved version (active or earlier), read the way a draft is: its markers
+// are in `text` as tags, and `appliedMarkers` names each one.
+export interface TemplateContent {
+  id: number;
+  version: number;
+  documentType: TemplateDocumentType;
+  blocks: DocumentBlock[];
+  appliedMarkers: (MarkerSelection & { label: string })[];
+}
+
+export function getTemplateContent(
+  id: number,
+  signal?: AbortSignal,
+): Promise<TemplateContent> {
+  return request(municipalityPath(`/templates/${id}/content`), { signal });
 }
 
 export function createTemplateDraft(
