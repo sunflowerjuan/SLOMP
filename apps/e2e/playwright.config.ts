@@ -4,9 +4,15 @@ import { baseUrl } from "./src/env";
 export default defineConfig({
   testDir: "./tests",
   // Pure unit tests: run by `pnpm --filter e2e test:unit`, no servers needed.
-  testIgnore: "guard.spec.ts",
+  testIgnore: ["guard.spec.ts", "downloads.spec.ts"],
   globalSetup: "./src/global-setup.ts",
-  retries: process.env.CI ? 1 : 0,
+  // One worker, files in name order: every file shares the e2e-prueba
+  // municipality (and the public consultation limit), so they run one at a time.
+  workers: 1,
+  fullyParallel: false,
+  // No retries: SL-166 asks for runs that pass on their own, so a flaky
+  // test has to show up as a failure.
+  retries: 0,
   reporter: [
     ["list"],
     ["html", { outputFolder: "playwright-report", open: "never" }],

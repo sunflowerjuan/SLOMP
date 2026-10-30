@@ -44,7 +44,7 @@ test.beforeEach(async ({ page }) => {
   await signIn(page);
 });
 
-test("el menú muestra Operación y Configuración, sin otras entradas", async ({
+test("el menú muestra Operación y Configuración, sin otras entradas @UAT-N/A", async ({
   page,
   isMobile,
 }) => {
@@ -74,7 +74,7 @@ test("el menú muestra Operación y Configuración, sin otras entradas", async (
   }
 });
 
-test("cada entrada del menú lleva a su pantalla y queda marcada", async ({
+test("cada entrada del menú lleva a su pantalla y queda marcada @UAT-N/A", async ({
   page,
 }) => {
   await open(page, "cargas");
@@ -93,7 +93,7 @@ test("cada entrada del menú lleva a su pantalla y queda marcada", async ({
   }
 });
 
-test("las direcciones antiguas llevan al panel de Configuración", async ({
+test("las direcciones antiguas llevan al panel de Configuración @UAT-N/A", async ({
   page,
 }) => {
   for (const old of [
@@ -128,7 +128,7 @@ test("las direcciones antiguas llevan al panel de Configuración", async ({
   ).toHaveAttribute("aria-current", "page");
 });
 
-test("el municipio activo se ve en cada pantalla y su pastilla abre el selector", async ({
+test("el municipio activo se ve en cada pantalla y su pastilla abre el selector @UAT-28", async ({
   page,
 }) => {
   for (const view of VIEWS) {
@@ -152,7 +152,7 @@ test("el municipio activo se ve en cada pantalla y su pastilla abre el selector"
   await expect(municipalityPill(page)).toBeFocused();
 });
 
-test("el menú se recorre con teclado y el enlace de salto lleva al contenido", async ({
+test("el menú se recorre con teclado y el enlace de salto lleva al contenido @UAT-N/A", async ({
   page,
   isMobile,
 }) => {

@@ -203,7 +203,7 @@ for (const { type, name, markings, required, documentName } of [
     documentName: "mandamiento",
   },
 ]) {
-  test(`${type}: subir sin marcadores, marcar con teclado, previsualizar y guardar`, async ({
+  test(`${type}: subir sin marcadores, marcar con teclado, previsualizar y guardar @UAT-26`, async ({
     page,
   }) => {
     await upload(page, type, name);
@@ -258,7 +258,7 @@ for (const { type, name, markings, required, documentName } of [
   });
 }
 
-test("con una plantilla activa, guardar pregunta antes de reemplazarla y Cancelar no cambia nada", async ({
+test("con una plantilla activa, guardar pregunta antes de reemplazarla y Cancelar no cambia nada @UAT-26", async ({
   page,
 }) => {
   const active = await ensureActiveLiquidationTemplate();
@@ -308,7 +308,7 @@ test("con una plantilla activa, guardar pregunta antes de reemplazarla y Cancela
   expect(await activeVersion(page)).toBeGreaterThan(active.version);
 });
 
-test("el borrador sobrevive a una recarga y Cancelar pide confirmación si hay marcadores", async ({
+test("el borrador sobrevive a una recarga y Cancelar pide confirmación si hay marcadores @UAT-26", async ({
   page,
 }) => {
   await upload(
@@ -338,7 +338,7 @@ test("el borrador sobrevive a una recarga y Cancelar pide confirmación si hay m
   ).toBeVisible();
 });
 
-test("una selección que cruza párrafos se avisa y no asigna nada", async ({
+test("una selección que cruza párrafos se avisa y no asigna nada @UAT-26", async ({
   page,
   isMobile,
 }) => {
@@ -369,7 +369,7 @@ test("una selección que cruza párrafos se avisa y no asigna nada", async ({
   await page.getByRole("button", { name: "Cancelar" }).click();
 });
 
-test("en el teléfono la lista de marcadores es una hoja inferior", async ({
+test("en el teléfono la lista de marcadores es una hoja inferior @UAT-26", async ({
   page,
   isMobile,
 }) => {
@@ -390,7 +390,7 @@ test("en el teléfono la lista de marcadores es una hoja inferior", async ({
   await page.getByRole("button", { name: "Cancelar" }).click();
 });
 
-test("Configuración solo dice qué plantilla de cada documento está en uso, y lleva a su historial", async ({
+test("Configuración solo dice qué plantilla de cada documento está en uso, y lleva a su historial @UAT-26", async ({
   page,
 }) => {
   const active = await ensureActiveLiquidationTemplate();
@@ -433,7 +433,7 @@ test("Configuración solo dice qué plantilla de cada documento está en uso, y 
   ).toBeVisible();
 });
 
-test("el enlace de consulta pública se ve completo en Configuración y se copia", async ({
+test("el enlace de consulta pública se ve completo en Configuración y se copia @UAT-26", async ({
   page,
   context,
 }) => {
@@ -452,7 +452,7 @@ test("el enlace de consulta pública se ve completo en Configuración y se copia
   );
 });
 
-test("cada versión del historial se puede ver antes de activarla", async ({
+test("cada versión del historial se puede ver antes de activarla @UAT-26", async ({
   page,
 }) => {
   // Two saves: the second leaves the first as an earlier version.
@@ -518,7 +518,7 @@ test("cada versión del historial se puede ver antes de activarla", async ({
   await expect(current).toBeHidden();
 });
 
-test("una tabla llena se marca en su fila de ejemplo y las demás filas se quitan desde la pantalla", async ({
+test("una tabla llena se marca en su fila de ejemplo y las demás filas se quitan desde la pantalla @UAT-26", async ({
   page,
 }) => {
   await upload(page, "Liquidación", "plantilla-liquidacion-tabla-llena.docx");
@@ -582,7 +582,7 @@ test("una tabla llena se marca en su fila de ejemplo y las demás filas se quita
   expect(texts).not.toContain("2024");
 });
 
-test("el menú de marcadores no se mueve al recorrerlo y se cierra si la selección sale de la vista", async ({
+test("el menú de marcadores no se mueve al recorrerlo y se cierra si la selección sale de la vista @UAT-26", async ({
   page,
   isMobile,
 }) => {
@@ -622,7 +622,7 @@ test("el menú de marcadores no se mueve al recorrerlo y se cierra si la selecci
   await expect(menu).toBeHidden();
 });
 
-test("ir a un marcador al final del documento no desplaza la pantalla entera", async ({
+test("ir a un marcador al final del documento no desplaza la pantalla entera @UAT-26", async ({
   page,
   isMobile,
 }) => {
@@ -664,7 +664,7 @@ test("ir a un marcador al final del documento no desplaza la pantalla entera", a
   ).toBeInViewport();
 });
 
-test("el buscador del menú filtra los marcadores sin importar tildes", async ({
+test("el buscador del menú filtra los marcadores sin importar tildes @UAT-26", async ({
   page,
 }) => {
   await upload(

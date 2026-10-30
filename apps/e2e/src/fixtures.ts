@@ -2,7 +2,8 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { E2E_MUNICIPALITY_SLUG, adminCredentials, apiUrl } from "./env";
+import { apiFetch, apiLogin } from "./api";
+import { E2E_MUNICIPALITY_SLUG, apiUrl } from "./env";
 
 // The fictional Excel files and Word templates of
 // apps/backend/scripts/generate-e2e-fixtures.mjs (cadastral codes of the
@@ -32,23 +33,10 @@ export function ensureFixtures(): void {
   execFileSync(process.execPath, [GENERATOR], { stdio: "inherit" });
 }
 
-async function apiToken(): Promise<string> {
-  const { email, password } = adminCredentials();
-  const login = await fetch(`${apiUrl}/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-  if (!login.ok) {
-    throw new Error(`El login por API falló (${login.status}).`);
-  }
-  return ((await login.json()) as { accessToken: string }).accessToken;
-}
-
 // Loads a tax roll into the test municipality through the API, as the
 // starting data of a test. A file loaded before only reports conflicts.
 export async function loadTaxRoll(name: FixtureName): Promise<void> {
-  const accessToken = await apiToken();
+  const accessToken = await apiLogin();
 
   const form = new FormData();
   const path = fixture(name);
@@ -69,19 +57,26 @@ export async function loadTaxRoll(name: FixtureName): Promise<void> {
   }
 }
 
-// Makes sure the test municipality has an active liquidation template, as
-// the starting data of a test: the template without markers, marked through
-// the guided marking API (replacing whatever was active).
-export async function ensureActiveLiquidationTemplate(): Promise<{
-  version: number;
-}> {
-  const accessToken = await apiToken();
+interface Selection {
+  text: string;
+  field: string;
+}
+
+// Makes sure the test municipality has an active template of a document
+// type, as the starting data of a test: the template without markers, marked
+// through the guided marking API (replacing whatever was active).
+async function ensureActiveTemplate(
+  documentType: "LIQUIDACION" | "MANDAMIENTO",
+  file: FixtureName,
+  selections: Selection[],
+): Promise<{ version: number }> {
+  const accessToken = await apiLogin();
   const base = `${apiUrl}/municipalities/${E2E_MUNICIPALITY_SLUG}/templates`;
   const auth = { Authorization: `Bearer ${accessToken}` };
 
   const form = new FormData();
-  const path = fixture("plantilla-liquidacion-sin-marcadores.docx");
-  form.append("documentType", "LIQUIDACION");
+  const path = fixture(file);
+  form.append("documentType", documentType);
   form.append("file", new Blob([readFileSync(path)]), basename(path));
   const created = await fetch(`${base}/drafts`, {
     method: "POST",
@@ -111,12 +106,7 @@ export async function ensureActiveLiquidationTemplate(): Promise<{
     headers: { ...auth, "Content-Type": "application/json" },
     body: JSON.stringify({
       replaceConfirmed: true,
-      selections: [
-        select("RES-0000-2026", "resolutionNumber"),
-        select("00-00-0000-0000-000", "cadastralCode"),
-        select("2020", "rows.year"),
-        select("$120.000", "totalAmount"),
-      ],
+      selections: selections.map(({ text, field }) => select(text, field)),
     }),
   });
   if (!saved.ok) {
@@ -125,10 +115,62 @@ export async function ensureActiveLiquidationTemplate(): Promise<{
   return (await saved.json()) as { version: number };
 }
 
+export function ensureActiveLiquidationTemplate(): Promise<{
+  version: number;
+}> {
+  return ensureActiveTemplate(
+    "LIQUIDACION",
+    "plantilla-liquidacion-sin-marcadores.docx",
+    [
+      { text: "RES-0000-2026", field: "resolutionNumber" },
+      { text: "00-00-0000-0000-000", field: "cadastralCode" },
+      { text: "2020", field: "rows.year" },
+      { text: "$120.000", field: "totalAmount" },
+    ],
+  );
+}
+
+export function ensureActivePaymentOrderTemplate(): Promise<{
+  version: number;
+}> {
+  return ensureActiveTemplate(
+    "MANDAMIENTO",
+    "plantilla-mandamiento-sin-marcadores.docx",
+    [
+      { text: "MND-0000-2026", field: "paymentOrderNumber" },
+      { text: "00-00-0000-0000-000", field: "cadastralCode" },
+      { text: "$100.000", field: "capitalAmount" },
+      { text: "LIQ-0000-2026", field: "liquidations" },
+    ],
+  );
+}
+
+// Issues the resolution of the given properties, as the starting data of a
+// payment order or public consultation test (the liquidation PDF is what
+// creates the resolution, and the public consultation lists only those).
+export async function issueResolutions(codes: string[]): Promise<void> {
+  for (const code of codes) {
+    const found = await apiFetch(
+      `/municipalities/${E2E_MUNICIPALITY_SLUG}/settlements/search?cadastralCode=${code}`,
+    );
+    const entries = (await found.json()) as { settlementId: number }[];
+    if (entries.length === 0) throw new Error(`No hay liquidación de ${code}.`);
+    const issued = await apiFetch(
+      `/municipalities/${E2E_MUNICIPALITY_SLUG}/settlements/${entries[0].settlementId}/liquidation-pdf`,
+      { method: "POST" },
+    );
+    if (!issued.ok) {
+      throw new Error(
+        `No se pudo emitir la resolución de ${code} (${issued.status}).`,
+      );
+    }
+  }
+}
+
 // The paragraphs of the municipality's active liquidation template, as the
 // API reads them back.
 export async function activeLiquidationTexts(): Promise<string[]> {
-  const accessToken = await apiToken();
+  const accessToken = await apiLogin();
   const base = `${apiUrl}/municipalities/${E2E_MUNICIPALITY_SLUG}/templates`;
   const auth = { Authorization: `Bearer ${accessToken}` };
   const versions = (await (
