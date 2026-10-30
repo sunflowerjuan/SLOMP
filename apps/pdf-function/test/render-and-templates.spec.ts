@@ -1,7 +1,9 @@
+import { createHash } from 'node:crypto';
 import PizZip from 'pizzip';
 import { describe, expect, it } from 'vitest';
 import { renderDocx } from '../src/render.ts';
 import { minimalDocx } from '../src/minimal-docx.ts';
+import type { TemplateRef } from '../src/contract.ts';
 import { createTemplateCache } from '../src/templates.ts';
 import { FakeBlobs, templateFixture } from './fakes.ts';
 
@@ -45,6 +47,32 @@ describe('createTemplateCache', () => {
     expect(await getTemplate(ref)).toBe(template);
     expect(await getTemplate(ref)).toBe(template);
     expect(blobs.downloads).toBe(1);
+  });
+
+  it('keeps only the most recently used templates (SL-191)', async () => {
+    const blobs = new FakeBlobs();
+    const [a, b, c] = ['a', 'b', 'c'].map((mark) => {
+      const template = minimalDocx([mark]);
+      const blob = `templates/paez/liquidacion/${mark}.docx`;
+      blobs.files.set(blob, template);
+      return {
+        blob,
+        sha256: createHash('sha256').update(template).digest('hex'),
+      };
+    }) as [TemplateRef, TemplateRef, TemplateRef];
+    const getTemplate = createTemplateCache(blobs, 2);
+    await getTemplate(a);
+    await getTemplate(b);
+    await getTemplate(a); // a is now more recent than b
+    await getTemplate(c); // over the limit: b, the least recent, goes
+    expect(blobs.downloads).toBe(3);
+    await getTemplate(a);
+    await getTemplate(c);
+    expect(blobs.downloads).toBe(3);
+    await getTemplate(b); // downloaded again; a goes now
+    expect(blobs.downloads).toBe(4);
+    await getTemplate(a);
+    expect(blobs.downloads).toBe(5);
   });
 
   it('refuses a missing template or one whose hash does not match', async () => {

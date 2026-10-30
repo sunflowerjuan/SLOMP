@@ -21,10 +21,15 @@ RUN pnpm --filter pdf-function --prod --legacy deploy /out/pdf-function
 
 FROM node:24-bookworm-slim AS runtime
 # writer-only LibreOffice (no GUI/Java) plus metric-compatible fonts so the
-# PDF layout matches Word documents that use Arial/Times/Calibri.
+# PDF layout matches Word documents that use Arial/Times/Calibri. unoserver
+# keeps a LibreOffice running for /render (python3-uno is its UNO bridge);
+# pip is only needed to install it.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       libreoffice-writer fonts-liberation fonts-dejavu-core fonts-crosextra-carlito \
+      python3-uno python3-pip \
+ && pip install --no-cache-dir --break-system-packages unoserver==3.7 \
+ && apt-get purge -y --auto-remove python3-pip \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

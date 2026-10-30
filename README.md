@@ -211,7 +211,7 @@ Para 1 vCPU y 3,8 GiB de RAM, con 2 GiB de swap. Se ajustan con mediciones reale
 
 | Servicio | Límite | En reposo (medido en local) |
 |---|---|---|
-| `pdf` (LibreOffice) | 1 GiB | 76 MiB |
+| `pdf` (LibreOffice) | 768 MiB (lote de 100 documentos con `/render` a la vez: pico de ~450 MiB, con el LibreOffice que queda encendido para `/render`) | 141 MiB |
 | `backend` | 768 MiB (al importar la cartera de Páez, 11 202 filas: pico de ~460 MiB, ~600 MiB con dos cargas a la vez) | 127 MiB |
 | `db` | 512 MiB | 19 MiB |
 | `azurite` | 256 MiB | 131 MiB |

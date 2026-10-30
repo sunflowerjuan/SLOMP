@@ -71,12 +71,20 @@ export interface Slot {
 // One LibreOffice profile per slot, reused for every batch it converts: the
 // profile bootstrap is most of the cost of a single conversion (1.33 s fresh
 // vs 0.28 s reused per PDF). A slot runs one conversion at a time; concurrent
-// soffice runs on the same profile collide on its lock.
-export async function createSofficeSlot(timeoutMs: number): Promise<Slot> {
+// soffice runs on the same profile collide on its lock. Bulk slots run at the
+// lowest CPU priority: on one vCPU an individual PDF converting next to a
+// batch took 5.5 to 6.1 s (RNF-01: under 5 s).
+export async function createSofficeSlot(
+  timeoutMs: number,
+  lowPriority = false,
+): Promise<Slot> {
   const root = await mkdtemp(join(tmpdir(), 'pdf-slot-'));
   const profile = join(root, 'profile');
   await createProfile(profile);
   const binary = resolveSofficeBinary();
+  const [command, prefix] = lowPriority
+    ? ['/usr/bin/nice', ['-n', '19', binary]]
+    : [binary, []];
 
   async function convert(docs: Buffer[]): Promise<(Buffer | JobError)[]> {
     const dir = await mkdtemp(join(root, 'batch-'));
@@ -90,8 +98,9 @@ export async function createSofficeSlot(timeoutMs: number): Promise<Slot> {
       );
       try {
         await execFileAsync(
-          binary,
+          command,
           [
+            ...prefix,
             '--headless',
             '--norestore',
             `-env:UserInstallation=${pathToFileURL(profile).href}`,

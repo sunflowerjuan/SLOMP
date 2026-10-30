@@ -6,14 +6,15 @@ import { createSlotPool } from './slots.ts';
 import { createSofficeSlot, type Slot } from './soffice.ts';
 import { connectAzureStorage } from './storage.ts';
 import { createTemplateCache } from './templates.ts';
+import { createUnoserverSlot, resolveUnoserverBinary } from './unoserver.ts';
 import { startWorker } from './worker.ts';
 
 const config = loadConfig();
 
-const createSlots = (count: number): Promise<Slot[]> =>
+const createSlots = (count: number, lowPriority = false): Promise<Slot[]> =>
   Promise.all(
     Array.from({ length: count }, () =>
-      createSofficeSlot(config.convertTimeoutMs),
+      createSofficeSlot(config.convertTimeoutMs, lowPriority),
     ),
   );
 
@@ -23,8 +24,18 @@ const storage = config.storageConnectionString
 const getTemplate = storage && createTemplateCache(storage.blobs);
 
 // /render slots are warmed up now, so the first individual PDF doesn't pay
-// LibreOffice's profile bootstrap (RNF-01: 5 s).
-const renderSlots = await createSlots(config.renderSlots);
+// LibreOffice's startup (RNF-01: 5 s). Without unoserver (outside the image)
+// they start soffice for each PDF.
+const unoserver = resolveUnoserverBinary();
+if (!unoserver)
+  console.log('unoserver not found: /render starts soffice per PDF');
+const renderSlots = unoserver
+  ? await Promise.all(
+      Array.from({ length: config.renderSlots }, () =>
+        createUnoserverSlot(unoserver, config.convertTimeoutMs),
+      ),
+    )
+  : await createSlots(config.renderSlots);
 for (const [i, result] of (
   await Promise.all(renderSlots.map((slot) => slot.convert([minimalDocx()])))
 ).entries()) {
@@ -43,7 +54,8 @@ const server = createHttpServer({
 let workerSlots: Slot[] = [];
 let worker: { stop(): Promise<void> } | undefined;
 if (storage && getTemplate) {
-  workerSlots = await createSlots(config.workerConcurrency);
+  // Bulk batches yield the CPU to /render.
+  workerSlots = await createSlots(config.workerConcurrency, true);
   worker = startWorker({
     storage,
     pool: createSlotPool(workerSlots),
