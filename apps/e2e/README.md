@@ -1,16 +1,30 @@
 # E2E (Playwright)
 
 Pruebas de navegador del panel. Dos proyectos, ambos en Chromium: `desktop`
-(1280 × 800) y `mobile` (390 × 844, táctil). Hoy hay la prueba de humo
-(login → panel), la de navegación del menú (`navigation.spec.ts`, SL-170:
-grupos, pestañas de Configuración, direcciones antiguas, municipio activo y
-teclado), la de los pasos de Mandamientos (`payment-orders.spec.ts`, SL-173:
-Cargar y Revisar, filas inválidas, pestaña Historial y teclado) y la del
-marcado guiado de plantillas (`templates.spec.ts`, SL-160: subir, marcar con
-teclado, vista previa y guardar para Liquidación y Mandamiento, diálogo de
-reemplazo, borrador tras recargar, selección que cruza párrafos, hoja inferior
-en el teléfono y resumen en Configuración); los demás flujos críticos llegan
-con SL-166.
+(1280 × 800) y `mobile` (390 × 844, táctil). Cada prueba lleva en su título la
+etiqueta del caso del plan de aceptación que cubre (`@UAT-05`); las que son
+solo de interfaz y no tienen caso llevan `@UAT-N/A`. Con esas etiquetas se
+arma la matriz de trazabilidad (SL-167) y se filtra una corrida:
+`pnpm --filter e2e exec playwright test --grep @UAT-05`.
+
+| Área | Archivo | Proyectos |
+| --- | --- | --- |
+| Autenticación | `auth.spec.ts` (más `smoke.spec.ts`) | ambos |
+| Cartera | `tax-roll.spec.ts` | ambos |
+| Liquidaciones | `settlements.spec.ts` | ambos |
+| Mandamientos | `payment-orders.spec.ts` (Cargar y Revisar, SL-173), `payment-orders-generate.spec.ts` (generar) | ambos |
+| Plantillas | `templates.spec.ts` (marcado guiado SL-160, plantilla inválida, versión siguiente, historial) | ambos |
+| Municipios | `municipalities.spec.ts` | ambos |
+| Consulta pública | `public-consultation.spec.ts` | solo `desktop` (no depende del ancho; el límite de consultas se cuenta por minuto) |
+| Navegación | `navigation.spec.ts` (SL-170) | ambos |
+
+Falta Slompsim (SL-156): no está en `develop`, así que su recorrido queda
+fuera de esta entrega, como lo prevé el ticket.
+
+Todos los archivos comparten el municipio `e2e-prueba`, así que la suite corre
+con un solo worker y en orden de nombre de archivo, sin reintentos. Cada prueba
+prepara sus datos al empezar (`src/db.ts` deja el municipio sin cartera y
+`src/fixtures.ts` carga lo que necesita); ninguna depende del orden.
 
 ## Correr en local
 
@@ -39,6 +53,11 @@ con SL-166.
    E2E_ADMIN_EMAIL=admin@paez-boyaca.gov.co E2E_ADMIN_PASSWORD=changeme123 pnpm test:playwright
    ```
 
+   Algunas pruebas preparan o limpian datos con SQL en el contenedor `db` de
+   Compose (`src/db.ts`): no existe API para borrar una cartera ni para
+   envejecer 60 días una resolución. Por eso necesitan Docker Compose y el
+   directorio del repositorio; contra un servidor remoto no corren.
+
    Antes de las pruebas, la suite escribe los Excel de prueba si faltan
    (ver [Datos de prueba](#datos-de-prueba)), inicia sesión por API y crea el
    municipio `e2e-prueba` si no existe. El administrador no debe tener pendiente el
@@ -53,6 +72,7 @@ con SL-166.
 | `E2E_API_URL` | `http://localhost:3000` | Backend |
 | `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` | — (obligatorias) | Administrador de pruebas |
 | `E2E_ALLOW_REMOTE` | — | `1` permite servidores que no sean `localhost` |
+| `E2E_DOCKER_BIN` | rutas habituales de Docker | Ruta completa de `docker`, si está en otro lado (no se busca en `PATH`) |
 
 ## Contra un servidor remoto
 
@@ -64,8 +84,10 @@ Para forzarlo:
 E2E_ALLOW_REMOTE=1 E2E_BASE_URL=https://... E2E_API_URL=https://... pnpm test:playwright
 ```
 
-Aun así solo opera sobre el municipio `e2e-prueba`. Úsalo solo con un
-ambiente donde crear ese municipio sea aceptable.
+Aun así solo opera sobre los municipios `e2e-prueba` y `e2e-segundo`. Úsalo
+solo con un ambiente donde crearlos sea aceptable. Las pruebas que usan SQL
+(cartera, liquidaciones, mandamientos, municipios y consulta pública) necesitan
+Docker Compose local, así que ahí no sirven.
 
 ## Datos de prueba
 
@@ -96,10 +118,10 @@ firme (60 días después de la resolución) y queda fuera de esta suite.
 ## Convenciones
 
 - `data-testid` en kebab-case con la forma `<pantalla>-<elemento>` (por
-  ejemplo `plantillas-subir`). Se agregan al frontend cuando una prueba de
-  SL-166 los pide; mientras tanto se usan roles y etiquetas.
+  ejemplo `plantillas-subir`). La suite de SL-166 no necesitó ninguno: todo se
+  alcanza por rol y etiqueta accesible.
 - Reportes: lista en consola y HTML en `playwright-report/` (`pnpm exec playwright show-report`
-  desde `apps/e2e`). Captura y traza solo cuando una prueba falla; un reintento en CI.
+  desde `apps/e2e`). Captura y traza solo cuando una prueba falla; sin reintentos.
 - `pnpm --filter e2e test:unit` corre las pruebas de la guardia, sin servidores.
 
 ## CI
