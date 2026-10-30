@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { resetTaxRoll } from "../src/db";
 import { fixture, loadTaxRoll } from "../src/fixtures";
 import type { FixtureName } from "../src/fixtures";
 import { adminPath } from "../src/paths";
@@ -12,6 +13,8 @@ import { signIn } from "../src/session";
 // and the flow stops at "Revisar" (issuing needs "En firme", 60 days later).
 
 test.beforeAll(async () => {
+  // Other files issue resolutions in this municipality: start without any.
+  resetTaxRoll();
   await loadTaxRoll("cartera-valida.xlsx");
 });
 
@@ -32,7 +35,7 @@ async function review(page: Page, name: FixtureName) {
   await page.getByRole("button", { name: "Revisar archivo" }).click();
 }
 
-test("cargar un Excel válido pasa solo a Revisar, con su resumen y sin poder continuar", async ({
+test("cargar un Excel válido pasa solo a Revisar, con su resumen y sin poder continuar @UAT-29", async ({
   page,
   isMobile,
 }) => {
@@ -82,7 +85,7 @@ test("cargar un Excel válido pasa solo a Revisar, con su resumen y sin poder co
   ).toHaveCount(0);
 });
 
-test("un Excel con filas inválidas se queda en Cargar con su motivo", async ({
+test("un Excel con filas inválidas se queda en Cargar con su motivo @UAT-29", async ({
   page,
 }) => {
   await review(page, "cartera-fila-invalida.xlsx");
@@ -97,7 +100,9 @@ test("un Excel con filas inválidas se queda en Cargar con su motivo", async ({
   await expect(page.getByRole("button", { name: "Continuar" })).toHaveCount(0);
 });
 
-test("el paso se conserva al ir al Historial y volver", async ({ page }) => {
+test("el paso se conserva al ir al Historial y volver @UAT-29", async ({
+  page,
+}) => {
   await review(page, "cartera-valida.xlsx");
   await expect(currentStep(page)).toHaveAccessibleName("Paso 2 de 3: Revisar");
 
@@ -119,7 +124,7 @@ test("el paso se conserva al ir al Historial y volver", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("con teclado, Cambiar archivo vuelve a Cargar sin archivo", async ({
+test("con teclado, Cambiar archivo vuelve a Cargar sin archivo @UAT-29", async ({
   page,
 }) => {
   await review(page, "cartera-valida.xlsx");
