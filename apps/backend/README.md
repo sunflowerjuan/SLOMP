@@ -57,6 +57,13 @@ the active template from the database and Blob, so changing a template does
 not need a deploy. The files live in the `templates` container of Storage
 (`AZURE_STORAGE_CONNECTION_STRING`), so Azurite must be running locally.
 
+Uploads and drafts are stored with their PNG and JPEG images resampled to
+150 ppi of the size they are shown at, crop included, like Word's "Compress
+pictures" (`src/templates/optimize-template-images.ts`, with sharp). The Páez
+templates go from 318 KB to 70 KB; their 3080x1600 px header logo made every
+PDF about 4 times slower. The same file always gives the same bytes, so
+uploading it again is still recognized as the same version.
+
 A municipality has no template until one is uploaded, and PDF generation
 answers 503 `PDF_TEMPLATE_UNAVAILABLE` meanwhile. To install a municipality's
 official template (client material, not in git) against a running backend,
@@ -90,8 +97,8 @@ Any saved version, active or older (the `id` of `GET .../templates`), can be
 looked at: `GET .../templates/:id/content` returns its paragraphs in the draft
 format, with each `appliedMarkers` entry also carrying the catalog `label`;
 `GET .../:id/preview` renders it to PDF with the same sample data as the draft
-preview; and `GET .../:id/download` returns the stored `.docx` byte for byte,
-under the name it was uploaded with. A template of another municipality
+preview; and `GET .../:id/download` returns the stored `.docx` (images already
+resampled) byte for byte, under the name it was uploaded with. A template of another municipality
 answers 404 `TEMPLATE_NOT_FOUND`, same as a missing one.
 
 ## Settlement status changes and Slompsim's tools (SL-154)

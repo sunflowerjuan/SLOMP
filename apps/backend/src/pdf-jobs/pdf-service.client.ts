@@ -35,7 +35,9 @@ export function pdfConfig() {
     resultsQueue: process.env.PDF_RESULTS_QUEUE || 'pdf-results',
     jobsContainer: process.env.PDF_JOBS_CONTAINER || 'pdf-jobs',
     templatesContainer: process.env.TEMPLATES_CONTAINER || 'templates',
-    batchSize: positiveInt('BATCH_SIZE', 10),
+    // The PDF service converts a batch as one merged document: 40 measured
+    // fastest on 1 vCPU with room in its 768 MiB (larger slows LibreOffice).
+    batchSize: positiveInt('BATCH_SIZE', 40),
     zipTtlMinutes: positiveInt('ZIP_TTL_MINUTES', 60),
     watchdogMinutes: positiveInt('JOB_WATCHDOG_MINUTES', 15),
     maxBulkDocuments: positiveInt('MAX_BULK_DOCUMENTS', 10_000),

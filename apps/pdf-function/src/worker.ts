@@ -11,6 +11,7 @@ import {
   type ZipResult,
 } from './contract.ts';
 import { JobError } from './errors.ts';
+import { mergeDocuments, splitPdf } from './merge.ts';
 import { renderDocx } from './render.ts';
 import type { SlotPool } from './slots.ts';
 import type { Slot } from './soffice.ts';
@@ -64,7 +65,71 @@ async function renderBatch(
   }
   const { documents } = parseBatchInput(json);
   const template = await deps.getTemplate(message.template);
+  const pdfs =
+    (await convertMerged(deps, message, template, documents, slot)) ??
+    (await convertEach(template, documents, slot));
 
+  // Fixed output names (the resolution number), so a retried batch just
+  // overwrites the same blobs.
+  await Promise.all(
+    documents.map(({ fileName }, i) =>
+      blobs.upload(
+        message.outputPrefix + fileName,
+        pdfs[i]!,
+        'application/pdf',
+      ),
+    ),
+  );
+  return {
+    schemaVersion: 1,
+    type: 'batch-result',
+    jobId: message.jobId,
+    batchIndex: message.batchIndex,
+    status: 'DONE',
+    documentCount: documents.length,
+    attempt,
+  };
+}
+
+type BatchDocument = ReturnType<typeof parseBatchInput>['documents'][number];
+
+// The whole batch in one conversion (merge.ts). Null sends it down the
+// per-document path, which also names the document behind an error.
+async function convertMerged(
+  deps: WorkerDeps,
+  message: RenderBatchMessage,
+  template: Buffer,
+  documents: BatchDocument[],
+  slot: Slot,
+): Promise<Buffer[] | null> {
+  if (documents.length < 2) return null;
+  const fallback = (reason: string) => {
+    (deps.log ?? console.log)(
+      `job ${message.jobId} batch ${message.batchIndex}: ${reason}, converting each document`,
+    );
+    return null;
+  };
+  let merged: Buffer | null;
+  try {
+    merged = mergeDocuments(
+      template,
+      documents.map(({ data }) => data),
+    );
+  } catch {
+    return fallback('the data does not fit the merged template');
+  }
+  if (!merged) return fallback('template layout not supported for merging');
+  const [pdf] = await slot.convert([merged], documents.length);
+  const pdfs =
+    pdf instanceof Buffer ? await splitPdf(pdf, documents.length) : null;
+  return pdfs ?? fallback('merged conversion failed');
+}
+
+async function convertEach(
+  template: Buffer,
+  documents: BatchDocument[],
+  slot: Slot,
+): Promise<Buffer[]> {
   const docx = documents.map(({ fileName, data }) => {
     try {
       return renderDocx(template, data);
@@ -91,27 +156,7 @@ async function renderBatch(
       fileName: documents[failed]!.fileName,
     });
   }
-
-  // Fixed output names (the resolution number), so a retried batch just
-  // overwrites the same blobs.
-  await Promise.all(
-    documents.map(({ fileName }, i) =>
-      blobs.upload(
-        message.outputPrefix + fileName,
-        pdfs[i] as Buffer,
-        'application/pdf',
-      ),
-    ),
-  );
-  return {
-    schemaVersion: 1,
-    type: 'batch-result',
-    jobId: message.jobId,
-    batchIndex: message.batchIndex,
-    status: 'DONE',
-    documentCount: documents.length,
-    attempt,
-  };
+  return pdfs as Buffer[];
 }
 
 async function assembleZip(

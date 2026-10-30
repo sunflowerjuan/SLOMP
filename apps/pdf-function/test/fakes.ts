@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
+import { PDFArray, PDFDocument, PDFName, PDFString } from 'pdf-lib';
+import PizZip from 'pizzip';
 import { JobError } from '../src/errors.ts';
 import { minimalDocx } from '../src/minimal-docx.ts';
 import type { Slot } from '../src/soffice.ts';
@@ -111,4 +113,79 @@ export function templateFixture() {
     template,
     sha256: createHash('sha256').update(template).digest('hex'),
   };
+}
+
+const REL =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+
+/**
+ * A template shaped like a Word one: a body section with a header that
+ * counts pages ("Página X de Y") and a plain footer.
+ */
+export function sectionTemplate({
+  header = '<w:p><w:r><w:t>Página </w:t></w:r><w:fldSimple w:instr=" PAGE "/><w:r><w:t> de </w:t></w:r><w:fldSimple w:instr=" NUMPAGES "/></w:p>',
+  sectExtra = '',
+} = {}): Buffer {
+  const zip = new PizZip(minimalDocx(['{resolutionNumber}', 'Fin']));
+  const document = zip
+    .file('word/document.xml')!
+    .asText()
+    .replace('<w:document ', `<w:document xmlns:r="${REL}" `)
+    .replace(
+      '</w:body>',
+      `<w:sectPr><w:headerReference w:type="default" r:id="rId8"/><w:footerReference w:type="default" r:id="rId9"/><w:pgSz w:w="12240" w:h="15840"/>${sectExtra}<w:cols w:space="708"/></w:sectPr></w:body>`,
+    );
+  zip.file('word/document.xml', document);
+  const part = (tag: string, body: string) =>
+    `<?xml version="1.0" encoding="UTF-8"?><w:${tag} xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">${body}</w:${tag}>`;
+  zip.file('word/header1.xml', part('hdr', header));
+  zip.file(
+    'word/footer1.xml',
+    part('ftr', '<w:p><w:r><w:t>Pie</w:t></w:r></w:p>'),
+  );
+  zip.file(
+    'word/_rels/header1.xml.rels',
+    '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>',
+  );
+  zip.file(
+    'word/_rels/document.xml.rels',
+    `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId8" Type="${REL}/header" Target="header1.xml"/><Relationship Id="rId9" Type="${REL}/footer" Target="footer1.xml"/></Relationships>`,
+  );
+  return zip.generate({ type: 'nodebuffer' });
+}
+
+/**
+ * What LibreOffice exports for a merged batch: the documents' pages one after
+ * another, each start marked by a named destination.
+ */
+export async function mergedPdf(
+  pagesPerDocument: number[],
+  where: 'Dests' | 'Names' = 'Dests',
+): Promise<Buffer> {
+  const pdf = await PDFDocument.create();
+  const entries: [string, PDFArray][] = [];
+  pagesPerDocument.forEach((pages, i) => {
+    for (let p = 0; p < pages; p++) {
+      const page = pdf.addPage([100, 100]);
+      if (p === 0) {
+        entries.push([
+          `SlompDoc${String(i + 1).padStart(5, '0')}`,
+          pdf.context.obj([page.ref, PDFName.of('XYZ'), null, null, null]),
+        ]);
+      }
+    }
+  });
+  if (where === 'Dests') {
+    pdf.catalog.set(
+      PDFName.of('Dests'),
+      pdf.context.obj(Object.fromEntries(entries)),
+    );
+  } else {
+    const names = entries.flatMap(([name, dest]) => [PDFString.of(name), dest]);
+    pdf.catalog.set(
+      PDFName.of('Names'),
+      pdf.context.obj({ Dests: pdf.context.obj({ Names: names }) }),
+    );
+  }
+  return Buffer.from(await pdf.save());
 }

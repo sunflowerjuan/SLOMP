@@ -43,25 +43,34 @@ export function isCompletePdf(pdf: Buffer): boolean {
 }
 
 // Seeded into every profile before LibreOffice first starts: highest macro
-// security and macro execution disabled. Templates are trusted, but a .docx
-// is still a document format that can carry active content.
-export const MACRO_LOCKDOWN_XCU = `<?xml version="1.0" encoding="UTF-8"?>
+// security and macro execution disabled (templates are trusted, but a .docx
+// can still carry active content). PDF export: untagged, since LibreOffice
+// 25.2 tags by default and that made a 40-document PDF 7 times heavier and
+// its split 3 times slower; Writer bookmarks become named destinations, which
+// is how a merged batch is split back (merge.ts).
+const PROFILE_XCU = `<?xml version="1.0" encoding="UTF-8"?>
 <oor:items xmlns:oor="http://openoffice.org/2001/registry" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 <item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="MacroSecurityLevel" oor:op="fuse"><value>3</value></prop></item>
 <item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="DisableMacrosExecution" oor:op="fuse"><value>true</value></prop></item>
+<item oor:path="/org.openoffice.Office.Common/Filter/PDF/Export"><prop oor:name="UseTaggedPDF" oor:op="fuse"><value>false</value></prop></item>
+<item oor:path="/org.openoffice.Office.Common/Filter/PDF/Export"><prop oor:name="ExportBookmarksToPDFDestination" oor:op="fuse"><value>true</value></prop></item>
 </oor:items>
 `;
 
 export async function createProfile(dir: string): Promise<void> {
   await mkdir(join(dir, 'user'), { recursive: true });
-  await writeFile(
-    join(dir, 'user', 'registrymodifications.xcu'),
-    MACRO_LOCKDOWN_XCU,
-  );
+  await writeFile(join(dir, 'user', 'registrymodifications.xcu'), PROFILE_XCU);
 }
 
-/** Converts .docx buffers to PDF; result i is the PDF of input i or its error. */
-export type ConvertBatch = (docs: Buffer[]) => Promise<(Buffer | JobError)[]>;
+/**
+ * Converts .docx buffers to PDF; result i is the PDF of input i or its error.
+ * `documents` is how many documents the inputs hold (a merged batch is one
+ * .docx with many), which is what the timeout scales with.
+ */
+export type ConvertBatch = (
+  docs: Buffer[],
+  documents?: number,
+) => Promise<(Buffer | JobError)[]>;
 
 export interface Slot {
   convert: ConvertBatch;
@@ -71,14 +80,26 @@ export interface Slot {
 // One LibreOffice profile per slot, reused for every batch it converts: the
 // profile bootstrap is most of the cost of a single conversion (1.33 s fresh
 // vs 0.28 s reused per PDF). A slot runs one conversion at a time; concurrent
-// soffice runs on the same profile collide on its lock.
-export async function createSofficeSlot(timeoutMs: number): Promise<Slot> {
+// soffice runs on the same profile collide on its lock. LibreOffice 25.2
+// starts in 0.4 s on the VPS, so a process per conversion is cheap. Bulk slots
+// run at the lowest CPU priority: an individual PDF next to a batch takes
+// 2.2 s (max 3.1 s) on one vCPU (RNF-01: under 5 s).
+export async function createSofficeSlot(
+  timeoutMs: number,
+  lowPriority = false,
+): Promise<Slot> {
   const root = await mkdtemp(join(tmpdir(), 'pdf-slot-'));
   const profile = join(root, 'profile');
   await createProfile(profile);
   const binary = resolveSofficeBinary();
+  const [command, prefix] = lowPriority
+    ? ['/usr/bin/nice', ['-n', '19', binary]]
+    : [binary, []];
 
-  async function convert(docs: Buffer[]): Promise<(Buffer | JobError)[]> {
+  async function convert(
+    docs: Buffer[],
+    documents = docs.length,
+  ): Promise<(Buffer | JobError)[]> {
     const dir = await mkdtemp(join(root, 'batch-'));
     try {
       const inputs = await Promise.all(
@@ -90,8 +111,9 @@ export async function createSofficeSlot(timeoutMs: number): Promise<Slot> {
       );
       try {
         await execFileAsync(
-          binary,
+          command,
           [
+            ...prefix,
             '--headless',
             '--norestore',
             `-env:UserInstallation=${pathToFileURL(profile).href}`,
@@ -101,7 +123,7 @@ export async function createSofficeSlot(timeoutMs: number): Promise<Slot> {
             dir,
             ...inputs,
           ],
-          { timeout: timeoutMs + 5_000 * (docs.length - 1) },
+          { timeout: timeoutMs + 5_000 * (documents - 1) },
         );
       } catch (cause) {
         const killed = (cause as { killed?: boolean }).killed;
