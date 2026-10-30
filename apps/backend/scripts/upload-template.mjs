@@ -22,6 +22,15 @@ if (!adminEmail) {
   process.exit(2);
 }
 
+// Same rule as the PDF service's sanitizeForLog (apps/pdf-function/src/log.ts):
+// drops control characters, CR/LF included, so a value can't forge an output
+// line, and caps its length.
+function sanitizeForLog(value) {
+  return String(value)
+    .replaceAll(/[\p{Cc}\u2028\u2029]/gu, '')
+    .slice(0, 200);
+}
+
 // Drops trailing slashes with a loop: /\/+$/ backtracks on a run of them.
 let api = process.env.API_URL ?? 'http://localhost:3000';
 while (api.endsWith('/')) api = api.slice(0, -1);
@@ -30,7 +39,7 @@ async function call(path, init) {
   const response = await fetch(`${api}${path}`, init);
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
-    console.error(`${path} answered ${response.status}:`);
+    console.error(`${sanitizeForLog(path)} answered ${response.status}:`);
     console.error(JSON.stringify(body, null, 2));
     process.exit(1);
   }
@@ -46,9 +55,17 @@ const { accessToken } = await call('/login', {
   }),
 });
 
+let blob;
+try {
+  blob = await openAsBlob(file);
+} catch (error) {
+  console.error(`Cannot read ${sanitizeForLog(file)}: ${error.code ?? 'error'}`);
+  process.exit(2);
+}
+
 const form = new FormData();
 form.set('documentType', documentType);
-form.set('file', await openAsBlob(file), basename(file));
+form.set('file', blob, basename(file));
 
 const template = await call(`/municipalities/${encodeURIComponent(slug)}/templates`, {
   method: 'POST',
@@ -56,5 +73,5 @@ const template = await call(`/municipalities/${encodeURIComponent(slug)}/templat
   body: form,
 });
 console.log(
-  `${template.isActive ? 'Active' : 'Stored'}: ${template.documentType} version ${template.version} (${template.fileName})`,
+  `${template.isActive ? 'Active' : 'Stored'}: ${template.documentType} version ${template.version} (${sanitizeForLog(template.fileName)})`,
 );

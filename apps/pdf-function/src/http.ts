@@ -6,6 +6,7 @@ import {
 } from 'node:http';
 import { parseRenderRequest } from './contract.ts';
 import { JobError } from './errors.ts';
+import { sanitizeForLog } from './log.ts';
 import { renderDocx } from './render.ts';
 import type { SlotPool } from './slots.ts';
 import type { Slot } from './soffice.ts';
@@ -44,6 +45,16 @@ function readBody(req: IncomingMessage, limit: number): Promise<Buffer> {
 function sendJson(res: ServerResponse, status: number, body: object): void {
   res.writeHead(status, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(body));
+}
+
+// For routes answered synchronously, so every branch yields a promise.
+function respondJson(
+  res: ServerResponse,
+  status: number,
+  body: object,
+): Promise<void> {
+  sendJson(res, status, body);
+  return Promise.resolve();
 }
 
 function sendPdf(res: ServerResponse, pdf: Buffer): void {
@@ -137,13 +148,13 @@ export function createHttpServer(deps: HttpDeps) {
     const route = `${req.method} ${req.url}`;
     const handled =
       route === 'GET /health'
-        ? Promise.resolve(sendJson(res, 200, { status: 'ok' }))
+        ? respondJson(res, 200, { status: 'ok' })
         : route === 'POST /render'
           ? handleRender(deps, req, res)
-          : Promise.resolve(sendJson(res, 404, { code: 'NOT_FOUND' }));
+          : respondJson(res, 404, { code: 'NOT_FOUND' });
     handled.catch((error) => {
       (deps.log ?? console.log)(
-        `unhandled ${route}: ${(error as Error).message}`,
+        `unhandled ${sanitizeForLog(route)}: ${(error as Error).message}`,
       );
       if (!res.headersSent) sendJson(res, 500, { code: 'INTERNAL_ERROR' });
     });
