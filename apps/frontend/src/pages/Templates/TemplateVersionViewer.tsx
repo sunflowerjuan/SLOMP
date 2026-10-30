@@ -1,18 +1,21 @@
-import { useEffect, useState } from "react";
-import { getErrorMessage } from "../../api/ApiError";
-import {
-  downloadTemplateVersion,
-  previewTemplateVersion,
-} from "../../api/templates";
+import { useState } from "react";
 import type { TemplateVersion } from "../../api/templates";
 import { Button } from "../../components/ui/Button";
 import { Dialog } from "../../components/ui/Dialog";
 import { Notice } from "../../components/ui/Notice";
+import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { StatusBadge } from "../../components/ui/StatusBadge";
-import { triggerBrowserDownload } from "../../utils/downloadBlob";
-import { DATE_TIME_FORMATTER } from "./documentText";
-import { TemplatePreview } from "./TemplatePreview";
-import type { PreviewState } from "./TemplatePreview";
+import { savedText } from "./documentText";
+import { useTemplateDownload } from "./useTemplateDownload";
+import { VersionContent } from "./VersionContent";
+import { VersionPreview } from "./VersionPreview";
+
+type ViewerTab = "content" | "preview";
+
+const TAB_OPTIONS: { value: ViewerTab; label: string }[] = [
+  { value: "content", label: "Contenido" },
+  { value: "preview", label: "Vista previa" },
+];
 
 interface TemplateVersionViewerProps {
   // The version to show; null keeps it closed.
@@ -20,12 +23,14 @@ interface TemplateVersionViewerProps {
   // "liquidación" or "mandamiento".
   documentName: string;
   onClose: () => void;
-  // Only offered for a version that is not in use.
-  onActivate: (version: TemplateVersion) => void;
+  // Left out where a version can't be activated. Never offered for the one
+  // in use.
+  onActivate?: (version: TemplateVersion) => void;
 }
 
-// A saved version as it prints, filled with the sample data, to tell the
-// versions apart before activating one. Its .docx can be downloaded too.
+// A saved version, without going through marking: what it says, with each
+// marker by its name, and how it prints with the sample data. Its .docx can be
+// downloaded too.
 export function TemplateVersionViewer({
   version,
   documentName,
@@ -44,7 +49,7 @@ export function TemplateVersionViewer({
       onClose={onClose}
     >
       {version && (
-        <VersionPreview
+        <VersionTabs
           key={version.id}
           version={version}
           documentName={documentName}
@@ -56,50 +61,17 @@ export function TemplateVersionViewer({
   );
 }
 
-function VersionPreview({
+function VersionTabs({
   version,
   documentName,
   onClose,
   onActivate,
 }: TemplateVersionViewerProps & { version: TemplateVersion }) {
-  const [preview, setPreview] = useState<PreviewState>({ status: "loading" });
-  const [attempt, setAttempt] = useState(0);
-  const [downloading, setDownloading] = useState(false);
-  const [downloadError, setDownloadError] = useState("");
-
-  useEffect(() => {
-    const controller = new AbortController();
-    let url: string | null = null;
-    previewTemplateVersion(version.id, controller.signal)
-      .then((blob) => {
-        url = URL.createObjectURL(blob);
-        setPreview({ status: "ready", url });
-      })
-      .catch((caught: unknown) => {
-        if (controller.signal.aborted) return;
-        setPreview({
-          status: "error",
-          message: getErrorMessage(caught, { document: version.documentType }),
-        });
-      });
-    return () => {
-      controller.abort();
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [version.id, version.documentType, attempt]);
-
-  async function download() {
-    setDownloading(true);
-    setDownloadError("");
-    try {
-      const { blob, fileName } = await downloadTemplateVersion(version.id);
-      triggerBrowserDownload(blob, fileName ?? version.fileName);
-    } catch (caught) {
-      setDownloadError(getErrorMessage(caught));
-    } finally {
-      setDownloading(false);
-    }
-  }
+  const [tab, setTab] = useState<ViewerTab>("content");
+  // The PDF takes the service seconds: it is rendered the first time it is
+  // asked for, and stays for going back and forth between the tabs.
+  const [previewAsked, setPreviewAsked] = useState(false);
+  const { downloadingId, downloadError, download } = useTemplateDownload();
 
   return (
     <div className="template-viewer">
@@ -110,27 +82,38 @@ function VersionPreview({
           <StatusBadge variant="neutral">Versión anterior</StatusBadge>
         )}
         <span className="templates-page__file">{version.fileName}</span>
-        <span>
-          Subida el {DATE_TIME_FORMATTER.format(new Date(version.createdAt))}
-        </span>
+        <span>{savedText(version)}</span>
       </div>
 
-      <TemplatePreview
-        state={preview}
-        documentName={documentName}
-        onRetry={() => {
-          setPreview({ status: "loading" });
-          setAttempt((current) => current + 1);
-        }}
-      />
+      <div className="template-viewer__tabs">
+        <SegmentedControl
+          label="Qué ver de esta versión"
+          name="template-viewer-tab"
+          options={TAB_OPTIONS}
+          value={tab}
+          onChange={(next) => {
+            setTab(next);
+            if (next === "preview") setPreviewAsked(true);
+          }}
+        />
+      </div>
+
+      <div className="template-viewer__panel" hidden={tab !== "content"}>
+        <VersionContent version={version} />
+      </div>
+      {previewAsked && (
+        <div className="template-viewer__panel" hidden={tab !== "preview"}>
+          <VersionPreview version={version} documentName={documentName} />
+        </div>
+      )}
 
       {downloadError && <Notice>{downloadError}</Notice>}
 
       <div className="template-viewer__actions">
         <Button
           variant="secondary"
-          loading={downloading}
-          onClick={() => void download()}
+          loading={downloadingId === version.id}
+          onClick={() => void download(version)}
         >
           Descargar .docx
         </Button>
@@ -138,7 +121,7 @@ function VersionPreview({
         <Button variant="secondary" onClick={onClose}>
           Cerrar
         </Button>
-        {!version.isActive && (
+        {onActivate && !version.isActive && (
           <Button onClick={() => onActivate(version)}>
             Activar esta versión
           </Button>

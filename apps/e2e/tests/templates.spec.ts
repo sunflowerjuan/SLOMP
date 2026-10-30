@@ -1,12 +1,16 @@
 import { expect, test } from "@playwright/test";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import {
   activeLiquidationTexts,
   ensureActiveLiquidationTemplate,
+  ensureActivePaymentOrderTemplate,
   fixture,
 } from "../src/fixtures";
 import type { FixtureName } from "../src/fixtures";
-import { E2E_MUNICIPALITY_SLUG } from "../src/env";
+import {
+  E2E_MUNICIPALITY_SLUG,
+  E2E_SECOND_MUNICIPALITY_SLUG,
+} from "../src/env";
 import { adminPath } from "../src/paths";
 import { signIn } from "../src/session";
 
@@ -146,28 +150,32 @@ async function expectNoTechnicalNames(page: Page) {
   await expect(page.locator("body")).not.toHaveText(TECHNICAL_NAMES);
 }
 
-async function saveFromPreview(page: Page) {
-  await page.getByRole("button", { name: "Vista previa" }).click();
-  const review = page.getByRole("region", {
-    name: "Paso 3 de 3: Revisar y guardar",
-  });
-  await expect(review).toBeFocused();
+// Only a desktop shows the PDF inside the page. The PDF service renders one
+// document at a time and turns away the rest: with both projects previewing
+// at once, the screen's own "Reintentar" is the way.
+async function expectPreviewReady(area: Locator) {
   await expect(
-    review.getByText(/Vista previa con datos de ejemplo ficticios/),
+    area.getByText(/Vista previa con datos de ejemplo ficticios/),
   ).toBeVisible();
-  // Only a desktop shows the PDF inside the page. The PDF service renders
-  // one document at a time and turns away the rest: with both projects
-  // previewing at once, the screen's own "Reintentar" is the way.
-  const ready = review
+  const ready = area
     .locator("iframe")
-    .or(review.getByRole("button", { name: "Abrir la vista previa" }));
-  const retry = review.getByRole("button", { name: "Reintentar" });
+    .or(area.getByRole("button", { name: "Abrir la vista previa" }));
+  const retry = area.getByRole("button", { name: "Reintentar" });
   for (let attempt = 0; attempt < 4; attempt += 1) {
     await expect(ready.or(retry)).toBeVisible({ timeout: 30_000 });
     if (await ready.isVisible()) break;
     await retry.click();
   }
   await expect(ready).toBeVisible();
+}
+
+async function saveFromPreview(page: Page) {
+  await page.getByRole("button", { name: "Vista previa" }).click();
+  const review = page.getByRole("region", {
+    name: "Paso 3 de 3: Revisar y guardar",
+  });
+  await expect(review).toBeFocused();
+  await expectPreviewReady(review);
   await expectNoTechnicalNames(page);
 
   await page.getByRole("button", { name: "Guardar plantilla" }).click();
@@ -452,7 +460,77 @@ test("el enlace de consulta pública se ve completo en Configuración y se copia
   );
 });
 
-test("cada versión del historial se puede ver antes de activarla @UAT-26", async ({
+test("Ver plantilla muestra el contenido con nombres legibles, sin pasar por el marcado, y su vista previa @UAT-26", async ({
+  page,
+}) => {
+  const active = await ensureActiveLiquidationTemplate();
+  await page.goto(adminPath("configuracion"));
+
+  const card = page.getByRole("region", { name: "Plantilla de liquidación" });
+  await expect(card).toContainText(/Guardada el .+ por /);
+  await card.getByRole("button", { name: "Ver plantilla" }).click();
+
+  const viewer = page.getByRole("dialog", {
+    name: `Versión ${active.version} de la plantilla de liquidación`,
+  });
+  await expect(viewer).toContainText("Número de resolución");
+  await expect(viewer).toContainText("Vigencia (año)");
+  // The tags that make a row repeat are not data: the row itself says it.
+  await expect(viewer).not.toContainText("Tabla de vigencias");
+  await expect(viewer.locator("tr[data-repeats]")).toHaveCount(1);
+  await expect(viewer).toContainText("Esta fila se repite");
+  await expect(viewer).not.toContainText("{");
+  await expectNoTechnicalNames(page);
+  // Nothing to choose here: reading is not marking.
+  await expect(viewer.getByRole("button", { name: /^Marcar/ })).toHaveCount(0);
+  await expect(page).toHaveURL(/configuracion$/);
+
+  await viewer.getByRole("radio", { name: "Vista previa" }).click();
+  await expectPreviewReady(viewer);
+  await viewer.getByRole("radio", { name: "Contenido" }).click();
+  await expect(viewer).toContainText("Número de resolución");
+
+  await viewer.getByRole("button", { name: "Cerrar" }).click();
+  await expect(viewer).toBeHidden();
+});
+
+test("el mandamiento muestra su lista de liquidaciones como un solo marcador @UAT-26", async ({
+  page,
+}) => {
+  await ensureActivePaymentOrderTemplate();
+  await page.goto(adminPath("configuracion"));
+
+  await page
+    .getByRole("region", { name: "Plantilla de mandamiento" })
+    .getByRole("button", { name: "Ver plantilla" })
+    .click();
+
+  const viewer = page.getByRole("dialog");
+  await expect(viewer).toContainText("Número del mandamiento");
+  await expect(
+    viewer.locator(".marking-doc__mark[data-field=liquidations]"),
+  ).toHaveCount(1);
+  await expect(viewer).not.toContainText("{");
+  await expectNoTechnicalNames(page);
+});
+
+test("un municipio sin plantilla lo dice y ofrece subirla @UAT-26", async ({
+  page,
+}) => {
+  await page.goto(`/#/${E2E_SECOND_MUNICIPALITY_SLUG}/configuracion`);
+
+  const card = page.getByRole("region", { name: "Plantilla de mandamiento" });
+  await expect(card).toContainText("Aún no hay plantilla");
+  await expect(card.getByRole("button", { name: "Ver plantilla" })).toHaveCount(
+    0,
+  );
+  await card.getByRole("link", { name: "Subir plantilla" }).click();
+
+  await expect(page).toHaveURL(/configuracion\/plantillas\/mandamiento$/);
+  await expect(page.locator("input[type=file]")).toHaveCount(1);
+});
+
+test("cada versión del historial se puede ver y descargar, y activar una anterior pide confirmación @UAT-26", async ({
   page,
 }) => {
   // Two saves: the second leaves the first as an earlier version.
@@ -461,6 +539,18 @@ test("cada versión del historial se puede ver antes de activarla @UAT-26", asyn
   await page.reload();
 
   const history = page.getByRole("region", { name: "Historial de versiones" });
+  await expect(history.getByRole("listitem").first()).toContainText(
+    /Guardada el .+ por /,
+  );
+
+  const fromRow = page.waitForEvent("download");
+  await history
+    .getByRole("button", { name: `Descargar la versión ${active.version - 1}` })
+    .click();
+  expect((await fromRow).suggestedFilename()).toBe(
+    "plantilla-liquidacion-sin-marcadores.docx",
+  );
+
   await history
     .getByRole("button", { name: `Ver la versión ${active.version - 1}` })
     .click();
@@ -470,21 +560,9 @@ test("cada versión del historial se puede ver antes de activarla @UAT-26", asyn
   });
   await expect(viewer).toBeVisible();
   await expect(viewer).toContainText("Versión anterior");
-  await expect(viewer).toContainText(
-    /Vista previa con datos de ejemplo ficticios/,
-  );
-  // Only a desktop shows the PDF inside the page; the screen's own
-  // "Reintentar" covers a busy PDF service.
-  const ready = viewer
-    .locator("iframe")
-    .or(viewer.getByRole("button", { name: "Abrir la vista previa" }));
-  const retry = viewer.getByRole("button", { name: "Reintentar" });
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    await expect(ready.or(retry)).toBeVisible({ timeout: 30_000 });
-    if (await ready.isVisible()) break;
-    await retry.click();
-  }
-  await expect(ready).toBeVisible();
+  await expect(viewer).toContainText("Número de resolución");
+  await viewer.getByRole("radio", { name: "Vista previa" }).click();
+  await expectPreviewReady(viewer);
 
   const download = page.waitForEvent("download");
   await viewer.getByRole("button", { name: "Descargar .docx" }).click();
@@ -516,6 +594,14 @@ test("cada versión del historial se puede ver antes de activarla @UAT-26", asyn
   ).toHaveCount(0);
   await current.getByRole("button", { name: "Cerrar" }).click();
   await expect(current).toBeHidden();
+
+  // Confirmed, the earlier one is the one in use.
+  await history
+    .getByRole("button", { name: `Activar la versión ${active.version - 1}` })
+    .click();
+  await confirm.getByRole("button", { name: "Activar" }).click();
+  await expect(confirm).toBeHidden();
+  await expect(history).toContainText(`En uso: versión ${active.version - 1}`);
 });
 
 test("una tabla llena se marca en su fila de ejemplo y las demás filas se quitan desde la pantalla @UAT-26", async ({
