@@ -43,9 +43,51 @@ async function start(overrides: Partial<HttpDeps> = {}) {
 describe('GET /health', () => {
   it('answers ok', async () => {
     const { base } = await start();
-    expect(await (await fetch(`${base}/health`)).json()).toEqual({
-      status: 'ok',
+    const response = await fetch(`${base}/health`);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('application/json');
+    expect(await response.json()).toEqual({ status: 'ok' });
+  });
+});
+
+describe('unknown routes', () => {
+  it('answer NOT_FOUND', async () => {
+    const { base } = await start();
+    for (const response of [
+      await fetch(`${base}/nope`),
+      await fetch(`${base}/health`, { method: 'POST' }),
+      await fetch(`${base}/render`),
+    ]) {
+      expect(response.status).toBe(404);
+      expect(await response.json()).toEqual({ code: 'NOT_FOUND' });
+    }
+  });
+
+  it('never put a line break from the URL into the log', async () => {
+    const lines: string[] = [];
+    const { base } = await start({ log: (message) => lines.push(message) });
+    const response = await fetch(`${base}/x%0AFAKE%20log%20line%0D`);
+    expect(response.status).toBe(404);
+    for (const line of lines) expect(line).not.toMatch(/[\r\n]/);
+  });
+});
+
+describe('a render that throws', () => {
+  it('is logged once, answers 500 and keeps the server up', async () => {
+    const lines: string[] = [];
+    const pool = createSlotPool([fakeSlot()]);
+    pool.tryAcquire = () => {
+      throw new Error('boom');
+    };
+    const { base, render } = await start({
+      renderPool: pool,
+      log: (message) => lines.push(message),
     });
+    const response = await render();
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ code: 'INTERNAL_ERROR' });
+    expect(lines).toEqual(['unhandled POST /render: boom']);
+    expect((await fetch(`${base}/health`)).status).toBe(200);
   });
 });
 
