@@ -19,7 +19,7 @@ const serviceKey =
 const templatePath =
   process.env.TEMPLATE_PATH ?? '../backend/templates/liquidacion-paez.docx';
 const total = Number(process.argv[2] ?? 100);
-const BATCH = 10;
+const BATCH = 40;
 
 const blobs = BlobServiceClient.fromConnectionString(connection);
 const queues = QueueServiceClient.fromConnectionString(connection);

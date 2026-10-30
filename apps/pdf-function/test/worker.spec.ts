@@ -4,11 +4,15 @@ import { createSlotPool } from '../src/slots.ts';
 import { createTemplateCache } from '../src/templates.ts';
 import { handleMessage, startWorker, type WorkerDeps } from '../src/worker.ts';
 import { JobError } from '../src/errors.ts';
+import { createHash } from 'node:crypto';
+import { PDFDocument } from 'pdf-lib';
 import {
   conversionError,
   FAKE_PDF,
   fakeSlot,
   fakeStorage,
+  mergedPdf,
+  sectionTemplate,
   templateFixture,
 } from './fakes.ts';
 
@@ -95,6 +99,59 @@ describe('render-batch', () => {
       },
     ]);
     expect(storage.work.deleted).toEqual([message.messageId]);
+  });
+
+  it('converts a batch of a sectioned template in one call and splits it', async () => {
+    const { storage, deps, renderBatch } = setup();
+    const template = sectionTemplate();
+    storage.blobs.files.set(TEMPLATE_BLOB, template);
+    const message = {
+      ...renderBatch(0, ['a.pdf', 'b.pdf', 'c.pdf']),
+      template: {
+        blob: TEMPLATE_BLOB,
+        sha256: createHash('sha256').update(template).digest('hex'),
+      },
+    };
+    const merged = await mergedPdf([2, 1, 3]);
+    const slot = fakeSlot(() => [merged]);
+    await deliver(deps, message, slot);
+
+    expect(slot.calls).toEqual([1]);
+    const pages = await Promise.all(
+      ['a.pdf', 'b.pdf', 'c.pdf'].map(async (name) =>
+        (
+          await PDFDocument.load(
+            storage.blobs.files.get(`pdf-jobs/${JOB}/pdf/${name}`)!,
+          )
+        ).getPageCount(),
+      ),
+    );
+    expect(pages).toEqual([2, 1, 3]);
+    expect(storage.results.sentJson()[0]).toMatchObject({
+      status: 'DONE',
+      documentCount: 3,
+    });
+  });
+
+  it('converts each document when the merged PDF cannot be split', async () => {
+    const { storage, deps, renderBatch } = setup();
+    const template = sectionTemplate();
+    storage.blobs.files.set(TEMPLATE_BLOB, template);
+    const message = {
+      ...renderBatch(0, ['a.pdf', 'b.pdf']),
+      template: {
+        blob: TEMPLATE_BLOB,
+        sha256: createHash('sha256').update(template).digest('hex'),
+      },
+    };
+    const slot = fakeSlot();
+    await deliver(deps, message, slot);
+
+    expect(slot.calls).toEqual([1, 2]);
+    expect(storage.blobs.files.get(`pdf-jobs/${JOB}/pdf/b.pdf`)).toEqual(
+      FAKE_PDF,
+    );
+    expect(storage.results.sentJson()[0].status).toBe('DONE');
   });
 
   it('retries alone a document the batch conversion skipped', async () => {

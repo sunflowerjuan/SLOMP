@@ -62,8 +62,15 @@ export async function createProfile(dir: string): Promise<void> {
   await writeFile(join(dir, 'user', 'registrymodifications.xcu'), PROFILE_XCU);
 }
 
-/** Converts .docx buffers to PDF; result i is the PDF of input i or its error. */
-export type ConvertBatch = (docs: Buffer[]) => Promise<(Buffer | JobError)[]>;
+/**
+ * Converts .docx buffers to PDF; result i is the PDF of input i or its error.
+ * `documents` is how many documents the inputs hold (a merged batch is one
+ * .docx with many), which is what the timeout scales with.
+ */
+export type ConvertBatch = (
+  docs: Buffer[],
+  documents?: number,
+) => Promise<(Buffer | JobError)[]>;
 
 export interface Slot {
   convert: ConvertBatch;
@@ -89,7 +96,10 @@ export async function createSofficeSlot(
     ? ['/usr/bin/nice', ['-n', '19', binary]]
     : [binary, []];
 
-  async function convert(docs: Buffer[]): Promise<(Buffer | JobError)[]> {
+  async function convert(
+    docs: Buffer[],
+    documents = docs.length,
+  ): Promise<(Buffer | JobError)[]> {
     const dir = await mkdtemp(join(root, 'batch-'));
     try {
       const inputs = await Promise.all(
@@ -113,7 +123,7 @@ export async function createSofficeSlot(
             dir,
             ...inputs,
           ],
-          { timeout: timeoutMs + 5_000 * (docs.length - 1) },
+          { timeout: timeoutMs + 5_000 * (documents - 1) },
         );
       } catch (cause) {
         const killed = (cause as { killed?: boolean }).killed;
