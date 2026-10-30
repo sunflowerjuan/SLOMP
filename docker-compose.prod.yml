@@ -57,9 +57,9 @@ services:
     environment:
       PDF_SERVICE_KEY: ${PDF_SERVICE_KEY:?set PDF_SERVICE_KEY in .env.prod}
       AZURE_STORAGE_CONNECTION_STRING: *storage
-    # The 100-document demo with /render alongside peaks at about 450 MiB,
-    # including the LibreOffice kept running for /render (~170 MiB, 140 MiB
-    # idle in all); the template cache tops out at ~6.5 MB.
+    # Bulk jobs of 1011 and 510 real liquidations (blocks of 40 merged into one
+    # document) with /render alongside peak at about 400 MiB, 74 MiB idle; the
+    # template cache tops out at ~6.5 MB.
     mem_limit: 768m
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
