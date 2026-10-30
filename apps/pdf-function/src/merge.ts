@@ -88,9 +88,13 @@ export function mergeDocuments(
   const partXml = parts.map((part) =>
     part.target ? zip.file(`word/${part.target}`)?.asText() : undefined,
   );
-  // Markers in a header would be filled outside the per-document loop.
-  if (partXml.some((text) => text === undefined || text.includes('{')))
-    return null;
+  // Markers in a header would be filled outside the per-document loop. Only
+  // the text counts: Word writes "{GUID}" attributes in image extensions.
+  const markers = (xml: string) =>
+    [...xml.matchAll(/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g)].some(([, text]) =>
+      text!.includes('{'),
+    );
+  if (partXml.some((xml) => xml === undefined || markers(xml))) return null;
   // Parts that count pages get a copy per document; the rest are declared in
   // the first section only and the others inherit them.
   const perDocument = parts.filter((_, i) => partXml[i]!.includes('NUMPAGES'));

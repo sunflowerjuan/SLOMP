@@ -103,7 +103,12 @@ async function convertMerged(
   slot: Slot,
 ): Promise<Buffer[] | null> {
   if (documents.length < 2) return null;
-  const log = deps.log ?? console.log;
+  const fallback = (reason: string) => {
+    (deps.log ?? console.log)(
+      `job ${message.jobId} batch ${message.batchIndex}: ${reason}, converting each document`,
+    );
+    return null;
+  };
   let merged: Buffer | null;
   try {
     merged = mergeDocuments(
@@ -111,18 +116,13 @@ async function convertMerged(
       documents.map(({ data }) => data),
     );
   } catch {
-    return null;
+    return fallback('the data does not fit the merged template');
   }
-  if (!merged) return null;
+  if (!merged) return fallback('template layout not supported for merging');
   const [pdf] = await slot.convert([merged], documents.length);
   const pdfs =
     pdf instanceof Buffer ? await splitPdf(pdf, documents.length) : null;
-  if (!pdfs) {
-    log(
-      `job ${message.jobId} batch ${message.batchIndex}: merged conversion failed, converting each document`,
-    );
-  }
-  return pdfs;
+  return pdfs ?? fallback('merged conversion failed');
 }
 
 async function convertEach(

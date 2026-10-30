@@ -47,6 +47,12 @@ describe('mergeDocuments', () => {
     );
   });
 
+  it('ignores the {GUID} attributes Word writes in a header image', () => {
+    const header =
+      '<w:p><w:r><w:drawing><a:ext uri="{28A0092B-C50C-407E-A947-70E740481C1C}"/></w:drawing></w:r><w:fldSimple w:instr=" NUMPAGES "/></w:p>';
+    expect(mergeDocuments(sectionTemplate({ header }), data)).not.toBe(null);
+  });
+
   it('leaves layouts it does not reproduce to the per-document path', () => {
     expect(mergeDocuments(minimalDocx(['{resolutionNumber}']), data)).toBe(
       null,
