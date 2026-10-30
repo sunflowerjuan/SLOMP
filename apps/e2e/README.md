@@ -72,6 +72,7 @@ prepara sus datos al empezar (`src/db.ts` deja el municipio sin cartera y
 | `E2E_API_URL` | `http://localhost:3000` | Backend |
 | `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` | — (obligatorias) | Administrador de pruebas |
 | `E2E_ALLOW_REMOTE` | — | `1` permite servidores que no sean `localhost` |
+| `E2E_DOCKER_BIN` | rutas habituales de Docker | Ruta completa de `docker`, si está en otro lado (no se busca en `PATH`) |
 
 ## Contra un servidor remoto
 

@@ -1,9 +1,35 @@
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { E2E_MUNICIPALITY_SLUG } from "./env";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../..");
+
+// Docker is run by absolute path, not looked up in PATH (a writable PATH
+// directory could plant its own "docker"). E2E_DOCKER_BIN overrides these.
+const DOCKER_CANDIDATES = [
+  "/usr/bin/docker",
+  "/usr/local/bin/docker",
+  "/opt/homebrew/bin/docker",
+  "C:/Program Files/Docker/Docker/resources/bin/docker.exe",
+  join(
+    process.env.LOCALAPPDATA ?? "",
+    "Programs/DockerDesktop/resources/bin/docker.exe",
+  ),
+];
+
+function dockerBinary(): string {
+  const binary =
+    process.env.E2E_DOCKER_BIN ??
+    DOCKER_CANDIDATES.find((candidate) => existsSync(candidate));
+  if (!binary) {
+    throw new Error(
+      "No se encontró Docker. Define E2E_DOCKER_BIN con la ruta completa del ejecutable `docker`.",
+    );
+  }
+  return binary;
+}
 
 // Runs SQL in the Compose database (local and CI start it the same way).
 // There is no API to delete a tax roll or to age a resolution by 60 days, and
@@ -11,7 +37,7 @@ const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 function sql(statement: string): void {
   try {
     execFileSync(
-      "docker",
+      dockerBinary(),
       [
         "compose",
         "exec",
