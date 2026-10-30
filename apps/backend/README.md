@@ -133,6 +133,44 @@ applies it answers 409 `ASSISTANT_CHANGES_REJECTED` with the rejected ones in
 `details.rejected`. A settlement already in the requested state comes back
 in `unchanged` and records nothing.
 
+### Conversation with the model (SL-155)
+
+`POST /municipalities/:slug/assistant/messages` with
+`{ message, history?, context? }` answers `{ reply, proposals }`.
+
+- **Request:**
+  - `history` holds the last turns (at most 10, `{ role: "user" | "assistant", content }`). The client keeps it: the server stores no conversation.
+  - `context.paymentOrderRows` can carry the rows of the payment orders Excel (up to 5000), which `find_unlisted_periods` uses. The model never copies them.
+- **Response:** `proposals` is the last proposal of the message, already validated (`accepted`, `rejected`, optional `note`), or `null`. The panel applies it with `changes/confirm`.
+- **Limits:** at most 5 tool calls and 30 seconds per message, and 20 messages per minute per Administrator.
+- **Errors:**
+  - 422 `ASSISTANT_TOO_MANY_TOOL_CALLS`;
+  - 503 `ASSISTANT_UNAVAILABLE` (no model configured, the model failed or ran out of time; `details.reason` says which);
+  - 429 `ASSISTANT_RATE_LIMITED`, with `Retry-After`.
+
+The loop (`src/assistant/assistant-conversation.service.ts`) only knows the
+interface in `src/assistant/model/assistant-model.ts`. The provider comes
+from the environment (`apps/backend/.env.example`):
+
+- `ASSISTANT_PROVIDER=anthropic` with `ASSISTANT_API_KEY` uses Claude.
+  Optional: `ASSISTANT_MODEL` (default `claude-haiku-5-5`) and
+  `ASSISTANT_EFFORT` (default `low`).
+- `ASSISTANT_PROVIDER=fake` answers a fixed text without a key, to work on
+  the panel.
+- Unset, the assistant is off and only this route answers 503.
+
+What reaches the model:
+
+- the tools' output, which has no names, documents or addresses;
+- the text the Administrator wrote, with every 6 to 10 digits after CC, CE,
+  NIT, TI or PP replaced by `[DOC]` (`src/assistant/mask-documents.ts`). A
+  name typed by hand can't be detected: the chat asks not to write any.
+
+Each message writes one JSON log line (`"event":"assistant.message"`) with
+the request id, provider and model, the tools called, the duration, the
+result code and the token counts. It never includes the conversation's text
+or the tools' arguments.
+
 ## Run tests
 
 ```bash
