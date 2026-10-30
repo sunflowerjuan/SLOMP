@@ -12,6 +12,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import { CurrentUser } from '../auth/current-user.decorator.js';
+import type { AuthenticatedUser } from '../auth/jwt.strategy.js';
 import { CurrentMunicipality } from '../municipalities/current-municipality.decorator.js';
 import type { MunicipalityContext } from '../municipalities/municipality-context.js';
 import { MunicipalityGuard } from '../municipalities/municipality.guard.js';
@@ -43,10 +45,16 @@ export class SettlementsController {
   @Patch(':id/status')
   changeStatus(
     @CurrentMunicipality() municipality: MunicipalityContext,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseIntPipe) id: number,
     @Body('status') status: unknown,
   ) {
-    return this.settlementsService.changeStatus(municipality.id, id, status);
+    return this.settlementsService.changeStatus(
+      municipality.id,
+      user.id,
+      id,
+      status,
+    );
   }
 
   @Post(':id/liquidation-pdf')

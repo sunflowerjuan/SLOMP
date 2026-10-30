@@ -94,6 +94,45 @@ preview; and `GET .../:id/download` returns the stored `.docx` byte for byte,
 under the name it was uploaded with. A template of another municipality
 answers 404 `TEMPLATE_NOT_FOUND`, same as a missing one.
 
+## Settlement status changes and Slompsim's tools (SL-154)
+
+A status change applies to one settlement (a property and period), never to
+the rest of its resolution, and is checked with
+`src/settlements/settlement-status-rules.ts`. A settlement in no payment
+order can become `PRESCRITA` at any time; one in a payment order, 5 years
+after that payment order. Every change an Administrator makes is recorded in
+`settlement_events` in the same transaction, with the previous and new
+status, the source (`MANUAL` from `PATCH .../settlements/:id/status`,
+`ASSISTANT` from a confirmed proposal), the optional note and the
+Administrator. Rules and decisions: Confluence pages "Diseño de Slompsim"
+(D3, D4, D5, D7) and "Slompsim: arquitectura y modelo".
+
+The assistant's tools live in `src/assistant/assistant-tools.service.ts`.
+They are internal services, not routes, and none of them writes:
+
+- `searchSettlements`: by `cadastralCode` or by `settlementId`, exactly one
+  of them, at most 50 results. Never by owner or address.
+- `findUnlistedPeriods`: given the rows of the payment orders Excel (up to
+  5000), the current settlements of each property in it whose period the
+  file leaves out. `POST .../payment-orders/import` returns the same list as
+  `unlisted`.
+- `proposeStatusChange`: up to 100 changes, each `accepted` or `rejected`
+  with `TRANSITION_NOT_ALLOWED`, `NOT_FOUND` (also for another
+  municipality's settlement) or `REPLACED`, plus the allowed states, the
+  current one and its payment order.
+
+All three return only `id`, `cadastralCode`, `period`, `status`,
+`allowedStatuses` and `hasPaymentOrder`: never names, documents or addresses.
+
+The panel applies a proposal without going through the model:
+`POST /municipalities/:slug/assistant/changes/preview` validates like
+`proposeStatusChange`, and `POST .../assistant/changes/confirm` with
+`{ changes, note? }` (note up to 500 characters) checks every change again
+with the rows locked. It applies all of them or none: if one no longer
+applies it answers 409 `ASSISTANT_CHANGES_REJECTED` with the rejected ones in
+`details.rejected`. A settlement already in the requested state comes back
+in `unchanged` and records nothing.
+
 ## Run tests
 
 ```bash

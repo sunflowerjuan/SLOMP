@@ -3,6 +3,7 @@ import ExcelJS from 'exceljs';
 import { describe, expect, it, vi } from 'vitest';
 import { ErrorCode } from '../common/errors/error-codes.js';
 import type { MunicipalityContext } from '../municipalities/municipality-context.js';
+import { AssistantToolsService } from '../assistant/assistant-tools.service.js';
 import { PaymentOrdersService } from './payment-orders.service.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -140,7 +141,10 @@ describe('PaymentOrdersService.previewImport', () => {
       { id: 4, period: 2023, cadastralCode: code('4'), status: 'PAGADA' },
       { id: 5, period: 2023, cadastralCode: code('5'), resolution: null },
     ]);
-    const service = new PaymentOrdersService(prisma as never);
+    const service = new PaymentOrdersService(
+      prisma as never,
+      new AssistantToolsService(prisma as never),
+    );
     const buffer = await workbookWith([
       { cadastralCode: code('1'), period: 2023 },
       { cadastralCode: code('2'), period: 2023 },
@@ -188,7 +192,10 @@ describe('PaymentOrdersService.previewImport', () => {
         resolution: { number: '2026-0002', issuedAt },
       },
     ]);
-    const service = new PaymentOrdersService(prisma as never);
+    const service = new PaymentOrdersService(
+      prisma as never,
+      new AssistantToolsService(prisma as never),
+    );
 
     const preview = await service.previewImport(
       MUNICIPALITY,
@@ -204,7 +211,10 @@ describe('PaymentOrdersService.previewImport', () => {
 
   it('looks settlements up in the active municipality only', async () => {
     const { prisma } = buildPrisma();
-    const service = new PaymentOrdersService(prisma as never);
+    const service = new PaymentOrdersService(
+      prisma as never,
+      new AssistantToolsService(prisma as never),
+    );
 
     await service.previewImport(
       MUNICIPALITY,
@@ -226,11 +236,66 @@ describe('PaymentOrdersService.previewImport', () => {
     );
   });
 
+  it('lists the current periods of each property in the file that the file leaves out, with no personal data', async () => {
+    const { prisma } = buildPrisma([
+      { id: 1, period: 2019, cadastralCode: code('1') },
+      { id: 2, period: 2020, cadastralCode: code('1') },
+      { id: 3, period: 2021, cadastralCode: code('1'), status: 'PAGADA' },
+      { id: 4, period: 2020, cadastralCode: code('2') },
+    ]);
+    const service = new PaymentOrdersService(
+      prisma as never,
+      new AssistantToolsService(prisma as never),
+    );
+
+    const preview = await service.previewImport(
+      MUNICIPALITY,
+      await workbookWith([
+        { cadastralCode: code('1'), period: 2019 },
+        { cadastralCode: code('2'), period: 2020 },
+      ]),
+      'x.xlsx',
+      NOW,
+    );
+
+    expect(preview.unlisted).toEqual([
+      {
+        id: 2,
+        cadastralCode: code('1'),
+        period: 2020,
+        status: 'VIGENTE',
+        allowedStatuses: expect.any(Array),
+        hasPaymentOrder: false,
+      },
+      {
+        id: 3,
+        cadastralCode: code('1'),
+        period: 2021,
+        status: 'PAGADA',
+        allowedStatuses: expect.any(Array),
+        hasPaymentOrder: false,
+      },
+    ]);
+    for (const settlement of preview.unlisted) {
+      expect(Object.keys(settlement).sort()).toEqual([
+        'allowedStatuses',
+        'cadastralCode',
+        'hasPaymentOrder',
+        'id',
+        'period',
+        'status',
+      ]);
+    }
+  });
+
   it('reports a property+period listed twice only once', async () => {
     const { prisma } = buildPrisma([
       { id: 1, period: 2023, cadastralCode: code('1') },
     ]);
-    const service = new PaymentOrdersService(prisma as never);
+    const service = new PaymentOrdersService(
+      prisma as never,
+      new AssistantToolsService(prisma as never),
+    );
 
     const preview = await service.previewImport(
       MUNICIPALITY,
@@ -256,7 +321,10 @@ describe('PaymentOrdersService.previewImport', () => {
         resolution: { number: '2026-0005', issuedAt: daysAgo(5) },
       },
     ]);
-    const service = new PaymentOrdersService(prisma as never);
+    const service = new PaymentOrdersService(
+      prisma as never,
+      new AssistantToolsService(prisma as never),
+    );
 
     const preview = await service.previewImport(
       MUNICIPALITY,
@@ -275,7 +343,10 @@ describe('PaymentOrdersService.previewImport', () => {
   describe('validated like the tax roll', () => {
     it('rejects the whole file when a cadastral code has another DANE prefix, without touching settlements', async () => {
       const { prisma } = buildPrisma();
-      const service = new PaymentOrdersService(prisma as never);
+      const service = new PaymentOrdersService(
+        prisma as never,
+        new AssistantToolsService(prisma as never),
+      );
       const buffer = await workbookWith([
         { cadastralCode: code('1'), period: 2023 },
         { cadastralCode: '19517'.padEnd(30, '0'), period: 2023 },
@@ -298,7 +369,10 @@ describe('PaymentOrdersService.previewImport', () => {
       prisma.municipality.findMany.mockResolvedValue([
         { daneCode: '19517', name: 'Páez', state: 'Cauca' },
       ]);
-      const service = new PaymentOrdersService(prisma as never);
+      const service = new PaymentOrdersService(
+        prisma as never,
+        new AssistantToolsService(prisma as never),
+      );
 
       const error = await service
         .previewImport(
@@ -316,7 +390,10 @@ describe('PaymentOrdersService.previewImport', () => {
 
     it('turns an unreadable file into a 400, like the tax roll', async () => {
       const { prisma } = buildPrisma();
-      const service = new PaymentOrdersService(prisma as never);
+      const service = new PaymentOrdersService(
+        prisma as never,
+        new AssistantToolsService(prisma as never),
+      );
       const blank = new ExcelJS.Workbook();
       blank.addWorksheet('Blank');
 
@@ -344,7 +421,10 @@ describe('PaymentOrdersService.previewImport', () => {
 
     it('passes the invalid rows of the parser through', async () => {
       const { prisma } = buildPrisma();
-      const service = new PaymentOrdersService(prisma as never);
+      const service = new PaymentOrdersService(
+        prisma as never,
+        new AssistantToolsService(prisma as never),
+      );
 
       const preview = await service.previewImport(
         MUNICIPALITY,
@@ -368,7 +448,10 @@ describe('PaymentOrdersService.generate', () => {
     const { prisma, tx } = buildPrisma([
       { id: 1, period: 2023, cadastralCode: code('1') },
     ]);
-    const service = new PaymentOrdersService(prisma as never);
+    const service = new PaymentOrdersService(
+      prisma as never,
+      new AssistantToolsService(prisma as never),
+    );
 
     const result = await service.generate(MUNICIPALITY.id, 9, [1], NOW);
 
@@ -407,7 +490,10 @@ describe('PaymentOrdersService.generate', () => {
       { id: 3, period: 2023, cadastralCode: code('1') },
       { id: 4, period: 2022, cadastralCode: code('2') },
     ]);
-    const service = new PaymentOrdersService(prisma as never);
+    const service = new PaymentOrdersService(
+      prisma as never,
+      new AssistantToolsService(prisma as never),
+    );
 
     const result = await service.generate(
       MUNICIPALITY.id,
@@ -439,7 +525,10 @@ describe('PaymentOrdersService.generate', () => {
         resolution: { number: '2026-0001', issuedAt: daysAgo(59) },
       },
     ]);
-    const service = new PaymentOrdersService(prisma as never);
+    const service = new PaymentOrdersService(
+      prisma as never,
+      new AssistantToolsService(prisma as never),
+    );
 
     const result = await service.generate(MUNICIPALITY.id, 9, [1], NOW);
 
@@ -464,7 +553,10 @@ describe('PaymentOrdersService.generate', () => {
         resolution: { number: '2026-0001', issuedAt: daysAgo(60) },
       },
     ]);
-    const service = new PaymentOrdersService(prisma as never);
+    const service = new PaymentOrdersService(
+      prisma as never,
+      new AssistantToolsService(prisma as never),
+    );
 
     const result = await service.generate(MUNICIPALITY.id, 9, [1], NOW);
 
@@ -478,7 +570,10 @@ describe('PaymentOrdersService.generate', () => {
       { id: 3, period: 2024, cadastralCode: code('1') },
       { id: 4, period: 2025, cadastralCode: code('1'), hasPaymentOrder: true },
     ]);
-    const service = new PaymentOrdersService(prisma as never);
+    const service = new PaymentOrdersService(
+      prisma as never,
+      new AssistantToolsService(prisma as never),
+    );
 
     const result = await service.generate(
       MUNICIPALITY.id,
@@ -503,7 +598,10 @@ describe('PaymentOrdersService.generate', () => {
       { id: 2, period: 2023, cadastralCode: code('2') },
       { id: 3, period: 2024, cadastralCode: code('3') },
     ]);
-    const service = new PaymentOrdersService(prisma as never);
+    const service = new PaymentOrdersService(
+      prisma as never,
+      new AssistantToolsService(prisma as never),
+    );
 
     await service.generate(MUNICIPALITY.id, 9, [1, 2, 3], NOW);
 
@@ -523,7 +621,10 @@ describe('PaymentOrdersService.generate', () => {
     const { prisma, tx } = buildPrisma([
       { id: 1, period: 2022, cadastralCode: code('1') },
     ]);
-    const service = new PaymentOrdersService(prisma as never);
+    const service = new PaymentOrdersService(
+      prisma as never,
+      new AssistantToolsService(prisma as never),
+    );
     // 2027-01-01 02:00 UTC is still Dec 31 2026 in Bogotá.
     const lateOnNewYearsEve = new Date('2027-01-01T02:00:00.000Z');
 
@@ -539,7 +640,10 @@ describe('PaymentOrdersService.generate', () => {
   it('answers "not found" for a settlement of another municipality, and looks only inside its own', async () => {
     // The scoped lookup finds nothing for an id that belongs to another municipality.
     const { prisma } = buildPrisma([]);
-    const service = new PaymentOrdersService(prisma as never);
+    const service = new PaymentOrdersService(
+      prisma as never,
+      new AssistantToolsService(prisma as never),
+    );
 
     const result = await service.generate(MUNICIPALITY.id, 9, [500], NOW);
 
@@ -562,7 +666,10 @@ describe('PaymentOrdersService.generate', () => {
     const { prisma, tx } = buildPrisma([
       { id: 1, period: 2022, cadastralCode: code('1') },
     ]);
-    const service = new PaymentOrdersService(prisma as never);
+    const service = new PaymentOrdersService(
+      prisma as never,
+      new AssistantToolsService(prisma as never),
+    );
 
     const result = await service.generate(MUNICIPALITY.id, 9, [1, 1, 1], NOW);
 
@@ -577,7 +684,10 @@ describe('PaymentOrdersService.generate', () => {
     ]);
     // The guarded UPDATE links one row less than asked.
     tx.$executeRaw.mockResolvedValue(1);
-    const service = new PaymentOrdersService(prisma as never);
+    const service = new PaymentOrdersService(
+      prisma as never,
+      new AssistantToolsService(prisma as never),
+    );
 
     const error = await service
       .generate(MUNICIPALITY.id, 9, [1, 2], NOW)
@@ -594,7 +704,10 @@ describe('PaymentOrdersService.generate', () => {
       { id: 1, period: 2022, cadastralCode: code('1') },
     ]);
     tx.pdfJob.count.mockResolvedValue(1);
-    const service = new PaymentOrdersService(prisma as never);
+    const service = new PaymentOrdersService(
+      prisma as never,
+      new AssistantToolsService(prisma as never),
+    );
 
     const error = await service
       .generate(MUNICIPALITY.id, 9, [1], NOW)
@@ -613,7 +726,10 @@ describe('PaymentOrdersService.generate', () => {
       { id: 1, period: 2022, cadastralCode: code('1') },
     ]);
     tx.paymentOrder.createManyAndReturn.mockRejectedValue(new Error('boom'));
-    const service = new PaymentOrdersService(prisma as never);
+    const service = new PaymentOrdersService(
+      prisma as never,
+      new AssistantToolsService(prisma as never),
+    );
 
     await expect(
       service.generate(MUNICIPALITY.id, 9, [1], NOW),
@@ -636,7 +752,10 @@ describe('PaymentOrdersService.list', () => {
         ],
       },
     ]);
-    const service = new PaymentOrdersService(prisma as never);
+    const service = new PaymentOrdersService(
+      prisma as never,
+      new AssistantToolsService(prisma as never),
+    );
 
     const orders = await service.list(MUNICIPALITY.id);
 
