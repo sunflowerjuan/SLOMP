@@ -4,101 +4,44 @@
 }
 
 .tax-roll-upload-page__result-reveal {
-  display: grid;
-  grid-template-rows: 1fr;
-  min-height: 0;
-  margin: -6px;
-  padding: 6px;
-  overflow: hidden;
   /* Backwards fill: nothing is held after the entry, so the swipe can set
      its own transform. */
-  animation: tax-roll-result-enter var(--duration-enter) var(--ease-sheet)
-    backwards;
+  animation: rise-in var(--duration-base) var(--ease-out) backwards;
   /* Horizontal swipes are ours; vertical ones keep scrolling the page. */
   touch-action: pan-y;
 }
 
-/* Exit: the close button collapses it where it entered from; a swipe carries
-   it off to the side from wherever the finger left it (no `from`: it starts
-   at the element's current, inline transform). */
+/* Exit: the close button fades it where it is; a swipe carries it off to the
+   side from wherever the finger left it (no `from`: it starts at the
+   element's current, inline transform). */
 .tax-roll-upload-page__result-reveal[data-leaving] {
   pointer-events: none;
 }
 
 .tax-roll-upload-page__result-reveal[data-leaving="fade"] {
-  animation: tax-roll-result-leave-fade var(--duration-enter)
-    var(--ease-sheet-soft) forwards;
+  animation: tax-roll-result-leave-fade var(--duration-fast) var(--ease-out)
+    forwards;
 }
 
 .tax-roll-upload-page__result-reveal[data-leaving="1"] {
-  animation: tax-roll-result-leave-right var(--duration-sheet) var(--ease-out)
+  animation: tax-roll-result-leave-right var(--duration-fast) var(--ease-out)
     forwards;
 }
 
 .tax-roll-upload-page__result-reveal[data-leaving="-1"] {
-  animation: tax-roll-result-leave-left var(--duration-sheet) var(--ease-out)
+  animation: tax-roll-result-leave-left var(--duration-fast) var(--ease-out)
     forwards;
-}
-
-.tax-roll-upload-page__result {
-  min-height: 0;
-}
-
-/* A collapsing grid row can't go below the card's padding and border, so
-   they shrink with it; otherwise the layout jumps when the card is removed. */
-.tax-roll-upload-page__result-reveal .tax-roll-upload-page__result {
-  animation: tax-roll-result-card-in var(--duration-enter) var(--ease-sheet)
-    backwards;
-}
-
-.tax-roll-upload-page__result-reveal[data-leaving]
-  .tax-roll-upload-page__result {
-  animation: tax-roll-result-card-out var(--duration-enter)
-    var(--ease-sheet-soft) forwards;
-}
-
-@keyframes tax-roll-result-card-in {
-  from {
-    padding-block: 0;
-    border-block-width: 0;
-  }
-}
-
-@keyframes tax-roll-result-card-out {
-  to {
-    padding-block: 0;
-    border-block-width: 0;
-  }
-}
-
-.tax-roll-upload-page__result-reveal:focus {
-  outline: none;
-}
-
-@keyframes tax-roll-result-enter {
-  from {
-    grid-template-rows: 0fr;
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    grid-template-rows: 1fr;
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 @keyframes tax-roll-result-leave-fade {
   to {
-    grid-template-rows: 0fr;
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(var(--space-8));
   }
 }
 
 @keyframes tax-roll-result-leave-right {
   to {
-    grid-template-rows: 0fr;
     opacity: 0;
     transform: translateX(110%);
   }
@@ -106,19 +49,24 @@
 
 @keyframes tax-roll-result-leave-left {
   to {
-    grid-template-rows: 0fr;
     opacity: 0;
     transform: translateX(-110%);
   }
 }
 
-@keyframes tax-roll-result-fade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+/* Placeholder rows while the history loads. */
+.tax-roll-upload-page__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.tax-roll-upload-page__skeleton i {
+  display: block;
+  height: var(--space-16);
+  border-radius: var(--radius-default);
+  background-color: var(--semantic-surface-muted);
+  animation: pulse var(--duration-pulse) var(--ease-sheet-soft) infinite;
 }
 
 .tax-roll-upload-page__muted {
@@ -156,7 +104,7 @@
 /* History: four columns don't fit a phone, nor the narrow column beside the
    result on a small laptop, so each row becomes a small card -- file name and
    status on top, date and count underneath. */
-@media (max-width: 768px) {
+@media (--shell) {
   .tax-roll-upload-page__history .ui-table__head {
     display: none;
   }
@@ -201,31 +149,9 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .tax-roll-upload-page__result-reveal {
-    animation: tax-roll-result-fade var(--duration-fast) ease-out backwards;
-  }
-
-  .tax-roll-upload-page__result-reveal .tax-roll-upload-page__result,
-  .tax-roll-upload-page__result-reveal[data-leaving]
-    .tax-roll-upload-page__result {
-    animation: none;
-  }
-
-  .tax-roll-upload-page__result-reveal[data-leaving] {
-    animation: tax-roll-result-leave-dim var(--duration-fast) ease-out forwards;
-  }
-
-  @keyframes tax-roll-result-leave-dim {
-    to {
-      opacity: 0;
-    }
-  }
-}
-
 /* Desktop: a result with the history closed fits the screen without scrolling,
    so the result card is tighter and the history is a slim bar. */
-@media (min-width: 1100px) {
+@media (--two-columns) {
   .tax-roll-upload-page .ui-screen__body {
     gap: var(--space-16);
     padding-bottom: var(--space-8);

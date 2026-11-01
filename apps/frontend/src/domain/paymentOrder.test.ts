@@ -190,6 +190,17 @@ describe("reviewSummary", () => {
       }),
     ).toBe("1 predio, 1 periodo elegible, 1 no elegible");
   });
+
+  it("leaves out a count in zero", () => {
+    const rows = [{ cadastralCode: CODE_A }, { cadastralCode: CODE_B }];
+
+    expect(reviewSummary({ eligible: rows, ineligible: [] })).toBe(
+      "2 predios, 2 periodos elegibles",
+    );
+    expect(reviewSummary({ eligible: [], ineligible: rows })).toBe(
+      "2 predios, 2 no elegibles",
+    );
+  });
 });
 
 describe("groupIneligibleByReason", () => {

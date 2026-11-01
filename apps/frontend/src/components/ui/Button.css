@@ -9,9 +9,9 @@
   border-radius: var(--radius-default);
   cursor: pointer;
   transition:
-    background-color var(--duration-fast) ease,
-    border-color var(--duration-fast) ease,
-    opacity var(--duration-base) ease,
+    background-color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    opacity var(--duration-base) var(--ease-standard),
     transform var(--duration-press) var(--ease-out);
   white-space: nowrap;
   position: relative;
@@ -29,7 +29,7 @@ a.ui-button:focus-visible {
 }
 
 .ui-button:active:not(:disabled) {
-  transform: scale(0.97);
+  transform: scale(var(--press-scale));
 }
 
 /* Sizes */
@@ -107,37 +107,32 @@ a.ui-button:focus-visible {
 /* The spinner replaces the label in place, so the button keeps its width.
    Both changes wait a beat: a fast response ends before anything flickers. */
 .ui-button__label {
-  transition: opacity var(--duration-fast) ease;
+  transition: opacity var(--duration-fast) var(--ease-standard);
 }
 
 .ui-button--loading .ui-button__label {
   opacity: 0;
-  transition-delay: 200ms;
+  transition-delay: var(--delay-feedback);
 }
 
 .ui-button__spinner {
   position: absolute;
   inset: 0;
   margin: auto;
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.5);
+  width: var(--space-16);
+  height: var(--space-16);
+  border: 2px solid var(--on-primary-track);
   border-top-color: var(--semantic-on-primary);
   border-radius: 50%;
   animation:
-    ui-button-spinner-in var(--duration-fast) ease 200ms backwards,
-    ui-button-spin 0.6s linear infinite;
+    fade-in var(--duration-fast) var(--ease-standard) var(--delay-feedback)
+      backwards,
+    ui-button-spin var(--duration-spin) linear infinite;
 }
 
 .ui-button--secondary .ui-button__spinner {
-  border-color: rgba(61, 102, 144, 0.3);
+  border-color: var(--primary-track);
   border-top-color: var(--tinta-600);
-}
-
-@keyframes ui-button-spinner-in {
-  from {
-    opacity: 0;
-  }
 }
 
 @keyframes ui-button-spin {

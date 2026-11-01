@@ -25,7 +25,7 @@ export function PdfButton({
         loading={state?.loading}
         onClick={() => onDownload(settlementId)}
       >
-        Descargar PDF
+        {state?.error ? "Reintentar" : "Descargar PDF"}
       </Button>
       {state?.error && <Notice>{state.error}</Notice>}
     </div>

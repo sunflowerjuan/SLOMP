@@ -19,7 +19,3 @@
   font-variant-numeric: tabular-nums;
   color: var(--semantic-text);
 }
-
-.ui-stat[data-tone="danger"] dd {
-  color: var(--semantic-danger-hover);
-}

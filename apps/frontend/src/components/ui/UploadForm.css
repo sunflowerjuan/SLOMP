@@ -9,7 +9,7 @@
   justify-content: flex-end;
 }
 
-@media (max-width: 768px) {
+@media (--shell) {
   .ui-upload-form__actions .ui-button {
     width: 100%;
   }

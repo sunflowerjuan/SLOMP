@@ -379,6 +379,7 @@ export function PaymentOrdersPage() {
                 file={file}
                 onFileSelect={startOver}
                 onClear={() => startOver(null)}
+                error={error}
                 actionLabel="Revisar archivo"
                 busy={isReviewing}
                 onSubmit={() => void handleReview()}
@@ -386,7 +387,6 @@ export function PaymentOrdersPage() {
               {notice && (
                 <Notice variant={notice.variant}>{notice.text}</Notice>
               )}
-              {error && <Notice>{error}</Notice>}
               {preview && preview.invalidRows.length > 0 && (
                 <Card title="Filas inválidas">
                   <Notice>{invalidRowsText(preview.invalidRows.length)}</Notice>

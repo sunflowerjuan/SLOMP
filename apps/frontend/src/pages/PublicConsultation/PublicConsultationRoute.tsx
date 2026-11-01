@@ -1,22 +1,27 @@
 import { useEffect, useState } from "react";
+import { getErrorMessage, isRetryable } from "../../api/ApiError";
 import { getPublicMunicipality } from "../../api/publicConsultation";
 import type { PublicMunicipality } from "../../api/publicConsultation";
+import { PublicConsultationLoading } from "./PublicConsultationLoading";
 import { PublicConsultationPage } from "./PublicConsultationPage";
 import { PublicConsultationUnavailable } from "./PublicConsultationUnavailable";
 
 type MunicipalityState =
   | { kind: "loading" }
   | { kind: "ready"; municipality: PublicMunicipality }
-  | { kind: "unavailable" };
+  | { kind: "unavailable" }
+  | { kind: "failed"; message: string };
 
 // Resolves the municipality of `#/consulta/:slug` before showing its page.
-// Anything that is not a known municipality (no slug, an unknown one, or the
-// backend failing) is the same neutral "Consulta no disponible".
+// Anything that is not a known municipality (no slug or an unknown one) is the
+// same neutral "Consulta no disponible"; when the backend can't answer, the
+// page says so and offers to try again.
 export function PublicConsultationRoute({ slug }: { slug: string | null }) {
   const [state, setState] = useState<{
     slug: string | null;
     value: MunicipalityState;
   }>({ slug, value: slug ? { kind: "loading" } : { kind: "unavailable" } });
+  const [attempt, setAttempt] = useState(0);
 
   // A different slug (the hash changed) starts over; the setState during
   // render is the documented way to reset state when a prop changes.
@@ -38,10 +43,18 @@ export function PublicConsultationRoute({ slug }: { slug: string | null }) {
         if (error instanceof DOMException && error.name === "AbortError") {
           return;
         }
-        setState({ slug, value: { kind: "unavailable" } });
+        setState({
+          slug,
+          value: isRetryable(error)
+            ? {
+                kind: "failed",
+                message: getErrorMessage(error, { audience: "public" }),
+              }
+            : { kind: "unavailable" },
+        });
       });
     return () => controller.abort();
-  }, [slug]);
+  }, [slug, attempt]);
 
   const { value } = state;
   if (value.kind === "ready" && slug) {
@@ -54,7 +67,20 @@ export function PublicConsultationRoute({ slug }: { slug: string | null }) {
     );
   }
   if (value.kind === "loading") {
-    return <div className="public-consultation" aria-busy="true" />;
+    return <PublicConsultationLoading />;
+  }
+  if (value.kind === "failed") {
+    return (
+      <PublicConsultationUnavailable
+        failure={{
+          message: value.message,
+          onRetry: () => {
+            setState({ slug, value: { kind: "loading" } });
+            setAttempt((current) => current + 1);
+          },
+        }}
+      />
+    );
   }
   return <PublicConsultationUnavailable />;
 }

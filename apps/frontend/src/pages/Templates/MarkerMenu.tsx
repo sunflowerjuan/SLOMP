@@ -5,6 +5,7 @@ import type { MarkerCatalogEntry } from "../../api/templates";
 import { CloseIcon } from "../../components/ui/CloseIcon";
 import { Icon } from "../../components/ui/Icon";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
+import { MEDIA } from "../../styles/breakpoints";
 import { focusWithin } from "../../utils/scrollWithin";
 import type { MarkingProblem } from "../../domain/templateMarking";
 
@@ -66,7 +67,7 @@ export function MarkerMenu({
   onPick,
   onClose,
 }: MarkerMenuProps) {
-  const phone = useMediaQuery("(max-width: 900px)");
+  const phone = useMediaQuery(MEDIA.shell);
   const ref = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const titleId = useId();

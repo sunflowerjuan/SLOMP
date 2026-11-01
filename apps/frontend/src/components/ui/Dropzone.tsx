@@ -5,7 +5,7 @@ import "./Dropzone.css";
 
 interface DropzoneProps {
   file: File | null;
-  error?: string;
+  error?: string | null;
   accept?: string;
   // Only shown as a hint; the backend enforces the limit.
   maxSizeMb?: number;
@@ -106,20 +106,27 @@ export function Dropzone({
         onChange={handleInputChange}
       />
 
-      {state === "uploaded" && file ? (
-        <div className="ui-dropzone__file">
-          <span className="ui-dropzone__file-name">{file.name}</span>
-          <span className="ui-dropzone__file-size">
-            {formatFileSize(file.size)}
-          </span>
-          <button
-            type="button"
-            className="ui-dropzone__remove"
-            onClick={onClear}
-          >
-            Quitar
-          </button>
-        </div>
+      {file ? (
+        <>
+          <div className="ui-dropzone__file">
+            <span className="ui-dropzone__file-name">{file.name}</span>
+            <span className="ui-dropzone__file-size">
+              {formatFileSize(file.size)}
+            </span>
+            <button
+              type="button"
+              className="ui-dropzone__remove"
+              onClick={onClear}
+            >
+              Quitar
+            </button>
+          </div>
+          {error && (
+            <p className="ui-dropzone__error" role="alert">
+              {error}
+            </p>
+          )}
+        </>
       ) : (
         <button
           type="button"

@@ -1,6 +1,7 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import type { Plugin } from "vite";
+import { resolveNamedMedia } from "./src/styles/breakpoints.ts";
 
 // Cache policy of the built site, the same one scripts/deploy-static.sh sets
 // on the Storage static website: files under /assets/ carry a content hash in
@@ -29,7 +30,19 @@ function cachePolicy(): Plugin {
   };
 }
 
+// Stylesheets name the breakpoints: see src/styles/breakpoints.ts.
+function namedBreakpoints(): Plugin {
+  return {
+    name: "named-breakpoints",
+    enforce: "pre",
+    transform(code, id) {
+      if (!id.split("?")[0].endsWith(".css")) return null;
+      return { code: resolveNamedMedia(code), map: null };
+    },
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), cachePolicy()],
+  plugins: [react(), cachePolicy(), namedBreakpoints()],
 });

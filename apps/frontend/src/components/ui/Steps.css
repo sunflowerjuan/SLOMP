@@ -41,7 +41,7 @@
 .ui-steps__list li[data-state="done"] .ui-steps__number {
   border-color: var(--semantic-success);
   background-color: var(--semantic-success-bg);
-  color: var(--semantic-success);
+  color: var(--semantic-text);
 }
 
 .ui-steps__compact {
@@ -56,7 +56,7 @@
 }
 
 /* Phone: one line of text; the list stays for screen readers. */
-@media (max-width: 480px) {
+@media (--shell) {
   .ui-steps__list {
     position: absolute;
     width: 1px;
