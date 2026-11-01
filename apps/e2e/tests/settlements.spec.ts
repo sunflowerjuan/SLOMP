@@ -2,7 +2,11 @@ import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { resetTaxRoll } from "../src/db";
 import { expectPdf, zipEntryNames } from "../src/downloads";
-import { ensureActiveLiquidationTemplate, loadTaxRoll } from "../src/fixtures";
+import {
+  ensureActiveLiquidationTemplate,
+  issueResolutions,
+  loadTaxRoll,
+} from "../src/fixtures";
 import { adminPath } from "../src/paths";
 import { signIn } from "../src/session";
 
@@ -37,18 +41,32 @@ test("buscar por código catastral encuentra el predio con su propietario @UAT-1
   await expect(row).toContainText(OWNER);
 });
 
-test("abrir el detalle muestra propietario, cédula y dirección @UAT-12", async ({
-  page,
-}) => {
+test("el detalle agrega lo que la fila no tiene @UAT-N/A", async ({ page }) => {
   const row = await search(page);
   await row.click();
 
   const detail = page.getByRole("complementary", {
     name: "Detalle de la liquidación",
   });
-  await expect(detail).toContainText(OWNER);
-  await expect(detail).toContainText(CODE);
   await expect(detail).toContainText("Lote de Prueba 1");
+  await expect(detail).not.toContainText(OWNER);
+  await expect(detail).not.toContainText(CODE);
+});
+
+test("una búsqueda fallida tiene su propio estado y se reintenta @UAT-N/A", async ({
+  page,
+}) => {
+  await page.goto(adminPath("liquidaciones"));
+  await page.route("**/settlements/search*", (route) => route.abort());
+  await page.getByRole("searchbox", { name: "Cédula" }).fill(CODE);
+  await page.getByRole("button", { name: "Buscar" }).click();
+
+  await expect(page.getByText("No pudimos hacer la búsqueda")).toBeVisible();
+  await expect(page.getByText("Busca una liquidación")).toBeHidden();
+
+  await page.unroute("**/settlements/search*");
+  await page.getByRole("button", { name: "Reintentar" }).click();
+  await expect(page.getByRole("row").filter({ hasText: CODE })).toBeVisible();
 });
 
 test("generar el PDF individual descarga un PDF que no está vacío @UAT-05", async ({
@@ -64,6 +82,24 @@ test("generar el PDF individual descarga un PDF que no está vacío @UAT-05", as
   const download = page.waitForEvent("download");
   await page
     .getByRole("dialog", { name: "Generar liquidación oficial" })
+    .getByRole("button", { name: "Generar", exact: true })
+    .click();
+  const path = testInfo.outputPath("liquidacion.pdf");
+  await (await download).saveAs(path);
+
+  expectPdf(path);
+});
+
+test("con su resolución, el PDF sale de la hoja sin volver a confirmar @UAT-05", async ({
+  page,
+}, testInfo) => {
+  await issueResolutions([CODE]);
+  const row = await search(page);
+  await row.click();
+
+  const download = page.waitForEvent("download");
+  await page
+    .getByRole("complementary", { name: "Detalle de la liquidación" })
     .getByRole("button", { name: "Generar PDF" })
     .click();
   const path = testInfo.outputPath("liquidacion.pdf");

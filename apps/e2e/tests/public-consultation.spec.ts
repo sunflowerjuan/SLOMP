@@ -97,6 +97,36 @@ test("la página funciona dentro de un iframe @UAT-22", async ({ page }) => {
   ).toContainText(CODE);
 });
 
+test("sin conexión la página lo dice y se reintenta, no es «no disponible» @UAT-N/A", async ({
+  page,
+}) => {
+  await page.route(`**/consulta-publica/${E2E_MUNICIPALITY_SLUG}`, (route) =>
+    route.abort(),
+  );
+  await page.goto(PAGE_URL);
+  await expect(page.getByText("No pudimos cargar la consulta")).toBeVisible();
+  await expect(page.getByText("Consulta no disponible")).toBeHidden();
+
+  await page.unroute(`**/consulta-publica/${E2E_MUNICIPALITY_SLUG}`);
+  await page.getByRole("button", { name: "Reintentar" }).click();
+  await expect(page.getByLabel("Cédula catastral")).toBeVisible();
+});
+
+test("una consulta que falla se reintenta con los mismos datos @UAT-N/A", async ({
+  page,
+}) => {
+  await page.goto(PAGE_URL);
+  await page.route(`**/consulta-publica/${E2E_MUNICIPALITY_SLUG}`, (route) =>
+    route.abort(),
+  );
+  await consult(page, { code: CODE, owner: OWNER });
+  await expect(results(page)).toContainText("No se pudo conectar");
+
+  await page.unroute(`**/consulta-publica/${E2E_MUNICIPALITY_SLUG}`);
+  await page.getByRole("button", { name: "Reintentar" }).click();
+  await expect(results(page)).toContainText(CODE);
+});
+
 // Last: it spends the municipality's budget of public requests for a minute.
 test("superar el límite de consultas muestra el aviso de espera @UAT-25", async ({
   page,
