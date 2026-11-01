@@ -48,7 +48,7 @@ export interface PublicSettlement {
   ownerName: string;
   resolutionNumber: string | null;
   periods: number[];
-  // "MIXED" only for legacy data with different statuses in one resolution.
+  // "MIXED" when the periods of the resolution are in different states.
   status: SettlementStatus | "MIXED";
   totalAmount: number;
 }

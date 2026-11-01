@@ -1,5 +1,10 @@
 import { useEffect } from "react";
-import type { SettlementSearchResult } from "../../api/settlements";
+import type { ReactNode } from "react";
+import type {
+  SettlementPeriodStatus,
+  SettlementSearchResult,
+} from "../../api/settlements";
+import type { SettlementStatus } from "../../domain/settlementStatus";
 import { Button } from "../../components/ui/Button";
 import { CloseIcon } from "../../components/ui/CloseIcon";
 import { Notice } from "../../components/ui/Notice";
@@ -9,15 +14,27 @@ import { formatPeriods } from "../../utils/formatPeriods";
 import { formatCop } from "../../utils/formatCop";
 import { primaryMark } from "../../domain/settlementMarks";
 import { SettlementMarks } from "./SettlementMarks";
+import { SettlementPeriodList } from "./SettlementPeriodList";
 import "./SettlementDetailSheet.css";
 
 interface SettlementDetailSheetProps {
   id: string;
   open: boolean;
   entry: SettlementSearchResult | null;
+  editingId: number | null;
+  savingId: number | null;
+  // Why the last status change failed. Here because the sheet covers the
+  // screen behind it.
+  statusNotice: ReactNode;
   generating: boolean;
   // Why the last "Generar PDF" from the sheet failed.
   error: string | null;
+  onEdit: (settlementId: number) => void;
+  onSave: (
+    settlement: SettlementPeriodStatus,
+    status: SettlementStatus,
+  ) => void;
+  onCancel: () => void;
   onClose: () => void;
   onGenerate: () => void;
 }
@@ -36,8 +53,14 @@ export function SettlementDetailSheet({
   id,
   open,
   entry,
+  editingId,
+  savingId,
+  statusNotice,
   generating,
   error,
+  onEdit,
+  onSave,
+  onCancel,
   onClose,
   onGenerate,
 }: SettlementDetailSheetProps) {
@@ -123,7 +146,23 @@ export function SettlementDetailSheet({
                   </dd>
                 </div>
               )}
+              <div>
+                <dt>Estado por periodo</dt>
+                <dd>
+                  <SettlementPeriodList
+                    entry={entry}
+                    editingId={editingId}
+                    savingId={savingId}
+                    onEdit={onEdit}
+                    onSave={onSave}
+                    onCancel={onCancel}
+                  />
+                </dd>
+              </div>
             </dl>
+            {statusNotice && (
+              <div className="settlement-sheet__notice">{statusNotice}</div>
+            )}
             {error && (
               <Notice className="settlement-sheet__notice">{error}</Notice>
             )}

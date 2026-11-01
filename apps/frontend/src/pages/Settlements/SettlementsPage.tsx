@@ -7,9 +7,11 @@ import {
   searchSettlements,
 } from "../../api/settlements";
 import type {
+  SettlementPeriodStatus,
   SettlementSearchCriteria,
   SettlementSearchResult,
 } from "../../api/settlements";
+import { withPeriodChanged } from "../../domain/settlementPeriods";
 import { SETTLEMENT_STATUS_LABEL } from "../../domain/settlementStatus";
 import type { SettlementStatus } from "../../domain/settlementStatus";
 import { GeneratePdfDialog } from "../../components/ui/GeneratePdfDialog";
@@ -31,7 +33,7 @@ import "./SettlementsPage.css";
 const DETAIL_ID = "settlement-detail";
 
 interface FailedStatusChange {
-  entry: SettlementSearchResult;
+  settlement: SettlementPeriodStatus;
   status: SettlementStatus;
   message: string;
   retryable: boolean;
@@ -69,6 +71,7 @@ export function SettlementsPage() {
   function closeSheet() {
     const id = selectedId;
     setSelectedId(null);
+    setEditingId(null);
     // Back to the row that opened it.
     setTimeout(() =>
       document.querySelector<HTMLElement>(`[data-rowlink="${id}"]`)?.focus(),
@@ -131,34 +134,36 @@ export function SettlementsPage() {
   }
 
   async function handleStatusChange(
-    entry: SettlementSearchResult,
+    settlement: SettlementPeriodStatus,
     status: SettlementStatus,
   ) {
-    if (status === entry.status) {
+    if (status === settlement.status) {
       setEditingId(null);
       setToast("El estado no cambió.");
       return;
     }
 
-    setStatusChangeId(entry.settlementId);
+    setStatusChangeId(settlement.settlementId);
     setFailedStatusChange(null);
     try {
-      const { allowedStatuses, missingPeriods } = await changeSettlementStatus(
-        entry.settlementId,
+      const change = await changeSettlementStatus(
+        settlement.settlementId,
         status,
       );
       setResults((current) =>
         current.map((row) =>
-          row.settlementId === entry.settlementId
-            ? { ...row, status, allowedStatuses, missingPeriods }
+          row.settlementId === sheetEntryId
+            ? withPeriodChanged(row, change)
             : row,
         ),
       );
       setEditingId(null);
-      setToast(`Estado actualizado a «${SETTLEMENT_STATUS_LABEL[status]}».`);
+      setToast(
+        `Estado del periodo ${settlement.period} actualizado a «${SETTLEMENT_STATUS_LABEL[status]}».`,
+      );
     } catch (caught) {
       setFailedStatusChange({
-        entry,
+        settlement,
         status,
         message: getErrorMessage(caught),
         retryable: isRetryable(caught),
@@ -212,6 +217,18 @@ export function SettlementsPage() {
     return wide ? "pushed" : "open";
   }
 
+  function statusNotice() {
+    if (!failedStatusChange) return null;
+    const { settlement, status, message, retryable } = failedStatusChange;
+    return retryable ? (
+      <RetryNotice onRetry={() => void handleStatusChange(settlement, status)}>
+        {message}
+      </RetryNotice>
+    ) : (
+      <Notice>{message}</Notice>
+    );
+  }
+
   const countText =
     listState === "results" || listState === "empty"
       ? formatCount(results.length, "liquidación", "liquidaciones")
@@ -234,22 +251,6 @@ export function SettlementsPage() {
             onSubmit={handleSearch}
           />
 
-          {failedStatusChange &&
-            (failedStatusChange.retryable ? (
-              <RetryNotice
-                onRetry={() =>
-                  void handleStatusChange(
-                    failedStatusChange.entry,
-                    failedStatusChange.status,
-                  )
-                }
-              >
-                {failedStatusChange.message}
-              </RetryNotice>
-            ) : (
-              <Notice>{failedStatusChange.message}</Notice>
-            ))}
-
           <p className="settlements-page__count" aria-live="polite">
             {countText}
           </p>
@@ -261,8 +262,14 @@ export function SettlementsPage() {
             id={DETAIL_ID}
             open={selectedId !== null}
             entry={sheetEntry}
+            editingId={editingId}
+            savingId={statusChangeId}
+            statusNotice={statusNotice()}
             generating={isGeneratingPdf && !isPdfDialogOpen}
             error={isPdfDialogOpen ? null : pdfError}
+            onEdit={setEditingId}
+            onSave={handleStatusChange}
+            onCancel={() => setEditingId(null)}
             onClose={closeSheet}
             onGenerate={handleGenerateFromSheet}
           />
@@ -285,14 +292,8 @@ export function SettlementsPage() {
         onRetry={() => void handleSearch()}
         results={results}
         selectedId={selectedId}
-        editingId={editingId}
-        editLocked={editingId !== null}
-        statusChangeId={statusChangeId}
         detailId={DETAIL_ID}
         onToggle={handleToggle}
-        onEdit={setEditingId}
-        onSave={handleStatusChange}
-        onCancel={() => setEditingId(null)}
       />
     </Screen>
   );

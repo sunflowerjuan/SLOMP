@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { apiFetch } from "../src/api";
 import { apiUrl, E2E_MUNICIPALITY_SLUG } from "../src/env";
 import {
   ensureActiveLiquidationTemplate,
@@ -57,6 +58,29 @@ test("con 2 de 3 datos exactos devuelve las liquidaciones vigentes del predio @U
   // The two periods of the property.
   await expect(results(page)).toContainText("2024");
   await expect(results(page)).toContainText("2025");
+});
+
+test("una resolución con periodos en estados distintos dice Varios estados @UAT-20", async ({
+  page,
+}) => {
+  const settlements = `/municipalities/${E2E_MUNICIPALITY_SLUG}/settlements`;
+  const found = await apiFetch(`${settlements}/search?cadastralCode=${CODE}`);
+  const [{ settlementId }] = (await found.json()) as {
+    settlementId: number;
+  }[];
+  const changeStatus = (status: string) =>
+    apiFetch(`${settlements}/${settlementId}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+
+  await changeStatus("PAGADA");
+  await page.goto(PAGE_URL);
+  await consult(page, { code: CODE, owner: OWNER });
+  await expect(results(page)).toContainText("Varios estados");
+
+  await changeStatus("VIGENTE");
 });
 
 test("con 1 solo dato lo rechaza y no sugiere ningún predio @UAT-21", async ({

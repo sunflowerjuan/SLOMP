@@ -1,13 +1,12 @@
 import { useRef } from "react";
 import type { CSSProperties, KeyboardEvent, MouseEvent } from "react";
 import type { SettlementSearchResult } from "../../api/settlements";
-import type { SettlementStatus } from "../../domain/settlementStatus";
 import { Button } from "../../components/ui/Button";
-import { describePeriods, formatPeriods } from "../../utils/formatPeriods";
+import { SettlementStatusBadge } from "../../components/ui/SettlementStatusBadge";
+import { formatPeriods } from "../../utils/formatPeriods";
 import { formatCop } from "../../utils/formatCop";
 import { primaryMark } from "../../domain/settlementMarks";
 import { SettlementMarks } from "./SettlementMarks";
-import { SettlementStatusCell } from "./SettlementStatusCell";
 import "./SettlementList.css";
 
 export type ListState =
@@ -27,14 +26,8 @@ interface SettlementListProps {
   onRetry: () => void;
   results: SettlementSearchResult[];
   selectedId: number | null;
-  editingId: number | null;
-  editLocked: boolean;
-  statusChangeId: number | null;
   detailId: string;
   onToggle: (id: number) => void;
-  onEdit: (id: number) => void;
-  onSave: (entry: SettlementSearchResult, status: SettlementStatus) => void;
-  onCancel: () => void;
 }
 
 export function SettlementList({
@@ -43,14 +36,8 @@ export function SettlementList({
   onRetry,
   results,
   selectedId,
-  editingId,
-  editLocked,
-  statusChangeId,
   detailId,
   onToggle,
-  onEdit,
-  onSave,
-  onCancel,
 }: SettlementListProps) {
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -189,17 +176,7 @@ export function SettlementList({
                 {formatCop(entry.totalAmount)}
               </div>
               <div role="cell" className="settlement-list__status">
-                <SettlementStatusCell
-                  status={entry.status}
-                  allowedStatuses={entry.allowedStatuses}
-                  description={`${entry.cadastralCode}, ${describePeriods(entry.periods)}`}
-                  editing={editingId === entry.settlementId}
-                  saving={statusChangeId === entry.settlementId}
-                  editLocked={editLocked}
-                  onEdit={() => onEdit(entry.settlementId)}
-                  onSave={(status) => onSave(entry, status)}
-                  onCancel={onCancel}
-                />
+                <SettlementStatusBadge status={entry.status} />
               </div>
             </div>
           );
