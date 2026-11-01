@@ -31,12 +31,13 @@ function dockerBinary(): string {
   return binary;
 }
 
-// Runs SQL in the Compose database (local and CI start it the same way).
+// Runs SQL in the Compose database (local and CI start it the same way) and
+// returns what it prints, without headers.
 // There is no API to delete a tax roll or to age a resolution by 60 days, and
 // the backend has no clock to fake, so these two starting states are set here.
-function sql(statement: string): void {
+function sql(statement: string): string {
   try {
-    execFileSync(
+    return execFileSync(
       dockerBinary(),
       [
         "compose",
@@ -50,10 +51,15 @@ function sql(statement: string): void {
         "postgres",
         "-d",
         "predial_dev",
+        "-tA",
         "-c",
         statement,
       ],
-      { cwd: REPO_ROOT, stdio: ["ignore", "ignore", "inherit"] },
+      {
+        cwd: REPO_ROOT,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "inherit"],
+      },
     );
   } catch {
     throw new Error(
@@ -69,6 +75,7 @@ const MUNICIPALITY = `(SELECT id FROM municipalities WHERE slug = '${E2E_MUNICIP
 // foreign keys.
 export function resetTaxRoll(): void {
   sql(`
+    DELETE FROM settlement_events WHERE "municipalityId" = ${MUNICIPALITY};
     DELETE FROM settlements WHERE "propertyId" IN (SELECT id FROM properties WHERE "municipalityId" = ${MUNICIPALITY});
     DELETE FROM payment_orders WHERE "municipalityId" = ${MUNICIPALITY};
     DELETE FROM resolutions WHERE "municipalityId" = ${MUNICIPALITY};
@@ -79,6 +86,18 @@ export function resetTaxRoll(): void {
     DELETE FROM resolution_counters WHERE "municipalityId" = ${MUNICIPALITY};
     DELETE FROM payment_order_counters WHERE "municipalityId" = ${MUNICIPALITY};
   `);
+}
+
+// The status changes Slompsim applied in the test municipality, as their
+// audit events: an API for them doesn't exist yet.
+export function assistantEventCount(): number {
+  return Number(
+    sql(`
+      SELECT count(*) FROM settlement_events
+      WHERE "municipalityId" = ${MUNICIPALITY}
+        AND source = 'ASSISTANT' AND type = 'STATUS_CHANGED';
+    `),
+  );
 }
 
 // Ages every resolution of the test municipality past the 60 days after

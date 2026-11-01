@@ -15,6 +15,7 @@ const NAMES = [
   "cartera-valida.xlsx",
   "cartera-invalida.xlsx",
   "cartera-fila-invalida.xlsx",
+  "mandamientos-parcial.xlsx",
   "plantilla-liquidacion-sin-marcadores.docx",
   "plantilla-mandamiento-sin-marcadores.docx",
   "plantilla-liquidacion-tabla-llena.docx",
