@@ -4,13 +4,16 @@ import { focusMenuEntry, moveMenuFocus } from "./menuFocus";
 import { MunicipalityOptions } from "./MunicipalityOptions";
 import type { MunicipalitySwitch } from "./MunicipalityOptions";
 
-// The active municipality as a pill in the top bar, on desktop and phone,
-// that opens the list (SL-122, section 7; SL-170). A long name is cut short on
-// screen; the button's label keeps it whole for screen readers.
+// The active municipality as a pill that opens the list: in the sidebar on
+// desktop, in the top bar on a phone. A long name is cut short on screen; the
+// button's label keeps it whole for screen readers.
 export function MunicipalitySwitcher({
   switcher,
+  compact = false,
 }: {
   switcher: MunicipalitySwitch;
+  // Collapsed sidebar: only the pin shows, and the pointer reveals the name.
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -39,6 +42,10 @@ export function MunicipalitySwitcher({
     };
   }, [open]);
 
+  const label = switcher.activeLabel
+    ? `Municipio: ${switcher.activeLabel}`
+    : "Elegir municipio";
+
   return (
     <div ref={rootRef} className="admin-layout__switcher">
       <button
@@ -47,11 +54,8 @@ export function MunicipalitySwitcher({
         className="admin-layout__switcher-button"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={
-          switcher.activeLabel
-            ? `Municipio: ${switcher.activeLabel}`
-            : "Elegir municipio"
-        }
+        aria-label={label}
+        title={compact ? label : undefined}
         onClick={() => setOpen((value) => !value)}
       >
         <Icon box={24}>

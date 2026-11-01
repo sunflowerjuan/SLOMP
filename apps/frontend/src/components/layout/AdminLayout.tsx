@@ -3,6 +3,10 @@ import type { CSSProperties, ReactNode } from "react";
 import { Icon } from "../ui/Icon";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { useSlidingIndicator } from "../../hooks/useSlidingIndicator";
+import {
+  readSidebarCollapsed,
+  rememberSidebarCollapsed,
+} from "../../api/sidebarCollapsed";
 import { focusMenuEntry, moveMenuFocus } from "./menuFocus";
 import type { MunicipalitySwitch } from "./MunicipalityOptions";
 import { MunicipalitySwitcher } from "./MunicipalitySwitcher";
@@ -39,7 +43,8 @@ interface AdminLayoutProps {
   groups: AdminNavGroup[];
   activeId: string;
   menuItems: AdminMenuItem[];
-  // Active municipality and how to change it: the pill of the top bar.
+  // Active municipality and how to change it: a pill in the sidebar on
+  // desktop, in the top bar on a phone.
   switcher?: MunicipalitySwitch;
   children: ReactNode;
 }
@@ -58,6 +63,14 @@ export function AdminLayout({
   const [menuOpen, setMenuOpen] = useState(false);
   const isFirstRender = useRef(true);
   const isCompact = useMediaQuery("(max-width: 900px)");
+  // Desktop only: the phone's bar has no room to give back.
+  const [collapsed, setCollapsed] = useState(readSidebarCollapsed);
+  const isCollapsed = collapsed && !isCompact;
+  // While the width animates, the indicator is re-measured every frame; its
+  // own transition would restart each time and trail behind.
+  const [resizing, setResizing] = useState(false);
+  const collapseRef = useRef<HTMLButtonElement>(null);
+  const expandRef = useRef<HTMLButtonElement>(null);
   const items = groups.flatMap((group) => group.items);
   const activeIndex = items.findIndex((item) => item.id === activeId);
   const { containerRef, indicatorStyle, dragging, axis, bind } =
@@ -98,6 +111,13 @@ export function AdminLayout({
     };
   }, [menuOpen]);
 
+  const sidebarIcon = (
+    <Icon box={24}>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
+      <path d="M9.5 4.5v15" />
+    </Icon>
+  );
+
   const brand = (
     <>
       <span className="admin-layout__mark" aria-hidden="true">
@@ -119,6 +139,7 @@ export function AdminLayout({
         type="button"
         role={role}
         className="admin-layout__menu-item"
+        title={role ? undefined : tooltip(item.label)}
         onClick={() => {
           // Chosen from the logo menu: focus goes back to the logo.
           if (role) brandButtonRef.current?.focus();
@@ -127,13 +148,27 @@ export function AdminLayout({
         }}
       >
         {item.icon}
-        {item.label}
+        <span className="admin-layout__label">{item.label}</span>
       </button>
     );
   }
 
+  function toggleCollapsed() {
+    const next = !collapsed;
+    setCollapsed(next);
+    setResizing(true);
+    rememberSidebarCollapsed(next);
+    // The pressed button hides; focus moves to the one that undoes it.
+    requestAnimationFrame(() =>
+      (next ? expandRef : collapseRef).current?.focus(),
+    );
+  }
+
+  // With only the icons left, the pointer shows what each one is.
+  const tooltip = (label: string) => (isCollapsed ? label : undefined);
+
   return (
-    <div className="admin-layout">
+    <div className="admin-layout" data-collapsed={isCollapsed || undefined}>
       {/* Its default jump would change the hash, and the hash is the route. */}
       <a
         className="admin-layout__skip"
@@ -145,11 +180,49 @@ export function AdminLayout({
       >
         Saltar al contenido
       </a>
-      <aside className="admin-layout__side">
+      <aside
+        className="admin-layout__side"
+        data-resizing={resizing || undefined}
+        onTransitionEnd={(event) => {
+          if (
+            event.target === event.currentTarget &&
+            event.propertyName === "width"
+          ) {
+            setResizing(false);
+          }
+        }}
+      >
         {!isCompact && (
           <div className="admin-layout__brandbar">
             <div className="admin-layout__brand-button">{brand}</div>
+            {/* Collapsed, the logo itself expands the sidebar, so nothing
+                has to move to make room for a button. */}
+            {isCollapsed && (
+              <button
+                ref={expandRef}
+                type="button"
+                className="admin-layout__expand"
+                aria-label="Expandir menú"
+                title="Expandir menú"
+                onClick={toggleCollapsed}
+              >
+                {sidebarIcon}
+              </button>
+            )}
+            <button
+              ref={collapseRef}
+              type="button"
+              className="admin-layout__collapse"
+              aria-label="Contraer menú"
+              title="Contraer menú"
+              onClick={toggleCollapsed}
+            >
+              {sidebarIcon}
+            </button>
           </div>
+        )}
+        {!isCompact && switcher && (
+          <MunicipalitySwitcher switcher={switcher} compact={isCollapsed} />
         )}
         <nav
           ref={containerRef}
@@ -180,7 +253,7 @@ export function AdminLayout({
                 id={`admin-nav-${group.id}`}
                 className="admin-layout__group-title"
               >
-                {group.label}
+                <span className="admin-layout__group-name">{group.label}</span>
               </span>
               {group.items.map((item) => (
                 <a
@@ -190,6 +263,7 @@ export function AdminLayout({
                   href={item.href}
                   draggable={false}
                   aria-current={item.id === activeId ? "page" : undefined}
+                  title={tooltip(item.label)}
                 >
                   {item.icon}
                   <span className="admin-layout__label">{item.label}</span>
@@ -205,10 +279,11 @@ export function AdminLayout({
         )}
       </aside>
       <div className="admin-layout__column">
-        {/* One row that never scrolls: the municipality the panel works in
-            stays in sight, and its pill changes it (SL-170). */}
-        <header className="admin-layout__topbar">
-          {isCompact && (
+        {/* Phone only: one row that never scrolls, so the municipality the
+            panel works in stays in sight and its pill changes it. On desktop
+            the sidebar holds both. */}
+        {isCompact && (
+          <header className="admin-layout__topbar">
             <div ref={brandRef} className="admin-layout__brandbar">
               <button
                 ref={brandButtonRef}
@@ -234,9 +309,9 @@ export function AdminLayout({
                 </div>
               )}
             </div>
-          )}
-          {switcher && <MunicipalitySwitcher switcher={switcher} />}
-        </header>
+            {switcher && <MunicipalitySwitcher switcher={switcher} />}
+          </header>
+        )}
         <main
           id="main"
           ref={mainRef}
