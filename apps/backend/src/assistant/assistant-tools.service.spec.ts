@@ -18,6 +18,7 @@ const yearsAgo = (years: number) => {
   return date;
 };
 const CODE = '155140001000200030000';
+const RESOLUTION = 'LOIP 155142026-0003';
 
 interface FakeRow {
   id: number;
@@ -36,7 +37,7 @@ const row = (fake: FakeRow) => ({
   status: fake.status ?? EN_FIRME,
   replacedAt: fake.replacedAt ?? null,
   property: { cadastralCode: fake.cadastralCode ?? CODE },
-  resolution: { issuedAt: yearsAgo(2) },
+  resolution: { number: RESOLUTION, issuedAt: yearsAgo(2) },
   paymentOrder: fake.paymentOrder ?? null,
 });
 
@@ -48,6 +49,13 @@ function buildPrisma(rows: FakeRow[] = []) {
 }
 
 const PERSONAL_FIELDS = /owner|name|document|address|phone|email/i;
+
+// Which period the proposal cards of the panel show for a change.
+const SUBJECT = {
+  cadastralCode: CODE,
+  period: 2020,
+  resolutionNumber: RESOLUTION,
+};
 
 describe('AssistantToolsService.searchSettlements', () => {
   it('searches the current settlements of the active municipality by cadastral code, at most 50', async () => {
@@ -87,7 +95,7 @@ describe('AssistantToolsService.searchSettlements', () => {
     );
   });
 
-  it('returns only id, cadastralCode, period, status, allowedStatuses and hasPaymentOrder', async () => {
+  it('returns only id, cadastralCode, period, status, allowedStatuses, hasPaymentOrder and resolutionNumber', async () => {
     const prisma = buildPrisma([
       { id: 1 },
       { id: 2, paymentOrder: { number: '2026-0004', issuedAt: yearsAgo(1) } },
@@ -108,6 +116,7 @@ describe('AssistantToolsService.searchSettlements', () => {
         status: EN_FIRME,
         allowedStatuses: [EN_FIRME, PAGADA, ACUERDO_DE_PAGO, PRESCRITA],
         hasPaymentOrder: false,
+        resolutionNumber: RESOLUTION,
       },
       {
         id: 2,
@@ -116,6 +125,7 @@ describe('AssistantToolsService.searchSettlements', () => {
         status: EN_FIRME,
         allowedStatuses: [EN_FIRME, PAGADA, ACUERDO_DE_PAGO],
         hasPaymentOrder: true,
+        resolutionNumber: RESOLUTION,
       },
     ]);
     expect(JSON.stringify(result)).not.toMatch(PERSONAL_FIELDS);
@@ -208,7 +218,7 @@ describe('AssistantToolsService.proposeStatusChange', () => {
         NOW,
       ),
     ).resolves.toEqual({
-      accepted: [{ settlementId: 123, from: EN_FIRME, to: PAGADA }],
+      accepted: [{ settlementId: 123, ...SUBJECT, from: EN_FIRME, to: PAGADA }],
       rejected: [],
     });
   });
@@ -225,7 +235,7 @@ describe('AssistantToolsService.proposeStatusChange', () => {
       );
 
       expect(review.accepted).toEqual([
-        { settlementId: 501, from: EN_FIRME, to: PRESCRITA },
+        { settlementId: 501, ...SUBJECT, from: EN_FIRME, to: PRESCRITA },
       ]);
     });
 
@@ -245,6 +255,8 @@ describe('AssistantToolsService.proposeStatusChange', () => {
         rejected: [
           {
             settlementId: 789,
+            ...SUBJECT,
+            to: PRESCRITA,
             reason: 'TRANSITION_NOT_ALLOWED',
             allowed: [EN_FIRME, PAGADA, ACUERDO_DE_PAGO],
             current: EN_FIRME,
@@ -297,8 +309,15 @@ describe('AssistantToolsService.proposeStatusChange', () => {
       }),
     );
     expect(review.rejected).toEqual([
-      { settlementId: 2, reason: 'NOT_FOUND', allowed: [] },
-      { settlementId: 3, reason: 'REPLACED', allowed: [], current: EN_FIRME },
+      { settlementId: 2, to: PAGADA, reason: 'NOT_FOUND', allowed: [] },
+      {
+        settlementId: 3,
+        ...SUBJECT,
+        to: PAGADA,
+        reason: 'REPLACED',
+        allowed: [],
+        current: EN_FIRME,
+      },
     ]);
   });
 

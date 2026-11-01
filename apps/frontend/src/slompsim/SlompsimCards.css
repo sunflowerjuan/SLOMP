@@ -1,0 +1,194 @@
+.slompsim-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-16);
+  border: 1px solid var(--semantic-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--semantic-surface);
+}
+
+/* The panel moves focus to a card only so the keyboard stays near it. */
+.slompsim-card:focus {
+  outline: none;
+}
+
+/* A proposal waits for the Administrator: a firmer edge than a result. */
+.slompsim-card--proposal {
+  border-color: var(--tinta-100);
+}
+
+.slompsim-card--proposal[data-closed="true"] {
+  opacity: 0.6;
+}
+
+.slompsim-card--done {
+  border-color: transparent;
+  background-color: var(--semantic-success-bg);
+}
+
+.slompsim-card--rejected {
+  border-color: transparent;
+  background-color: var(--semantic-danger-bg);
+}
+
+.slompsim-card__eyebrow {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--tinta-600);
+}
+
+.slompsim-card__title {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-8);
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.slompsim-card__title svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+}
+
+.slompsim-card--done .slompsim-card__title svg {
+  color: var(--semantic-success);
+}
+
+.slompsim-card--rejected .slompsim-card__title {
+  color: var(--semantic-danger-hover);
+}
+
+.slompsim-card__text {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.slompsim-card__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin: 0;
+  padding-left: var(--space-16);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.slompsim-card__hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+.slompsim-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-12);
+}
+
+.slompsim-card__actions--states {
+  gap: var(--space-8);
+}
+
+/* Applying says how many are going: the spinner sits beside the words. */
+.slompsim-card__apply.ui-button--loading .ui-button__label {
+  opacity: 1;
+}
+
+.slompsim-card__apply .ui-button__spinner {
+  position: static;
+  flex: none;
+  margin: 0 var(--space-8) 0 0;
+}
+
+.slompsim-card__reader-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.slompsim-transition {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.slompsim-transition svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--semantic-text-muted);
+}
+
+.slompsim-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-4) var(--space-12);
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.slompsim-facts dt {
+  color: var(--tinta-600);
+}
+
+.slompsim-facts dd {
+  margin: 0;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.slompsim-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  min-height: var(--tap-size);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.slompsim-check input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--semantic-primary);
+}
+
+/* The question that opens from the payment orders Excel. */
+.slompsim-unlisted {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.slompsim-context {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin: 0;
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-default);
+  background-color: var(--semantic-surface-muted);
+  font-size: var(--text-sm);
+  color: var(--tinta-600);
+  overflow-wrap: anywhere;
+}
+
+.slompsim-context svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}

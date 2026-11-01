@@ -16,6 +16,7 @@ import { Input } from "../../components/ui/Input";
 import { Notice } from "../../components/ui/Notice";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { RetryNotice } from "../../components/ui/RetryNotice";
+import { SettlementStatusBadge } from "../../components/ui/SettlementStatusBadge";
 import { Table } from "../../components/ui/Table";
 import { TableRow } from "../../components/ui/TableRow";
 import { triggerBrowserDownload } from "../../utils/downloadBlob";
@@ -24,7 +25,6 @@ import { countNoun } from "../../utils/formatCount";
 import { formatPeriods } from "../../utils/formatPeriods";
 import { PdfButton } from "./PdfButton";
 import type { PdfDownloadState } from "./PdfButton";
-import { PublicStatusCell } from "./PublicStatusCell";
 import "./PublicConsultationPage.css";
 
 // Exact match on at least 2 of the 3 fields.
@@ -341,7 +341,7 @@ export function PublicConsultationPage({
                       cells={[
                         formatPeriods(settlement.periods),
                         formatCop(settlement.totalAmount),
-                        <PublicStatusCell
+                        <SettlementStatusBadge
                           key="estado"
                           status={settlement.status}
                         />,
@@ -367,7 +367,7 @@ export function PublicConsultationPage({
                       <span className="public-consultation__item-period">
                         Periodos {formatPeriods(settlement.periods)}
                       </span>
-                      <PublicStatusCell status={settlement.status} />
+                      <SettlementStatusBadge status={settlement.status} />
                     </div>
                     <dl className="public-consultation__item-data">
                       <div>

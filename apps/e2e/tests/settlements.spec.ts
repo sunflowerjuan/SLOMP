@@ -53,6 +53,52 @@ test("el detalle agrega lo que la fila no tiene @UAT-N/A", async ({ page }) => {
   await expect(detail).not.toContainText(CODE);
 });
 
+test("el estado se cambia por periodo: los demás conservan el suyo @UAT-15", async ({
+  page,
+}) => {
+  await issueResolutions([CODE]);
+  const row = await search(page);
+  await expect(row.getByRole("button", { name: /Cambiar estado/ })).toHaveCount(
+    0,
+  );
+
+  const detail = page.getByRole("complementary", {
+    name: "Detalle de la liquidación",
+  });
+  const period = (year: number) =>
+    detail.getByRole("listitem").filter({ hasText: String(year) });
+
+  async function markPaid(year: number) {
+    await row.click();
+    await period(year)
+      .getByRole("button", { name: /Cambiar estado/ })
+      .click();
+    await period(year).getByRole("combobox").selectOption("PAGADA");
+    await period(year)
+      .getByRole("button", { name: "Confirmar cambio de estado" })
+      .click();
+    await expect(
+      page.getByText(`Estado del periodo ${year} actualizado a «Pagada».`),
+    ).toBeVisible();
+  }
+
+  await markPaid(2024);
+  await expect(period(2024)).toContainText("Pagada");
+  await expect(period(2025)).toContainText("Vigente");
+  await detail.getByRole("button", { name: "Cerrar detalle" }).click();
+  await expect(row).toContainText("Varios estados");
+
+  // What was saved, not only what the screen painted.
+  await search(page);
+  await expect(row).toContainText("Varios estados");
+
+  // The second period of a resolution can be changed too.
+  await markPaid(2025);
+  await detail.getByRole("button", { name: "Cerrar detalle" }).click();
+  await expect(row).toContainText("Pagada");
+  await expect(row).not.toContainText("Varios estados");
+});
+
 test("una búsqueda fallida tiene su propio estado y se reintenta @UAT-N/A", async ({
   page,
 }) => {

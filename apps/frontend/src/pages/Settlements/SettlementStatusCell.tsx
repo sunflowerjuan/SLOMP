@@ -3,15 +3,14 @@ import type { KeyboardEvent } from "react";
 import {
   SETTLEMENT_STATUSES,
   SETTLEMENT_STATUS_LABEL,
-  SETTLEMENT_STATUS_VARIANT,
 } from "../../domain/settlementStatus";
 import type { SettlementStatus } from "../../domain/settlementStatus";
-import { StatusBadge } from "../../components/ui/StatusBadge";
 import { Icon } from "../../components/ui/Icon";
+import { SettlementStatusBadge } from "../../components/ui/SettlementStatusBadge";
 import "./SettlementStatusCell.css";
 
 interface SettlementStatusCellProps {
-  status: SettlementStatus | "MIXED";
+  status: SettlementStatus;
   // States the backend allows from the current one.
   allowedStatuses: SettlementStatus[];
   description: string;
@@ -39,7 +38,7 @@ export function SettlementStatusCell({
     allowedStatuses.includes(option),
   );
   const initialDraft = (): SettlementStatus =>
-    status !== "MIXED" && options.includes(status) ? status : options[0];
+    options.includes(status) ? status : options[0];
   const [draft, setDraft] = useState<SettlementStatus>(initialDraft);
   const editButtonRef = useRef<HTMLButtonElement>(null);
   const selectRef = useRef<HTMLSelectElement>(null);
@@ -114,13 +113,7 @@ export function SettlementStatusCell({
         </>
       ) : (
         <>
-          {status === "MIXED" ? (
-            <StatusBadge variant="neutral">Mixto</StatusBadge>
-          ) : (
-            <StatusBadge variant={SETTLEMENT_STATUS_VARIANT[status]}>
-              {SETTLEMENT_STATUS_LABEL[status]}
-            </StatusBadge>
-          )}
+          <SettlementStatusBadge status={status} />
           <button
             ref={editButtonRef}
             type="button"

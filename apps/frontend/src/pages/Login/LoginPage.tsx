@@ -84,7 +84,9 @@ export function LoginPage() {
           <Notice variant="info">
             {sessionEndReason === "inactivity"
               ? "Cerramos tu sesión porque estuvo inactiva. Vuelve a iniciar sesión para continuar."
-              : "Tu sesión expiró. Vuelve a iniciar sesión para continuar."}
+              : "Tu sesión expiró. Vuelve a iniciar sesión para continuar."}{" "}
+            La conversación con Slompsim no se guarda y los cambios que no
+            aplicaste no se hicieron.
           </Notice>
         )}
         {submitError && <Notice>{submitError}</Notice>}

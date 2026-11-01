@@ -266,6 +266,7 @@ describe('PaymentOrdersService.previewImport', () => {
         status: 'VIGENTE',
         allowedStatuses: expect.any(Array),
         hasPaymentOrder: false,
+        resolutionNumber: '2026-0001',
       },
       {
         id: 3,
@@ -274,6 +275,7 @@ describe('PaymentOrdersService.previewImport', () => {
         status: 'PAGADA',
         allowedStatuses: expect.any(Array),
         hasPaymentOrder: false,
+        resolutionNumber: '2026-0001',
       },
     ]);
     for (const settlement of preview.unlisted) {
@@ -283,6 +285,7 @@ describe('PaymentOrdersService.previewImport', () => {
         'hasPaymentOrder',
         'id',
         'period',
+        'resolutionNumber',
         'status',
       ]);
     }

@@ -17,9 +17,13 @@ arma la matriz de trazabilidad (SL-167) y se filtra una corrida:
 | Municipios | `municipalities.spec.ts` | ambos |
 | Consulta pública | `public-consultation.spec.ts` | solo `desktop` (no depende del ancho; el límite de consultas se cuenta por minuto) |
 | Navegación | `navigation.spec.ts` (SL-170) | ambos |
+| Slompsim | `slompsim.spec.ts` (SL-156), con el modelo simulado | ambos |
 
-Falta Slompsim (SL-156): no está en `develop`, así que su recorrido queda
-fuera de esta entrega, como lo prevé el ticket.
+Slompsim no llama a un proveedor en estas pruebas: el stack corre con el
+asistente apagado, que es lo que prueba `Reintentar`, y las respuestas del
+modelo se simulan en el navegador. La revisión de los cambios y el `confirm` sí
+son los del backend. Si defines `ASSISTANT_PROVIDER` en el `.env`, esa prueba
+falla.
 
 Todos los archivos comparten el municipio `e2e-prueba`, así que la suite corre
 con un solo worker y en orden de nombre de archivo, sin reintentos. Cada prueba

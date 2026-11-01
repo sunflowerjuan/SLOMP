@@ -12,14 +12,13 @@ export interface SearchableSettlement {
 }
 
 export interface SettlementGroup {
-  // Any settlement of the group works as the trigger for the PDF and the
-  // status change: both cover the whole group. This is the earliest period.
+  // The earliest period of the group. It works as the trigger for the PDF,
+  // which covers them all; a status change doesn't: it is per period.
   settlementId: number;
   resolutionNumber: string | null;
   kind: ResolutionKind;
   periods: number[];
-  // 'MIXED' only for legacy data where the periods of one resolution were
-  // changed one by one.
+  // 'MIXED' when the periods of the group are in different states.
   status: SettlementStatus | 'MIXED';
   totalAmount: number;
   // Periods of the group that the latest tax roll no longer brings (SL-136).

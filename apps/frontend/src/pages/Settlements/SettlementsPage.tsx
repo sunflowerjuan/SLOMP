@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getErrorMessage, isRetryable } from "../../api/ApiError";
 import { messageForErrorCode } from "../../api/errorMessages";
 import {
@@ -7,9 +7,11 @@ import {
   searchSettlements,
 } from "../../api/settlements";
 import type {
+  SettlementPeriodStatus,
   SettlementSearchCriteria,
   SettlementSearchResult,
 } from "../../api/settlements";
+import { withPeriodChanged } from "../../domain/settlementPeriods";
 import { SETTLEMENT_STATUS_LABEL } from "../../domain/settlementStatus";
 import type { SettlementStatus } from "../../domain/settlementStatus";
 import { GeneratePdfDialog } from "../../components/ui/GeneratePdfDialog";
@@ -18,6 +20,7 @@ import { RetryNotice } from "../../components/ui/RetryNotice";
 import { Screen } from "../../components/ui/Screen";
 import { Toast } from "../../components/ui/Toast";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
+import { useSlompsim } from "../../slompsim/useSlompsim";
 import { MEDIA } from "../../styles/breakpoints";
 import { triggerBrowserDownload } from "../../utils/downloadBlob";
 import { formatCount } from "../../utils/formatCount";
@@ -31,7 +34,7 @@ import "./SettlementsPage.css";
 const DETAIL_ID = "settlement-detail";
 
 interface FailedStatusChange {
-  entry: SettlementSearchResult;
+  settlement: SettlementPeriodStatus;
   status: SettlementStatus;
   message: string;
   retryable: boolean;
@@ -43,9 +46,6 @@ export function SettlementsPage() {
   const [results, setResults] = useState<SettlementSearchResult[]>([]);
   const [listState, setListState] = useState<ListState>("idle");
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [searched, setSearched] = useState<SettlementSearchCriteria | null>(
-    null,
-  );
   // The sheet keeps showing the last selection while it slides out.
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [sheetEntryId, setSheetEntryId] = useState<number | null>(null);
@@ -57,6 +57,42 @@ export function SettlementsPage() {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const {
+    isOpen: slompsimOpen,
+    close: closeSlompsim,
+    conversation: { appliedIds },
+  } = useSlompsim();
+  const [slompsimWasOpen, setSlompsimWasOpen] = useState(slompsimOpen);
+  const searched = useRef<SettlementSearchCriteria | null>(null);
+  const appliedCount = appliedIds.length;
+
+  // Never two panels on the right: opening Slompsim closes the sheet, and
+  // opening the sheet closes Slompsim (handleToggle).
+  if (slompsimOpen !== slompsimWasOpen) {
+    setSlompsimWasOpen(slompsimOpen);
+    if (slompsimOpen) {
+      setSelectedId(null);
+      setEditingId(null);
+    }
+  }
+
+  // Slompsim floats over this list: what it applied shows up right away.
+  useEffect(() => {
+    if (appliedCount === 0 || !searched.current) return;
+    let cancelled = false;
+    searchSettlements(searched.current)
+      .then((found) => {
+        if (!cancelled) setResults(found);
+      })
+      .catch((caught: unknown) => {
+        if (cancelled) return;
+        setSearchError(getErrorMessage(caught));
+        setListState("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [appliedCount]);
 
   // Below 1440px the open sheet covers the list behind a scrim: keep it out of
   // the tab order and the accessibility tree meanwhile.
@@ -69,6 +105,7 @@ export function SettlementsPage() {
   function closeSheet() {
     const id = selectedId;
     setSelectedId(null);
+    setEditingId(null);
     // Back to the row that opened it.
     setTimeout(() =>
       document.querySelector<HTMLElement>(`[data-rowlink="${id}"]`)?.focus(),
@@ -105,7 +142,7 @@ export function SettlementsPage() {
     try {
       const found = await searchSettlements(criteria);
       setResults(found);
-      setSearched(criteria);
+      searched.current = criteria;
       setListState(found.length ? "results" : "empty");
     } catch (caught) {
       setSearchError(getErrorMessage(caught));
@@ -123,6 +160,7 @@ export function SettlementsPage() {
       closeSheet();
       return;
     }
+    closeSlompsim({ returnFocus: false });
     setSelectedId(id);
     setSheetEntryId(id);
     setEditingId(null);
@@ -131,34 +169,36 @@ export function SettlementsPage() {
   }
 
   async function handleStatusChange(
-    entry: SettlementSearchResult,
+    settlement: SettlementPeriodStatus,
     status: SettlementStatus,
   ) {
-    if (status === entry.status) {
+    if (status === settlement.status) {
       setEditingId(null);
       setToast("El estado no cambió.");
       return;
     }
 
-    setStatusChangeId(entry.settlementId);
+    setStatusChangeId(settlement.settlementId);
     setFailedStatusChange(null);
     try {
-      const { allowedStatuses, missingPeriods } = await changeSettlementStatus(
-        entry.settlementId,
+      const change = await changeSettlementStatus(
+        settlement.settlementId,
         status,
       );
       setResults((current) =>
         current.map((row) =>
-          row.settlementId === entry.settlementId
-            ? { ...row, status, allowedStatuses, missingPeriods }
+          row.settlementId === sheetEntryId
+            ? withPeriodChanged(row, change)
             : row,
         ),
       );
       setEditingId(null);
-      setToast(`Estado actualizado a «${SETTLEMENT_STATUS_LABEL[status]}».`);
+      setToast(
+        `Estado del periodo ${settlement.period} actualizado a «${SETTLEMENT_STATUS_LABEL[status]}».`,
+      );
     } catch (caught) {
       setFailedStatusChange({
-        entry,
+        settlement,
         status,
         message: getErrorMessage(caught),
         retryable: isRetryable(caught),
@@ -192,8 +232,8 @@ export function SettlementsPage() {
   // "Generar PDF" need to know. If this fails the rows just stay as they were;
   // the PDF is already downloading.
   function refreshResults() {
-    if (!searched) return;
-    searchSettlements(searched)
+    if (!searched.current) return;
+    searchSettlements(searched.current)
       .then(setResults)
       .catch(() => undefined);
   }
@@ -210,6 +250,18 @@ export function SettlementsPage() {
   function sheetLayout() {
     if (selectedId === null) return "closed";
     return wide ? "pushed" : "open";
+  }
+
+  function statusNotice() {
+    if (!failedStatusChange) return null;
+    const { settlement, status, message, retryable } = failedStatusChange;
+    return retryable ? (
+      <RetryNotice onRetry={() => void handleStatusChange(settlement, status)}>
+        {message}
+      </RetryNotice>
+    ) : (
+      <Notice>{message}</Notice>
+    );
   }
 
   const countText =
@@ -234,22 +286,6 @@ export function SettlementsPage() {
             onSubmit={handleSearch}
           />
 
-          {failedStatusChange &&
-            (failedStatusChange.retryable ? (
-              <RetryNotice
-                onRetry={() =>
-                  void handleStatusChange(
-                    failedStatusChange.entry,
-                    failedStatusChange.status,
-                  )
-                }
-              >
-                {failedStatusChange.message}
-              </RetryNotice>
-            ) : (
-              <Notice>{failedStatusChange.message}</Notice>
-            ))}
-
           <p className="settlements-page__count" aria-live="polite">
             {countText}
           </p>
@@ -261,8 +297,14 @@ export function SettlementsPage() {
             id={DETAIL_ID}
             open={selectedId !== null}
             entry={sheetEntry}
+            editingId={editingId}
+            savingId={statusChangeId}
+            statusNotice={statusNotice()}
             generating={isGeneratingPdf && !isPdfDialogOpen}
             error={isPdfDialogOpen ? null : pdfError}
+            onEdit={setEditingId}
+            onSave={handleStatusChange}
+            onCancel={() => setEditingId(null)}
             onClose={closeSheet}
             onGenerate={handleGenerateFromSheet}
           />
@@ -285,14 +327,8 @@ export function SettlementsPage() {
         onRetry={() => void handleSearch()}
         results={results}
         selectedId={selectedId}
-        editingId={editingId}
-        editLocked={editingId !== null}
-        statusChangeId={statusChangeId}
         detailId={DETAIL_ID}
         onToggle={handleToggle}
-        onEdit={setEditingId}
-        onSave={handleStatusChange}
-        onCancel={() => setEditingId(null)}
       />
     </Screen>
   );

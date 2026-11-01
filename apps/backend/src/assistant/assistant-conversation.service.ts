@@ -18,6 +18,7 @@ import {
   PROPOSE_STATUS_CHANGE,
   SEARCH_SETTLEMENTS,
 } from './assistant-prompt.js';
+import type { AssistantSettlement } from './assistant-settlement.js';
 import {
   AssistantToolsService,
   type PaymentOrderFileRow,
@@ -66,6 +67,9 @@ export interface AssistantReply {
   reply: string;
   // The last proposal of this message; null when it proposed nothing.
   proposals: AssistantProposals | null;
+  // What the last search of this message found, for the panel's list; null
+  // when it searched nothing.
+  settlements: AssistantSettlement[] | null;
 }
 
 // Shown when the provider declines to answer.
@@ -207,6 +211,7 @@ export class AssistantConversationService {
     const deadline = new AbortController();
     const timer = setTimeout(() => deadline.abort(), deadlineMs);
     let proposals: AssistantProposals | null = null;
+    let settlements: AssistantSettlement[] | null = null;
     try {
       for (;;) {
         const response = await model
@@ -224,9 +229,11 @@ export class AssistantConversationService {
         tokens.inputTokens += response.usage.inputTokens;
         tokens.outputTokens += response.usage.outputTokens;
 
-        if (response.refused) return { reply: REFUSED_REPLY, proposals: null };
+        if (response.refused) {
+          return { reply: REFUSED_REPLY, proposals: null, settlements: null };
+        }
         if (response.toolCalls.length === 0) {
-          return { reply: response.text, proposals };
+          return { reply: response.text, proposals, settlements };
         }
         if (
           toolsCalled.length + response.toolCalls.length >
@@ -246,6 +253,7 @@ export class AssistantConversationService {
           toolsCalled.push(call.name);
           const outcome = await this.runTool(municipalityId, call, rows);
           if (outcome.proposals) proposals = outcome.proposals;
+          if (outcome.settlements) settlements = outcome.settlements;
           results.push({
             callId: call.id,
             content: JSON.stringify(outcome.content),
@@ -274,24 +282,23 @@ export class AssistantConversationService {
     content: unknown;
     isError: boolean;
     proposals?: AssistantProposals;
+    settlements?: AssistantSettlement[];
   }> {
     try {
       switch (call.name) {
         case SEARCH_SETTLEMENTS: {
           const cadastralCode = call.input.cadastralCode;
-          return {
-            content: await this.tools.searchSettlements(municipalityId, {
-              cadastralCode:
-                typeof cadastralCode === 'string' ? cadastralCode : undefined,
-              settlementId:
-                call.input.settlementId === undefined
-                  ? undefined
-                  : (asId(call.input.settlementId) ?? -1),
-            }),
-            isError: false,
-          };
+          const found = await this.tools.searchSettlements(municipalityId, {
+            cadastralCode:
+              typeof cadastralCode === 'string' ? cadastralCode : undefined,
+            settlementId:
+              call.input.settlementId === undefined
+                ? undefined
+                : (asId(call.input.settlementId) ?? -1),
+          });
+          return { content: found, isError: false, settlements: found };
         }
-        case FIND_UNLISTED_PERIODS:
+        case FIND_UNLISTED_PERIODS: {
           if (!rows) {
             return {
               content: {
@@ -302,10 +309,12 @@ export class AssistantConversationService {
               isError: true,
             };
           }
-          return {
-            content: await this.tools.findUnlistedPeriods(municipalityId, rows),
-            isError: false,
-          };
+          const found = await this.tools.findUnlistedPeriods(
+            municipalityId,
+            rows,
+          );
+          return { content: found, isError: false, settlements: found };
+        }
         case PROPOSE_STATUS_CHANGE: {
           const changes = (
             Array.isArray(call.input.changes) ? call.input.changes : []

@@ -27,12 +27,18 @@ const row = (fake: FakeRow) => ({
   status: fake.status ?? EN_FIRME,
   replacedAt: null,
   property: { cadastralCode: '155140001000200030000' },
-  resolution: { issuedAt: yearsAgo(2) },
+  resolution: { number: 'LOIP 155142026-0003', issuedAt: yearsAgo(2) },
   paymentOrder:
     fake.paymentOrderYearsAgo === undefined
       ? null
       : { number: '2026-0004', issuedAt: yearsAgo(fake.paymentOrderYearsAgo) },
 });
+
+const SUBJECT = {
+  cadastralCode: '155140001000200030000',
+  period: 2020,
+  resolutionNumber: 'LOIP 155142026-0003',
+};
 
 // `rows` are what the scoped query finds when the transaction re-reads them.
 function buildPrisma(rows: FakeRow[]) {
@@ -69,8 +75,8 @@ describe('AssistantChangesService.confirm', () => {
 
     expect(result).toEqual({
       applied: [
-        { settlementId: 10, from: EN_FIRME, to: PAGADA },
-        { settlementId: 11, from: EN_FIRME, to: PAGADA },
+        { settlementId: 10, ...SUBJECT, from: EN_FIRME, to: PAGADA },
+        { settlementId: 11, ...SUBJECT, from: EN_FIRME, to: PAGADA },
       ],
       unchanged: [],
     });
