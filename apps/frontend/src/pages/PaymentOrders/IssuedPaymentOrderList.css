@@ -2,13 +2,6 @@
   gap: var(--space-16);
 }
 
-.issued-payment-orders__retry {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-12);
-}
-
 .issued-payment-orders__muted {
   margin: 0;
   font-size: var(--text-sm);
@@ -79,20 +72,14 @@
   background-color: var(--semantic-surface-muted);
   background-clip: content-box;
   border-radius: var(--radius-default);
-  animation: issued-payment-orders-pulse 1.2s ease-in-out infinite;
+  animation: pulse var(--duration-pulse) var(--ease-sheet-soft) infinite;
 }
 
 .issued-payment-orders__skeleton i + i {
   width: 12rem;
 }
 
-@keyframes issued-payment-orders-pulse {
-  50% {
-    opacity: 0.5;
-  }
-}
-
-@media (max-width: 520px) {
+@media (--shell) {
   .issued-payment-orders__row {
     flex-direction: column;
     align-items: stretch;
@@ -100,15 +87,5 @@
 
   .issued-payment-orders__row .ui-button {
     width: 100%;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .issued-payment-orders__list > li {
-    animation: fade-in var(--duration-fast) ease-out backwards;
-  }
-
-  .issued-payment-orders__skeleton i {
-    animation: none;
   }
 }

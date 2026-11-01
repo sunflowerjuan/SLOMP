@@ -46,7 +46,8 @@ test("un Excel válido muestra los conteos del archivo @UAT-01", async ({
   await expect(result(page)).toContainText(/liquidaciones generadas\s*6/);
   await expect(result(page)).toContainText(/predios procesados\s*3/);
   await expect(result(page)).toContainText(/propietarios procesados\s*3/);
-  await expect(result(page)).toContainText(/filas inválidas omitidas\s*0/);
+  // Nothing was skipped: no block for it.
+  await expect(result(page)).not.toContainText(/filas inválidas/i);
 });
 
 test("un archivo al que le falta una columna muestra el error y no importa nada @UAT-02", async ({
@@ -65,10 +66,62 @@ test("una fila con periodo fuera de rango se omite con su motivo @UAT-03", async
 }) => {
   await upload(page, "cartera-fila-invalida.xlsx");
 
-  await expect(result(page)).toContainText(/fila inválida omitida\s*1/);
+  await expect(result(page)).toContainText("Filas inválidas (1)");
   await expect(result(page)).toContainText(
     "El periodo 1979 está fuera de rango",
   );
+});
+
+test("un archivo rechazado queda en el área de carga y otro permite seguir @UAT-02", async ({
+  page,
+}) => {
+  await upload(page, "cartera-invalida.xlsx");
+  await expect(page.getByRole("alert")).toContainText("Las columnas del Excel");
+  // The same file would be refused again.
+  const process = page.getByRole("button", { name: "Procesar archivo" });
+  await expect(process).toBeDisabled();
+
+  await page
+    .locator("input[type=file]")
+    .setInputFiles(fixture("cartera-valida.xlsx"));
+  await expect(process).toBeEnabled();
+});
+
+test("un Excel procesado no se vuelve a enviar @UAT-01", async ({ page }) => {
+  await upload(page, "cartera-valida.xlsx");
+  await expect(result(page)).toBeVisible();
+
+  await expect(
+    page.getByRole("button", { name: "Procesar archivo" }),
+  ).toBeDisabled();
+});
+
+test("si la carga no llega al servidor se reintenta con el mismo archivo @UAT-N/A", async ({
+  page,
+}) => {
+  await page.route("**/tax-roll/import", (route) => route.abort());
+  await upload(page, "cartera-valida.xlsx");
+  await expect(page.getByRole("alert")).toContainText("No se pudo conectar");
+
+  await page.unroute("**/tax-roll/import");
+  await page.getByRole("button", { name: "Reintentar" }).click();
+  await expect(result(page)).toBeVisible();
+});
+
+test("el historial que no carga se reintenta, también con la tarjeta plegada @UAT-N/A", async ({
+  page,
+}) => {
+  await page.route("**/tax-roll/imports", (route) => route.abort());
+  await page.reload();
+  await page.getByRole("button", { name: "Reintentar" }).click();
+  await expect(page.getByRole("alert")).toContainText("historial de cargas");
+
+  await page.unroute("**/tax-roll/imports");
+  await page.getByRole("button", { name: "Reintentar" }).click();
+  await expect(
+    page.getByRole("button", { name: /Historial de cargas/ }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reintentar" })).toBeHidden();
 });
 
 test("el historial lista la carga con su estado @UAT-01", async ({ page }) => {

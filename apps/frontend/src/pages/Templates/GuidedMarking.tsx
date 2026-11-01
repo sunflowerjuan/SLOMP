@@ -24,6 +24,7 @@ import { Screen } from "../../components/ui/Screen";
 import { Steps } from "../../components/ui/Steps";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { useSwipeToDismiss } from "../../hooks/useSwipeToDismiss";
+import { MEDIA } from "../../styles/breakpoints";
 import {
   entryProblem,
   isTableField,
@@ -132,7 +133,7 @@ interface GuidedMarkingProps {
 // reload (templateDraftStorage) until the draft expires.
 export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
   const text = DOCUMENT_TEXT[draft.documentType];
-  const phone = useMediaQuery("(max-width: 900px)");
+  const phone = useMediaQuery(MEDIA.shell);
 
   const [content, setContent] = useState<DraftContent | null>(null);
   const [catalog, setCatalog] = useState<MarkerCatalogEntry[] | null>(null);
@@ -599,7 +600,7 @@ export function GuidedMarking({ draft, onExit }: GuidedMarkingProps) {
   // Phone: the list of markers is a bottom sheet over the document.
   const { ref: sheetRef, bind: sheetBind } = useSwipeToDismiss<HTMLElement>(
     () => setSheetOpen(false),
-    { axis: "y", media: "(max-width: 900px)" },
+    { axis: "y", media: MEDIA.shell },
   );
   useEffect(() => {
     if (sheetOpen) sheetRef.current?.focus({ preventScroll: true });

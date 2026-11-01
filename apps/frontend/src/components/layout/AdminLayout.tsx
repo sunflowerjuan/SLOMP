@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { Icon } from "../ui/Icon";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
+import { MEDIA } from "../../styles/breakpoints";
 import { useSlidingIndicator } from "../../hooks/useSlidingIndicator";
 import { focusMenuEntry, moveMenuFocus } from "./menuFocus";
 import type { MunicipalitySwitch } from "./MunicipalityOptions";
@@ -57,7 +58,7 @@ export function AdminLayout({
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const isFirstRender = useRef(true);
-  const isCompact = useMediaQuery("(max-width: 900px)");
+  const isCompact = useMediaQuery(MEDIA.shell);
   const items = groups.flatMap((group) => group.items);
   const activeIndex = items.findIndex((item) => item.id === activeId);
   const { containerRef, indicatorStyle, dragging, axis, bind } =

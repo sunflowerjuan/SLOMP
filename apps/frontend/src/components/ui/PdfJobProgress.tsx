@@ -52,7 +52,6 @@ interface PdfJobProgressProps {
 // A bulk job as the panels show it (SL-121): progress while it runs, the
 // ready ZIP with its expiry and download, what happened when it failed or
 // expired, and a job of the other document type that holds the municipality.
-// Lives inside a flex column whose gap is --reveal-gap.
 export function PdfJobProgress({
   state,
   runningTitle,
@@ -60,20 +59,13 @@ export function PdfJobProgress({
 }: PdfJobProgressProps) {
   const { job, active, ready, expired, failed, progress } = state;
   const showJob = active || ready;
-  // While folding away, the block keeps its last look instead of emptying.
   const showsZip = job?.status === "DONE" || job?.status === "EXPIRED";
 
   return (
     <>
-      {/* Stays mounted so it can fold away instead of vanishing: the page
-          below would otherwise jump when a generation ends. */}
-      <div
-        className="ui-pdf-job__collapse"
-        data-open={showJob}
-        inert={!showJob}
-      >
-        <div className="ui-pdf-job__collapse-inner">
-          {job && !showsZip && (
+      {job && showJob && (
+        <Reveal>
+          {!showsZip && (
             <div className="ui-pdf-job__status" role="status">
               <strong>{runningTitle}</strong>
               <div
@@ -99,7 +91,7 @@ export function PdfJobProgress({
               <p>Puedes seguir trabajando mientras se genera.</p>
             </div>
           )}
-          {job && showsZip && (
+          {showsZip && (
             <div className="ui-pdf-job__ready" role="status">
               <div>
                 <strong>ZIP listo</strong>
@@ -122,8 +114,8 @@ export function PdfJobProgress({
               </Button>
             </div>
           )}
-        </div>
-      </div>
+        </Reveal>
+      )}
       {state.message && (
         <Reveal>
           <Notice

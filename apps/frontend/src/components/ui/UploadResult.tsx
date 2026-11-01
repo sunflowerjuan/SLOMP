@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { messageForRowIssue } from "../../api/errorMessages";
 import type { TaxRollRowIssue } from "../../api/taxRoll";
-import { countNoun } from "../../utils/formatCount";
 import { Card } from "./Card";
 import { IssueList } from "./IssueList";
 import { Stat } from "./Stat";
@@ -14,7 +13,8 @@ interface UploadResultProps {
   // The file's name.
   subtitle?: string;
   action?: ReactNode;
-  // What the upload produced; the skipped rows and the warnings follow them.
+  // What the upload produced; a figure in zero is left out. The skipped rows
+  // and the warnings say how many in their own lists.
   stats: StatProps[];
   invalidRows: TaxRollRowIssue[];
   warnings: TaxRollRowIssue[];
@@ -39,6 +39,8 @@ export function UploadResult({
   warnings,
   children,
 }: UploadResultProps) {
+  const shownStats = stats.filter((stat) => stat.value > 0);
+
   return (
     <Card
       title="Resultado de la carga"
@@ -46,29 +48,13 @@ export function UploadResult({
       className={className}
       action={action}
     >
-      <dl className="ui-upload-result__stats">
-        {stats.map((stat) => (
-          <Stat key={stat.label} {...stat} />
-        ))}
-        <Stat
-          value={invalidRows.length}
-          label={countNoun(
-            invalidRows.length,
-            "fila inválida omitida",
-            "filas inválidas omitidas",
-          )}
-          tone={invalidRows.length > 0 ? "danger" : undefined}
-        />
-        <Stat
-          value={warnings.length}
-          label={countNoun(
-            warnings.length,
-            "fila con advertencias",
-            "filas con advertencias",
-          )}
-          tone={warnings.length > 0 ? "warning" : undefined}
-        />
-      </dl>
+      {shownStats.length > 0 && (
+        <dl className="ui-upload-result__stats">
+          {shownStats.map((stat) => (
+            <Stat key={stat.label} {...stat} />
+          ))}
+        </dl>
+      )}
       {children}
       <IssueList title="Filas inválidas" count={invalidRows.length}>
         {rowIssueItems(invalidRows)}

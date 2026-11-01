@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { getPublicMunicipality } from "../../api/publicConsultation";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
-import { Input } from "../../components/ui/Input";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
+import { MEDIA } from "../../styles/breakpoints";
 import { consultationUrl } from "../../utils/consultationUrl";
 import "./ConsultationLink.css";
 
@@ -18,7 +19,8 @@ const COPIED_MS = 3000;
 // change the page it points to.
 export function ConsultationLink({ slug }: { slug: string }) {
   const url = consultationUrl(appUrl(), slug);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const addressRef = useRef<HTMLTextAreaElement>(null);
+  const phone = useMediaQuery(MEDIA.shell);
   const [name, setName] = useState<string | null>(null);
   const [copied, setCopied] = useState<"done" | "manual" | null>(null);
 
@@ -43,7 +45,7 @@ export function ConsultationLink({ slug }: { slug: string }) {
     } catch {
       // No clipboard (an insecure address, a blocked permission): the
       // address is left selected, to copy by hand.
-      inputRef.current?.select();
+      addressRef.current?.select();
       setCopied("manual");
     }
   }
@@ -55,14 +57,17 @@ export function ConsultationLink({ slug }: { slug: string }) {
       className="consultation-link"
     >
       <div className="consultation-link__row">
-        <Input
-          ref={inputRef}
-          label="Dirección de la consulta"
-          className="consultation-link__url"
-          value={url}
-          readOnly
-          onFocus={(event) => event.target.select()}
-        />
+        <label className="ui-input-group">
+          <span className="ui-input-label">Dirección de la consulta</span>
+          <textarea
+            ref={addressRef}
+            className="ui-input consultation-link__url"
+            rows={phone ? 2 : 1}
+            value={url}
+            readOnly
+            onFocus={(event) => event.target.select()}
+          />
+        </label>
         <div className="consultation-link__actions">
           <Button onClick={() => void copy()}>Copiar enlace</Button>
           <Button

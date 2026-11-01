@@ -9,8 +9,8 @@
   position: relative;
   background-color: var(--tinta-700);
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+    linear-gradient(var(--on-primary-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--on-primary-line) 1px, transparent 1px);
   background-size: 40px 40px;
 }
 
@@ -100,7 +100,7 @@
 }
 
 .public-consultation__counter--ok {
-  color: var(--semantic-success);
+  color: var(--semantic-text);
 }
 
 .public-consultation__actions {
@@ -196,7 +196,7 @@
 
 /* Wide: the band, the title and the form stay put; only the results scroll
    (the table header stays with them). Narrow screens scroll as a page. */
-@media (min-width: 769px) {
+@media (--above-shell) {
   .public-consultation {
     display: flex;
     flex-direction: column;
@@ -249,7 +249,7 @@
 
 /* Room for it: the form moves to a column on the left and the results take
    the full height on the right. */
-@media (min-width: 1000px) {
+@media (--two-columns) {
   .public-consultation__main {
     display: grid;
     grid-template-columns: 360px minmax(0, 1fr);
@@ -299,13 +299,13 @@
 }
 
 /* The 30-digit code keeps its own column instead of breaking mid-number. */
-@media (min-width: 1280px) {
+@media (--two-columns) {
   .public-consultation__property {
     grid-template-columns: max-content minmax(0, 1fr) max-content;
   }
 }
 
-@media (max-width: 768px) {
+@media (--shell) {
   .public-consultation__table {
     display: none;
   }
@@ -337,17 +337,46 @@
   }
 }
 
-/* "Consulta no disponible": a single card, no form to lay out. */
-.public-consultation--unavailable .public-consultation__main {
+/* A single card, no form to lay out: "Consulta no disponible", a failure
+   or the placeholder while the municipality loads. */
+.public-consultation--single .public-consultation__main {
   display: block;
   max-width: 640px;
   height: auto;
   overflow: visible;
 }
 
-@media (min-width: 769px) {
-  .public-consultation--unavailable {
+@media (--above-shell) {
+  .public-consultation--single {
     display: block;
     height: auto;
   }
+}
+
+.public-consultation__retry {
+  align-self: flex-start;
+}
+
+.public-consultation__loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.public-consultation__loading i,
+.public-consultation__band-placeholder {
+  display: block;
+  border-radius: var(--radius-default);
+  animation: pulse var(--duration-pulse) var(--ease-sheet-soft) infinite;
+}
+
+.public-consultation__loading i {
+  height: var(--space-16);
+  background-color: var(--semantic-surface-muted);
+}
+
+.public-consultation__band-placeholder {
+  width: 12rem;
+  height: var(--space-48);
+  background-color: var(--on-primary-line);
 }

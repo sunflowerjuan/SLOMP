@@ -47,7 +47,10 @@ export function GeneratePaymentOrderDialog({
           </strong>{" "}
           {candidate?.resolutionNumbers.join(", ")}
         </p>
-        <p>Recibirá el siguiente número de mandamiento.</p>
+        <p>
+          <strong>Esta acción no se puede deshacer.</strong> Recibirá el
+          siguiente número de mandamiento y ese número queda usado.
+        </p>
       </div>
       {error && <Notice className="ui-dialog__notice">{error}</Notice>}
       <div className="ui-dialog__actions">

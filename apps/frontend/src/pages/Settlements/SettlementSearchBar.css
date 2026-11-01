@@ -2,7 +2,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-12);
 }
 
 .settlement-search__field {
@@ -10,10 +10,10 @@
   align-items: center;
   gap: var(--space-8);
   flex: 1 1 200px;
-  min-height: 48px;
+  min-height: var(--control-height);
   padding: 0 var(--space-16);
   border: 1px solid var(--grafito-500);
-  border-radius: var(--radius-ctl);
+  border-radius: var(--radius-default);
   background-color: var(--semantic-surface);
   color: var(--semantic-text-muted);
 }
@@ -47,8 +47,20 @@
   color: var(--semantic-text-muted);
 }
 
+/* The three controls of the bar line up; with a finger the criterion keeps
+   its full target (and has a row of its own on a phone). */
+.settlement-search .ui-button {
+  height: var(--control-height);
+}
+
+@media (pointer: fine) {
+  .settlement-search .ui-segmented__option {
+    min-height: calc(var(--control-height) - 6px);
+  }
+}
+
 /* Phone: the button sits beside the field; the criterion goes under both. */
-@media (max-width: 900px) {
+@media (--shell) {
   .settlement-search {
     flex-wrap: wrap;
     gap: var(--space-8);

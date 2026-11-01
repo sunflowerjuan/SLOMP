@@ -6,6 +6,7 @@ import { Card } from "./Card";
 import { IncompleteDocumentList } from "./IncompleteDocumentList";
 import { Notice } from "./Notice";
 import { PdfJobProgress } from "./PdfJobProgress";
+import { RetryNotice } from "./RetryNotice";
 import { Reveal } from "./Reveal";
 import "./ZipJobPanel.css";
 
@@ -108,16 +109,9 @@ export function ZipJobPanel({
         </div>
       )}
       {countsRequest && !countsRequest.loading && countsRequest.error && (
-        <Notice className="ui-zip-panel__retry">
+        <RetryNotice onRetry={countsRequest.onRetry}>
           {countsRequest.error}
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={countsRequest.onRetry}
-          >
-            Reintentar
-          </Button>
-        </Notice>
+        </RetryNotice>
       )}
       {rows && (
         <div

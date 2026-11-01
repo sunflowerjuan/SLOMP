@@ -2,6 +2,7 @@ import { useRef } from "react";
 import type { CSSProperties, KeyboardEvent, MouseEvent } from "react";
 import type { SettlementSearchResult } from "../../api/settlements";
 import type { SettlementStatus } from "../../domain/settlementStatus";
+import { Button } from "../../components/ui/Button";
 import { describePeriods, formatPeriods } from "../../utils/formatPeriods";
 import { formatCop } from "../../utils/formatCop";
 import { primaryMark } from "../../domain/settlementMarks";
@@ -9,10 +10,21 @@ import { SettlementMarks } from "./SettlementMarks";
 import { SettlementStatusCell } from "./SettlementStatusCell";
 import "./SettlementList.css";
 
-export type ListState = "idle" | "loading" | "results" | "empty";
+export type ListState =
+  | "idle"
+  | "loading"
+  | "results"
+  | "empty"
+  // Nothing to search for: the search didn't run.
+  | "invalid"
+  // The search failed.
+  | "error";
 
 interface SettlementListProps {
   state: ListState;
+  // Why, for "invalid" and "error".
+  message: string | null;
+  onRetry: () => void;
   results: SettlementSearchResult[];
   selectedId: number | null;
   editingId: number | null;
@@ -27,6 +39,8 @@ interface SettlementListProps {
 
 export function SettlementList({
   state,
+  message,
+  onRetry,
   results,
   selectedId,
   editingId,
@@ -57,6 +71,24 @@ export function SettlementList({
           No encontramos liquidaciones con ese criterio. Revisa lo escrito o
           prueba con otro criterio.
         </p>
+      </div>
+    );
+  }
+
+  if (state === "invalid" || state === "error") {
+    return (
+      <div className="settlement-list__message" role="alert">
+        <strong>
+          {state === "error"
+            ? "No pudimos hacer la búsqueda"
+            : "Falta el criterio de búsqueda"}
+        </strong>
+        <p>{message}</p>
+        {state === "error" && (
+          <Button variant="secondary" onClick={onRetry}>
+            Reintentar
+          </Button>
+        )}
       </div>
     );
   }
@@ -99,7 +131,12 @@ export function SettlementList({
   }
 
   return (
-    <div ref={listRef} role="table" aria-label="Liquidaciones">
+    <div
+      ref={listRef}
+      className="settlement-list__table"
+      role="table"
+      aria-label="Liquidaciones"
+    >
       <div role="rowgroup" className="settlement-list__head">
         <div role="row" className="settlement-list__row">
           <div role="columnheader">Cédula catastral</div>
@@ -122,7 +159,7 @@ export function SettlementList({
               className="settlement-list__row settlement-list__row--body"
               aria-current={selected ? "true" : undefined}
               data-mark={primaryMark(entry) ?? undefined}
-              style={{ "--i": Math.min(index, 12) } as CSSProperties}
+              style={{ "--i": index } as CSSProperties}
               // The click on the row is a shortcut for the mouse; from the
               // keyboard the cadastral code opens it, so the row stays out
               // of the Tab order.
@@ -142,11 +179,7 @@ export function SettlementList({
                 </button>
                 <SettlementMarks entry={entry} />
               </div>
-              <div
-                role="cell"
-                className="settlement-list__owner"
-                title={entry.ownerName}
-              >
+              <div role="cell" className="settlement-list__owner">
                 {entry.ownerName}
               </div>
               <div role="cell" className="settlement-list__periods">

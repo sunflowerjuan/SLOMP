@@ -115,7 +115,8 @@ export function groupIneligible(
 }
 
 // The step "Revisar" in one line: "12 predios, 37 periodos elegibles, 5 no
-// elegibles". Predios counts every property of the file that has a valid row.
+// elegibles". Predios counts every property of the file that has a valid row;
+// a count in zero is left out.
 export function reviewSummary(preview: {
   eligible: { cadastralCode: string }[];
   ineligible: { cadastralCode: string }[];
@@ -127,13 +128,17 @@ export function reviewSummary(preview: {
   ).size;
   return [
     formatCount(properties, "predio", "predios"),
-    formatCount(
-      preview.eligible.length,
-      "periodo elegible",
-      "periodos elegibles",
-    ),
-    formatCount(preview.ineligible.length, "no elegible", "no elegibles"),
-  ].join(", ");
+    preview.eligible.length > 0 &&
+      formatCount(
+        preview.eligible.length,
+        "periodo elegible",
+        "periodos elegibles",
+      ),
+    preview.ineligible.length > 0 &&
+      formatCount(preview.ineligible.length, "no elegible", "no elegibles"),
+  ]
+    .filter(Boolean)
+    .join(", ");
 }
 
 // The order the reasons are listed in: the ones that clear up with time

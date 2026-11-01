@@ -25,13 +25,11 @@
   background-color: var(--semantic-surface);
   box-shadow: var(--shadow-raised);
   pointer-events: none;
-  transition:
-    transform var(--duration-sheet) var(--ease-sheet),
-    width var(--duration-sheet) var(--ease-sheet);
+  transition: transform var(--duration-sheet) var(--ease-sheet);
 }
 
 .ui-segmented[data-dragging] .ui-segmented__indicator {
-  transition: width var(--duration-fast) var(--ease-out);
+  transition: none;
 }
 
 .ui-segmented__option {
@@ -66,7 +64,7 @@
 }
 
 /* Narrow screens: fill the row and let long labels wrap instead of overflow. */
-@media (max-width: 560px) {
+@media (--shell) {
   .ui-segmented {
     display: flex;
     width: 100%;
@@ -78,11 +76,5 @@
     line-height: 1.2;
     text-align: center;
     white-space: normal;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ui-segmented__indicator {
-    transition-duration: 0.01ms;
   }
 }

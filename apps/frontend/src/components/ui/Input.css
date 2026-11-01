@@ -19,7 +19,7 @@
 
 .ui-input {
   width: 100%;
-  height: 44px;
+  height: var(--control-height);
   padding: 0 var(--space-16);
   font-family: var(--font-sans);
   /* 16px: below that, iOS zooms the page when the input gets focus. */
@@ -29,11 +29,11 @@
   border: 1px solid var(--grafito-500);
   border-radius: var(--radius-default);
   box-sizing: border-box;
-  transition: border-color var(--duration-fast) ease;
+  transition: border-color var(--duration-fast) var(--ease-standard);
 }
 
 .ui-input::placeholder {
-  color: var(--grafito-400);
+  color: var(--semantic-text-muted);
 }
 
 .ui-input:focus-visible {

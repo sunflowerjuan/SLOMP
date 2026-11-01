@@ -1,3 +1,10 @@
+/* The rows depend on the room the list has, not on the viewport: see the
+   container query below. While the sheet pushes the list it stays a table,
+   so it isn't a container then. */
+.settlements-page:not([data-sheet="pushed"]) .settlement-list__table {
+  container-type: inline-size;
+}
+
 .settlement-list__row {
   display: grid;
   grid-template-columns:
@@ -27,10 +34,13 @@
   padding: var(--space-4) 0;
   border-bottom: 1px solid var(--semantic-border);
   font-size: var(--text-sm);
-  transition: background-color var(--duration-press) ease;
+  transition: background-color var(--duration-press) var(--ease-standard);
   /* Rows arrive one after another, capped so long lists don't drag. */
-  animation: rise-in var(--duration-enter) var(--ease-out) backwards;
-  animation-delay: calc(var(--i, 0) * 35ms);
+  animation: rise-in var(--duration-base) var(--ease-out) backwards;
+  animation-delay: min(
+    calc(var(--i, 0) * var(--stagger-step)),
+    var(--stagger-max)
+  );
 }
 
 /* Rows that need attention (SL-136): a colored edge, with the reason spelled
@@ -48,10 +58,8 @@
 }
 
 /* Room for that edge; the header keeps the same indent so columns line up. */
-@media (min-width: 1280px) {
-  .settlement-list__row > :first-child {
-    padding-left: var(--space-12);
-  }
+.settlement-list__row > :first-child {
+  padding-left: var(--space-12);
 }
 
 .settlement-list__row--body[aria-current="true"] {
@@ -86,10 +94,9 @@
   cursor: pointer;
 }
 
+/* Every co-owner, whole: the detail doesn't repeat them. */
 .settlement-list__owner {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .settlement-list__num {
@@ -139,7 +146,7 @@
   height: 16px;
   border-radius: 4px;
   background-color: var(--semantic-surface-muted);
-  animation: settlement-list-pulse 1.2s ease-in-out infinite;
+  animation: pulse var(--duration-pulse) var(--ease-sheet-soft) infinite;
 }
 
 .settlement-list__skeleton span:first-child {
@@ -150,31 +157,27 @@
   width: 40%;
 }
 
-@keyframes settlement-list-pulse {
-  50% {
-    opacity: 0.5;
-  }
-}
-
 /* While the sheet pushes the list the room gets tight: the total lives in
    the sheet, so the list drops it. */
-@media (min-width: 1440px) and (max-width: 1699px) {
-  .settlements-page[data-sheet="open"] .settlement-list__row {
-    grid-template-columns:
-      minmax(280px, 1.4fr) minmax(0, 1fr) minmax(100px, 0.6fr)
-      minmax(240px, 0.9fr);
-  }
-
-  .settlements-page[data-sheet="open"] .settlement-list__num {
-    display: none;
-  }
+.settlements-page[data-sheet="pushed"] .settlement-list__row {
+  grid-template-columns:
+    minmax(252px, 1.2fr) minmax(120px, 1fr) minmax(96px, 0.5fr)
+    minmax(200px, 0.8fr);
 }
 
-/* Below ~1280px the five columns no longer fit beside the sidebar (the owner
-   column shrank to nothing), so the rows become cards. */
-@media (max-width: 1279px) {
+.settlements-page[data-sheet="pushed"] .settlement-list__num {
+  display: none;
+}
+
+/* With less room the five columns no longer fit (the owner column shrinks to
+   nothing), so the rows become cards. */
+@container (width < 936px) {
   .settlement-list__head {
     display: none;
+  }
+
+  .settlement-list__row > :first-child {
+    padding-left: 0;
   }
 
   .settlement-list__row--body {
@@ -217,5 +220,5 @@
 }
 
 .settlement-list__message {
-  animation: rise-in var(--duration-enter) var(--ease-out) backwards;
+  animation: rise-in var(--duration-base) var(--ease-out) backwards;
 }

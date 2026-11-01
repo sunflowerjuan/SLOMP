@@ -7,7 +7,7 @@
   align-items: start;
 }
 
-@media (min-width: 1100px) {
+@media (--two-columns) {
   .templates-page__layout {
     grid-template-columns: minmax(0, 1fr) 380px;
   }
@@ -256,17 +256,11 @@
   background-color: var(--semantic-surface-muted);
   background-clip: content-box;
   border-radius: var(--radius-default);
-  animation: templates-page-pulse 1.2s ease-in-out infinite;
+  animation: pulse var(--duration-pulse) var(--ease-sheet-soft) infinite;
 }
 
 .templates-page__version--skeleton i + i {
   width: 11rem;
-}
-
-@keyframes templates-page-pulse {
-  50% {
-    opacity: 0.5;
-  }
 }
 
 /* Side by side, unlike the version's text column next to them. */
@@ -380,7 +374,7 @@
 }
 
 /* Phone: the main action across the top, the other two side by side. */
-@media (max-width: 480px) {
+@media (--shell) {
   .template-viewer__actions {
     display: grid;
     grid-template-columns: 1fr 1fr;

@@ -1,6 +1,7 @@
 import { Button } from "../../components/ui/Button";
 import { Notice } from "../../components/ui/Notice";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
+import { MEDIA } from "../../styles/breakpoints";
 
 export type PreviewState =
   | { status: "loading" }
@@ -22,7 +23,7 @@ export function TemplatePreview({
   documentName,
   onRetry,
 }: TemplatePreviewProps) {
-  const phone = useMediaQuery("(max-width: 900px)");
+  const phone = useMediaQuery(MEDIA.shell);
 
   return (
     <div className="template-preview">

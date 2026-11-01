@@ -66,9 +66,7 @@ test("cargar un Excel válido pasa solo a Revisar, con su resumen y sin poder co
     await expect(compact).toBeHidden();
   }
 
-  await expect(
-    page.getByText("3 predios, 0 periodos elegibles, 6 no elegibles"),
-  ).toBeVisible();
+  await expect(page.getByText("3 predios, 6 no elegibles")).toBeVisible();
   await expect(page.getByRole("button", { name: "Continuar" })).toBeDisabled();
   await expect(
     page.getByText("No hay mandamientos por generar en este archivo."),
@@ -119,9 +117,7 @@ test("el paso se conserva al ir al Historial y volver @UAT-29", async ({
 
   await page.getByRole("radio", { name: "Generar" }).click();
   await expect(currentStep(page)).toHaveAccessibleName("Paso 2 de 3: Revisar");
-  await expect(
-    page.getByText("3 predios, 0 periodos elegibles, 6 no elegibles"),
-  ).toBeVisible();
+  await expect(page.getByText("3 predios, 6 no elegibles")).toBeVisible();
 });
 
 test("con teclado, Cambiar archivo vuelve a Cargar sin archivo @UAT-29", async ({

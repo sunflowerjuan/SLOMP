@@ -1,0 +1,8 @@
+/* Not a long warning that scrolls inside itself: the button stays whole. */
+.ui-retry-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-12);
+  max-height: none;
+}
