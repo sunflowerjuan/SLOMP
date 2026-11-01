@@ -12,19 +12,27 @@ export interface StatusChangeRequest {
 export type StatusChangeRejectionReason =
   'TRANSITION_NOT_ALLOWED' | 'NOT_FOUND' | 'REPLACED';
 
-export interface AcceptedStatusChange {
+// Which period a change is about, for the panel's proposal cards.
+interface StatusChangeSubject {
+  cadastralCode: string;
+  period: number;
+  resolutionNumber: string | null;
+}
+
+export interface AcceptedStatusChange extends StatusChangeSubject {
   settlementId: number;
   from: SettlementStatus;
   to: SettlementStatus;
 }
 
-export interface RejectedStatusChange {
+export interface RejectedStatusChange extends Partial<StatusChangeSubject> {
   settlementId: number;
+  to: SettlementStatus;
   reason: StatusChangeRejectionReason;
   // States it may move to now; empty when it can't be changed at all.
   allowed: SettlementStatus[];
   // For the panel to explain the rejection (section 6 of "Diseño de
-  // Slompsim"). Absent for NOT_FOUND.
+  // Slompsim"). Absent for NOT_FOUND, like the subject.
   current?: SettlementStatus;
   paymentOrder?: { number: string; issuedAt: Date };
 }
@@ -34,6 +42,14 @@ export interface StatusChangeReview {
   // changes nothing when applied.
   accepted: AcceptedStatusChange[];
   rejected: RejectedStatusChange[];
+}
+
+function subjectOf(row: AssistantSettlementRow): StatusChangeSubject {
+  return {
+    cadastralCode: row.property.cadastralCode,
+    period: row.period,
+    resolutionNumber: row.resolution?.number ?? null,
+  };
 }
 
 // Checks each requested change against the domain rules, in request order.
@@ -50,10 +66,17 @@ export function reviewStatusChanges(
   for (const { settlementId, toStatus } of changes) {
     const row = byId.get(settlementId);
     if (!row) {
-      review.rejected.push({ settlementId, reason: 'NOT_FOUND', allowed: [] });
+      review.rejected.push({
+        settlementId,
+        to: toStatus,
+        reason: 'NOT_FOUND',
+        allowed: [],
+      });
       continue;
     }
     const explained = {
+      ...subjectOf(row),
+      to: toStatus,
       current: row.status,
       ...(row.paymentOrder && {
         paymentOrder: {
@@ -81,7 +104,12 @@ export function reviewStatusChanges(
       });
       continue;
     }
-    review.accepted.push({ settlementId, from: row.status, to: toStatus });
+    review.accepted.push({
+      settlementId,
+      ...subjectOf(row),
+      from: row.status,
+      to: toStatus,
+    });
   }
   return review;
 }
