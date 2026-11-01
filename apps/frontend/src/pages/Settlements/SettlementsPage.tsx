@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getErrorMessage, isRetryable } from "../../api/ApiError";
 import { messageForErrorCode } from "../../api/errorMessages";
 import {
@@ -20,6 +20,7 @@ import { RetryNotice } from "../../components/ui/RetryNotice";
 import { Screen } from "../../components/ui/Screen";
 import { Toast } from "../../components/ui/Toast";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
+import { useSlompsim } from "../../slompsim/useSlompsim";
 import { MEDIA } from "../../styles/breakpoints";
 import { triggerBrowserDownload } from "../../utils/downloadBlob";
 import { formatCount } from "../../utils/formatCount";
@@ -45,9 +46,6 @@ export function SettlementsPage() {
   const [results, setResults] = useState<SettlementSearchResult[]>([]);
   const [listState, setListState] = useState<ListState>("idle");
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [searched, setSearched] = useState<SettlementSearchCriteria | null>(
-    null,
-  );
   // The sheet keeps showing the last selection while it slides out.
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [sheetEntryId, setSheetEntryId] = useState<number | null>(null);
@@ -59,6 +57,42 @@ export function SettlementsPage() {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const {
+    isOpen: slompsimOpen,
+    close: closeSlompsim,
+    conversation: { appliedIds },
+  } = useSlompsim();
+  const [slompsimWasOpen, setSlompsimWasOpen] = useState(slompsimOpen);
+  const searched = useRef<SettlementSearchCriteria | null>(null);
+  const appliedCount = appliedIds.length;
+
+  // Never two panels on the right: opening Slompsim closes the sheet, and
+  // opening the sheet closes Slompsim (handleToggle).
+  if (slompsimOpen !== slompsimWasOpen) {
+    setSlompsimWasOpen(slompsimOpen);
+    if (slompsimOpen) {
+      setSelectedId(null);
+      setEditingId(null);
+    }
+  }
+
+  // Slompsim floats over this list: what it applied shows up right away.
+  useEffect(() => {
+    if (appliedCount === 0 || !searched.current) return;
+    let cancelled = false;
+    searchSettlements(searched.current)
+      .then((found) => {
+        if (!cancelled) setResults(found);
+      })
+      .catch((caught: unknown) => {
+        if (cancelled) return;
+        setSearchError(getErrorMessage(caught));
+        setListState("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [appliedCount]);
 
   // Below 1440px the open sheet covers the list behind a scrim: keep it out of
   // the tab order and the accessibility tree meanwhile.
@@ -108,7 +142,7 @@ export function SettlementsPage() {
     try {
       const found = await searchSettlements(criteria);
       setResults(found);
-      setSearched(criteria);
+      searched.current = criteria;
       setListState(found.length ? "results" : "empty");
     } catch (caught) {
       setSearchError(getErrorMessage(caught));
@@ -126,6 +160,7 @@ export function SettlementsPage() {
       closeSheet();
       return;
     }
+    closeSlompsim({ returnFocus: false });
     setSelectedId(id);
     setSheetEntryId(id);
     setEditingId(null);
@@ -197,8 +232,8 @@ export function SettlementsPage() {
   // "Generar PDF" need to know. If this fails the rows just stay as they were;
   // the PDF is already downloading.
   function refreshResults() {
-    if (!searched) return;
-    searchSettlements(searched)
+    if (!searched.current) return;
+    searchSettlements(searched.current)
       .then(setResults)
       .catch(() => undefined);
   }

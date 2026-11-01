@@ -42,6 +42,8 @@ interface AdminLayoutProps {
   menuItems: AdminMenuItem[];
   // Active municipality and how to change it: the pill of the top bar.
   switcher?: MunicipalitySwitch;
+  // Desktop: right under the sections, apart from them.
+  sideAction?: ReactNode;
   children: ReactNode;
 }
 
@@ -50,6 +52,7 @@ export function AdminLayout({
   activeId,
   menuItems,
   switcher,
+  sideAction,
   children,
 }: AdminLayoutProps) {
   const mainRef = useRef<HTMLElement>(null);
@@ -199,6 +202,7 @@ export function AdminLayout({
             </div>
           ))}
         </nav>
+        {!isCompact && sideAction}
         {!isCompact && (
           <div className="admin-layout__actions">
             {menuItems.map((item) => renderMenuItem(item))}

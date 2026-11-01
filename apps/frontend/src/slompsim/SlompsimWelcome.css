@@ -1,0 +1,49 @@
+.slompsim-welcome {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.slompsim-welcome__title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.slompsim-welcome__text {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+.slompsim-welcome__suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.slompsim-welcome__suggestion {
+  width: 100%;
+  min-height: var(--tap-size);
+  padding: var(--space-8) var(--space-12);
+  border: 1px solid var(--tinta-100);
+  border-radius: var(--radius-ctl);
+  background-color: var(--semantic-surface);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--tinta-600);
+  text-align: left;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .slompsim-welcome__suggestion:hover {
+    background-color: var(--semantic-hover);
+  }
+}

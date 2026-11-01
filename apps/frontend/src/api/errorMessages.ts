@@ -6,6 +6,7 @@
 //   Informal "tú", full sentences ending in a period.
 
 import { paymentOrderNumberLabel } from "../domain/paymentOrder";
+import { SETTLEMENT_STATUS_LABEL } from "../domain/settlementStatus";
 import { MAX_TEMPLATE_NAME_LENGTH } from "../domain/templateMarking";
 import type {
   MarkingProblem,
@@ -13,6 +14,7 @@ import type {
 } from "../domain/templateMarking";
 import { formatNumber } from "../utils/formatCount";
 import { formatPeriods } from "../utils/formatPeriods";
+import type { RejectedStatusChange } from "./assistant";
 
 export type ErrorDetails = Record<string, unknown>;
 
@@ -327,6 +329,22 @@ const ERROR_MESSAGES: Record<string, CatalogEntry> = {
   PAYMENT_ORDER_INELIGIBLE:
     "Algunas liquidaciones ya no cumplen las condiciones para generar su mandamiento. Vuelve a cargar el Excel y revisa cuáles se pueden generar.",
 
+  // Slompsim
+  ASSISTANT_UNAVAILABLE:
+    "Slompsim no responde en este momento. Tus liquidaciones no cambiaron.",
+  ASSISTANT_RATE_LIMITED:
+    "Enviaste muchos mensajes seguidos. Espera un minuto y vuelve a intentarlo.",
+  ASSISTANT_TOO_MANY_TOOL_CALLS:
+    "Ese pedido es muy amplio. Divídelo, por ejemplo un predio a la vez.",
+  ASSISTANT_TOOL_INPUT_INVALID:
+    "No se pudo preparar ese cambio. Revisa el pedido e intenta de nuevo.",
+  ASSISTANT_CHANGES_REJECTED: (details) => {
+    const count = Array.isArray(details.rejected) ? details.rejected.length : 0;
+    return count === 1
+      ? "No se aplicó ningún cambio: 1 liquidación cambió mientras revisabas. Revisa la propuesta de nuevo."
+      : `No se aplicó ningún cambio: ${formatNumber(count)} liquidaciones cambiaron mientras revisabas. Revisa la propuesta de nuevo.`;
+  },
+
   // Public consultation
   PUBLIC_QUERY_CRITERIA_REQUIRED:
     "Ingresa al menos 2 de los 3 datos del predio para realizar la consulta.",
@@ -546,4 +564,70 @@ export function paymentOrderLeftOutMessage(
       ? `el periodo ${periods[0]}, que ya no cumplía`
       : `los periodos ${formatPeriods(periods)}, que ya no cumplían`;
   return `El mandamiento ${paymentOrderNumberLabel(number)} se generó sin ${leftOut} las condiciones.`;
+}
+
+// Slompsim's words for what can go wrong in the chat (section 6 of the
+// Confluence page "Diseño de Slompsim"). The rejections come per settlement,
+// so their text is built from the settlement itself.
+
+export const ASSISTANT_OFFLINE_MESSAGE =
+  "No hay conexión. Revisa tu internet y vuelve a intentarlo. Tus liquidaciones no cambiaron.";
+
+export const ASSISTANT_BATCH_LIMIT_MESSAGE =
+  "Se aplican hasta 100 cambios a la vez. Después pide los siguientes.";
+
+const PRESCRIPTION_AFTER_PAYMENT_ORDER_YEARS = 5;
+
+const SHORT_DATE_FORMATTER = new Intl.DateTimeFormat("es-CO", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  timeZone: "America/Bogota",
+});
+
+function paymentOrderRejectionText({
+  number,
+  issuedAt,
+}: NonNullable<RejectedStatusChange["paymentOrder"]>): string {
+  const issued = new Date(issuedAt);
+  const allowedFrom = new Date(issued);
+  allowedFrom.setFullYear(
+    issued.getFullYear() + PRESCRIPTION_AFTER_PAYMENT_ORDER_YEARS,
+  );
+  return `Este periodo está en el mandamiento ${paymentOrderNumberLabel(number)} del ${SHORT_DATE_FORMATTER.format(issued)}. Un periodo con mandamiento solo puede pasar a ese estado cuando se cumplan ${PRESCRIPTION_AFTER_PAYMENT_ORDER_YEARS} años desde el mandamiento, es decir, desde el ${SHORT_DATE_FORMATTER.format(allowedFrom)}.`;
+}
+
+export function statusChangeRejectionTitle({
+  period,
+  to,
+}: RejectedStatusChange): string {
+  return period === undefined
+    ? "No se puede aplicar este cambio"
+    : `No se puede pasar la liquidación ${period} a ${SETTLEMENT_STATUS_LABEL[to]}`;
+}
+
+export function statusChangeRejectionMessage(
+  {
+    reason,
+    to,
+    current,
+    period,
+    cadastralCode,
+    paymentOrder,
+  }: RejectedStatusChange,
+  municipalityName: string,
+): string {
+  if (reason === "NOT_FOUND") {
+    return `No encontré esa liquidación en ${municipalityName}.`;
+  }
+  if (reason === "REPLACED") {
+    return `La liquidación ${period} del predio ${cadastralCode} fue reemplazada por una carga más reciente. Pide el cambio de nuevo.`;
+  }
+  if (to === "PRESCRITA" && paymentOrder) {
+    return paymentOrderRejectionText(paymentOrder);
+  }
+  if (to === "VIGENTE" && current === "EN_FIRME") {
+    return "Una liquidación en firme no vuelve a Vigente.";
+  }
+  return "Ese cambio de estado no está permitido para esta liquidación.";
 }

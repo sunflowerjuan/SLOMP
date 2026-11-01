@@ -1,0 +1,38 @@
+.slompsim-message {
+  margin: 0;
+  font-size: var(--text-md);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* The model's line breaks are its paragraphs. */
+.slompsim-message p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.slompsim-message p + *,
+.slompsim-message .slompsim-rows + p {
+  margin-top: var(--space-8);
+}
+
+.slompsim-message--user {
+  align-self: flex-end;
+  max-width: 85%;
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-lg);
+  background-color: var(--semantic-bg-selected);
+  white-space: pre-wrap;
+}
+
+.slompsim-failure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+
+.slompsim-failure .ui-button {
+  flex: none;
+}

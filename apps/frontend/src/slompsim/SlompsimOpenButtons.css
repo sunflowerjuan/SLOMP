@@ -1,0 +1,29 @@
+.slompsim-side-separator {
+  flex: none;
+  width: auto;
+  height: 1px;
+  margin: var(--space-16) 14px var(--space-12);
+  border: 0;
+  background-color: var(--tinta-100);
+}
+
+/* Pressed while the panel is open; deliberately not the white pill of the
+   active section, so the two never read as the same thing. */
+.slompsim-side-button[aria-expanded="true"] {
+  background-color: var(--semantic-bg-selected);
+  color: var(--tinta-700);
+  font-weight: 600;
+}
+
+.slompsim-head-button.ui-button {
+  width: var(--tap-size);
+  height: var(--tap-size);
+  min-height: var(--tap-size);
+  padding: 0;
+}
+
+.slompsim-head-button svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+}

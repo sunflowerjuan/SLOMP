@@ -20,6 +20,14 @@
   gap: var(--space-16);
 }
 
+.ui-screen__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+  margin-left: auto;
+}
+
 .ui-screen__body {
   display: flex;
   flex: 1;

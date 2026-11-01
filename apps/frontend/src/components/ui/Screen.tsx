@@ -1,4 +1,5 @@
 import type { HTMLAttributes, ReactNode } from "react";
+import { SlompsimHeadButton } from "../../slompsim/SlompsimHeadButton";
 import { PageHeader } from "./PageHeader";
 import "./Screen.css";
 
@@ -36,7 +37,10 @@ export function Screen({
       <div className="ui-screen__zones" inert={covered}>
         <div className="ui-screen__head">
           <PageHeader title={title} subtitle={subtitle} />
-          {action}
+          <div className="ui-screen__actions">
+            {action}
+            <SlompsimHeadButton />
+          </div>
         </div>
         {input}
         <div className="ui-screen__body">{children}</div>
