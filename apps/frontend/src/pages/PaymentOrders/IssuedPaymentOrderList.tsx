@@ -2,6 +2,7 @@ import type { PaymentOrderSummary } from "../../api/paymentOrders";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Notice } from "../../components/ui/Notice";
+import { RetryNotice } from "../../components/ui/RetryNotice";
 import {
   filterByCadastralCode,
   paymentOrderNumberLabel,
@@ -42,14 +43,7 @@ export function IssuedPaymentOrderList({
 
   return (
     <Card label="Mandamientos emitidos" className="issued-payment-orders">
-      {error && (
-        <Notice className="issued-payment-orders__retry">
-          {error}
-          <Button variant="secondary" onClick={onRetry}>
-            Reintentar
-          </Button>
-        </Notice>
-      )}
+      {error && <RetryNotice onRetry={onRetry}>{error}</RetryNotice>}
 
       {orders === null && !error && (
         <ul

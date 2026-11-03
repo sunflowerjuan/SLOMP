@@ -25,6 +25,9 @@ import { SettingsPage } from "./pages/Settings/SettingsPage";
 import { TemplatesPage } from "./pages/Templates/TemplatesPage";
 import { SettlementsPage } from "./pages/Settlements/SettlementsPage";
 import { TaxRollUploadPage } from "./pages/TaxRollUpload/TaxRollUploadPage";
+import { SlompsimPanel } from "./slompsim/SlompsimPanel";
+import { SlompsimProvider } from "./slompsim/SlompsimProvider";
+import { SlompsimSideButton } from "./slompsim/SlompsimSideButton";
 import {
   adminHref,
   adminSectionOf,
@@ -244,15 +247,23 @@ export function AdminPanel() {
   }
 
   return (
-    <>
+    <SlompsimProvider slug={active?.slug ?? null}>
       <AdminLayout
         groups={navGroups}
         activeId={adminSectionOf(route.view)}
         menuItems={menuItems(signOut)}
         switcher={switcher}
+        sideAction={active && <SlompsimSideButton />}
       >
         {content}
       </AdminLayout>
+      {active && (
+        <SlompsimPanel
+          key={active.slug}
+          slug={active.slug}
+          municipalityName={municipalityLabel(active)}
+        />
+      )}
       <AddMunicipalityDialog
         open={isAddOpen}
         onClose={() => setIsAddOpen(false)}
@@ -262,6 +273,6 @@ export function AdminPanel() {
           window.location.hash = adminHref(municipality.slug);
         }}
       />
-    </>
+    </SlompsimProvider>
   );
 }

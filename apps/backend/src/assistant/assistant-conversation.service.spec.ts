@@ -17,6 +17,7 @@ const { EN_FIRME, PAGADA, PRESCRITA } = SettlementStatus;
 const MUNICIPALITY_ID = 7;
 const REQUEST_ID = 'req-123';
 const CODE = '155140001000200030000';
+const RESOLUTION = 'LOIP 155142026-0003';
 const twoYearsAgo = new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000);
 
 // What the database holds for the settlements: the property's owners,
@@ -35,7 +36,7 @@ const dbRow = (id: number, period = 2020, cadastralCode = CODE) => ({
     address: ADDRESS,
     owners: [{ owner: { name: OWNER_NAME, documentId: OWNER_DOCUMENT } }],
   },
-  resolution: { issuedAt: twoYearsAgo },
+  resolution: { number: RESOLUTION, issuedAt: twoYearsAgo },
   paymentOrder: null,
 });
 
@@ -50,6 +51,20 @@ function setup(script: FakeScript, rows = [dbRow(123)]) {
   );
   return { service, model, prisma, logs };
 }
+
+// What the tools and the panel see of dbRow(123).
+const SUBJECT = {
+  cadastralCode: CODE,
+  period: 2020,
+  resolutionNumber: RESOLUTION,
+};
+const FOUND = {
+  id: 123,
+  ...SUBJECT,
+  status: EN_FIRME,
+  allowedStatuses: expect.any(Array),
+  hasPaymentOrder: false,
+};
 
 let callIds = 0;
 const call = (name: string, input: Record<string, unknown>): ModelToolCall => ({
@@ -88,6 +103,7 @@ describe('AssistantConversationService', () => {
     expect(answer).toEqual({
       reply: 'El predio tiene una liquidación En firme de 2020.',
       proposals: null,
+      settlements: [FOUND],
     });
     expect(prisma.settlement.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -101,16 +117,7 @@ describe('AssistantConversationService', () => {
     const toolTurn = model.requests[1].messages.at(-1) as {
       results: { content: string }[];
     };
-    expect(JSON.parse(toolTurn.results[0].content)).toEqual([
-      {
-        id: 123,
-        cadastralCode: CODE,
-        period: 2020,
-        status: EN_FIRME,
-        allowedStatuses: expect.any(Array),
-        hasPaymentOrder: false,
-      },
-    ]);
+    expect(JSON.parse(toolTurn.results[0].content)).toEqual([FOUND]);
     const sent = model.everythingSent();
     expect(sent).not.toContain(OWNER_NAME);
     expect(sent).not.toContain(OWNER_DOCUMENT);
@@ -166,7 +173,7 @@ describe('AssistantConversationService', () => {
     );
 
     expect(answer.proposals).toEqual({
-      accepted: [{ settlementId: 123, from: EN_FIRME, to: PAGADA }],
+      accepted: [{ settlementId: 123, ...SUBJECT, from: EN_FIRME, to: PAGADA }],
       rejected: [],
       note: 'firmó el lunes',
     });
@@ -232,8 +239,10 @@ describe('AssistantConversationService', () => {
       text: expect.stringContaining('Excel de mandamientos con 1 filas'),
     });
     expect(answer.proposals?.accepted).toEqual([
-      { settlementId: 502, from: EN_FIRME, to: PRESCRITA },
+      { settlementId: 502, ...SUBJECT, from: EN_FIRME, to: PRESCRITA },
     ]);
+    // The panel lists what the tool found, the same as a search.
+    expect(answer.settlements?.map(({ id }) => id)).toEqual([502]);
   });
 
   it('tells the model when there is no Excel to compare with', async () => {
@@ -302,6 +311,7 @@ describe('AssistantConversationService', () => {
       reply:
         '¿A qué liquidación te refieres? Dame su número o el código catastral.',
       proposals: null,
+      settlements: null,
     });
     expect(prisma.settlement.findMany).not.toHaveBeenCalled();
     expect(JSON.parse(logs[0]!)).toMatchObject({ tools: [], result: 'OK' });
@@ -328,6 +338,7 @@ describe('AssistantConversationService', () => {
     expect(refusal).toEqual({
       reply: expect.stringMatching(/^Eso no lo puedo hacer/),
       proposals: null,
+      settlements: null,
     });
   });
 

@@ -39,6 +39,16 @@ export interface SettlementStatusChangeResult {
   missingPeriods: number[];
 }
 
+// One period of a row: a status change is per period, never per resolution,
+// so each one has its own state and its own options.
+export interface SettlementPeriodStatus {
+  settlementId: number;
+  period: number;
+  status: SettlementStatus;
+  // States the status selector may offer for this period right now.
+  allowedStatuses: SettlementStatus[];
+}
+
 // One row per PDF the Administrator can generate: the periods of a property
 // that share (or will share) a Resolution. Co-owned properties join every
 // owner's name.
@@ -46,8 +56,7 @@ export interface SettlementSearchResult extends SettlementGroup {
   cadastralCode: string;
   address: string;
   ownerName: string;
-  // States the status selector may offer for this group right now.
-  allowedStatuses: SettlementStatus[];
+  settlements: SettlementPeriodStatus[];
 }
 
 // How many properties a single search returns (each with all its groups, so
@@ -130,25 +139,33 @@ export class SettlementsService {
         })),
         currentYear,
       );
-      return groups.map((group) => {
-        // The PATCH uses the clicked (first) settlement's state, so the
-        // selector does too -- also for legacy MIXED groups.
-        const trigger = property.settlements.find(
-          (settlement) => settlement.id === group.settlementId,
-        )!;
-        return {
-          ...group,
-          cadastralCode: property.cadastralCode,
-          address: property.address,
-          ownerName,
-          allowedStatuses: allowedStatuses({
-            current: trigger.status,
-            resolutionIssuedAt: trigger.resolution?.issuedAt ?? null,
-            paymentOrderAt: trigger.paymentOrder?.issuedAt ?? null,
-            now,
-          }),
-        };
-      });
+      // A property has one current settlement per period.
+      const byPeriod = new Map(
+        property.settlements.map((settlement) => [
+          settlement.period,
+          settlement,
+        ]),
+      );
+      return groups.map((group) => ({
+        ...group,
+        cadastralCode: property.cadastralCode,
+        address: property.address,
+        ownerName,
+        settlements: group.periods.map((period) => {
+          const settlement = byPeriod.get(period)!;
+          return {
+            settlementId: settlement.id,
+            period,
+            status: settlement.status,
+            allowedStatuses: allowedStatuses({
+              current: settlement.status,
+              resolutionIssuedAt: settlement.resolution?.issuedAt ?? null,
+              paymentOrderAt: settlement.paymentOrder?.issuedAt ?? null,
+              now,
+            }),
+          };
+        }),
+      }));
     });
   }
 

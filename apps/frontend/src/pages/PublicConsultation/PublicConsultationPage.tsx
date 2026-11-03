@@ -15,6 +15,8 @@ import { Card } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
 import { Notice } from "../../components/ui/Notice";
 import { PageHeader } from "../../components/ui/PageHeader";
+import { RetryNotice } from "../../components/ui/RetryNotice";
+import { SettlementStatusBadge } from "../../components/ui/SettlementStatusBadge";
 import { Table } from "../../components/ui/Table";
 import { TableRow } from "../../components/ui/TableRow";
 import { triggerBrowserDownload } from "../../utils/downloadBlob";
@@ -23,7 +25,6 @@ import { countNoun } from "../../utils/formatCount";
 import { formatPeriods } from "../../utils/formatPeriods";
 import { PdfButton } from "./PdfButton";
 import type { PdfDownloadState } from "./PdfButton";
-import { PublicStatusCell } from "./PublicStatusCell";
 import "./PublicConsultationPage.css";
 
 // Exact match on at least 2 of the 3 fields.
@@ -45,7 +46,7 @@ type SearchState =
   | { kind: "idle" }
   | { kind: "loading" }
   | { kind: "not-found" }
-  | { kind: "error"; message: string }
+  | { kind: "error"; message: string; criteria: PublicConsultationCriteria }
   | { kind: "found"; results: PublicSettlement[] };
 
 function toCriteria(values: FormValues) {
@@ -103,7 +104,7 @@ export function PublicConsultationPage({
     }
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const criteria = toCriteria(values);
 
@@ -112,6 +113,10 @@ export function PublicConsultationPage({
       return;
     }
 
+    void consult(criteria);
+  }
+
+  async function consult(criteria: PublicConsultationCriteria) {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -142,6 +147,7 @@ export function PublicConsultationPage({
       setSearch({
         kind: "error",
         message: getErrorMessage(error, { audience: "public" }),
+        criteria,
       });
     }
   }
@@ -225,7 +231,7 @@ export function PublicConsultationPage({
               <Input
                 label="Propietario"
                 placeholder="Nombre completo"
-                autoComplete="name"
+                autoComplete="off"
                 value={values.ownerName}
                 onChange={(event) =>
                   handleChange("ownerName", event.target.value)
@@ -298,7 +304,11 @@ export function PublicConsultationPage({
             </Card>
           )}
 
-          {search.kind === "error" && <Notice>{search.message}</Notice>}
+          {search.kind === "error" && (
+            <RetryNotice onRetry={() => void consult(search.criteria)}>
+              {search.message}
+            </RetryNotice>
+          )}
 
           {search.kind === "found" && (
             <Card
@@ -323,7 +333,7 @@ export function PublicConsultationPage({
               {/* Desktop: table. Mobile: stacked cards. */}
               <div className="public-consultation__table">
                 <Table
-                  columns={["Periodos", "Valor total", "Estado", "Liquidación"]}
+                  columns={["Periodos", "Valor total", "Estado", "Acción"]}
                 >
                   {search.results.map((settlement) => (
                     <TableRow
@@ -331,7 +341,7 @@ export function PublicConsultationPage({
                       cells={[
                         formatPeriods(settlement.periods),
                         formatCop(settlement.totalAmount),
-                        <PublicStatusCell
+                        <SettlementStatusBadge
                           key="estado"
                           status={settlement.status}
                         />,
@@ -357,7 +367,7 @@ export function PublicConsultationPage({
                       <span className="public-consultation__item-period">
                         Periodos {formatPeriods(settlement.periods)}
                       </span>
-                      <PublicStatusCell status={settlement.status} />
+                      <SettlementStatusBadge status={settlement.status} />
                     </div>
                     <dl className="public-consultation__item-data">
                       <div>

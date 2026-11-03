@@ -1,0 +1,118 @@
+.slompsim-composer {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-16) var(--space-16);
+  border-top: 1px solid var(--semantic-border);
+}
+
+.slompsim-composer__field {
+  /* Height of the send button, and of one line of text with its padding, so
+     a single line sits centered beside it. A finger keeps the full tap size;
+     a mouse gets a slimmer field. */
+  --composer-control: var(--control-height);
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-8);
+  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-12);
+  border: 1px solid var(--grafito-500);
+  border-radius: var(--radius-default);
+  background-color: var(--semantic-surface);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .slompsim-composer__field {
+    --composer-control: 36px;
+  }
+}
+
+/* The ring belongs to the whole field, send button included. */
+.slompsim-composer__field:focus-within {
+  border-color: var(--tinta-500);
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.slompsim-composer__field[data-disabled="true"] {
+  background-color: var(--semantic-surface-muted);
+}
+
+/* Up to six lines of 1.5, plus its padding; then it scrolls inside. */
+.slompsim-composer__input {
+  box-sizing: border-box;
+  flex: 1;
+  min-width: 0;
+  min-height: var(--composer-control);
+  max-height: calc(9em + var(--composer-control) - 1.5em);
+  padding: calc((var(--composer-control) - 1.5em) / 2) 0;
+  border: 0;
+  outline: none;
+  background: none;
+  font: inherit;
+  font-size: var(--text-md);
+  line-height: 1.5;
+  color: var(--semantic-text);
+  resize: none;
+}
+
+.slompsim-composer__input::placeholder {
+  color: var(--semantic-text-muted);
+  opacity: 1;
+}
+
+.slompsim-composer__send {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--composer-control);
+  height: var(--composer-control);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-default);
+  background-color: var(--semantic-primary);
+  color: var(--semantic-on-primary);
+  cursor: pointer;
+  transition: transform var(--duration-press) var(--ease-out);
+}
+
+.slompsim-composer__send:not(:disabled):active {
+  transform: scale(0.96);
+}
+
+.slompsim-composer__send:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.slompsim-composer__send svg {
+  width: 20px;
+  height: 20px;
+}
+
+.slompsim-composer__foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-4) var(--space-12);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+/* Out of sight it still describes the field to screen readers. */
+.slompsim-composer__hint[data-visible="false"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .slompsim-composer {
+    padding: var(--space-12) var(--space-16)
+      max(var(--space-12), env(safe-area-inset-bottom, 0px));
+  }
+}

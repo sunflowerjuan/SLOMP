@@ -64,7 +64,7 @@ export function SettlementSearchBar({
         value={field}
         onChange={onFieldChange}
       />
-      <Button type="submit" size="lg" loading={isSearching}>
+      <Button type="submit" loading={isSearching}>
         Buscar
       </Button>
     </form>

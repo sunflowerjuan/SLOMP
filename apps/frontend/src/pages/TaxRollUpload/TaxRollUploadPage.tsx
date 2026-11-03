@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getErrorMessage } from "../../api/ApiError";
+import { getErrorMessage, isRetryable } from "../../api/ApiError";
 import { importTaxRoll, listTaxRollImports } from "../../api/taxRoll";
 import { BulkZipPanel } from "./BulkZipPanel";
 import type {
@@ -12,8 +12,10 @@ import { Card } from "../../components/ui/Card";
 import { Notice } from "../../components/ui/Notice";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { useSwipeToDismiss } from "../../hooks/useSwipeToDismiss";
+import { MEDIA } from "../../styles/breakpoints";
 import { Screen } from "../../components/ui/Screen";
 import { ReplaceConfirmDialog } from "../../components/ui/ReplaceConfirmDialog";
+import { RetryNotice } from "../../components/ui/RetryNotice";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { Table } from "../../components/ui/Table";
 import { TableRow } from "../../components/ui/TableRow";
@@ -27,6 +29,8 @@ const DATE_FORMATTER = new Intl.DateTimeFormat("es-CO", {
   dateStyle: "short",
   timeStyle: "short",
 });
+
+const HISTORY_PLACEHOLDERS = [0, 1, 2];
 
 // The backend doesn't store a "status" per upload (tax_roll_imports only
 // has counts); it's derived here, with the same criteria as the result
@@ -50,13 +54,19 @@ export function TaxRollUploadPage() {
   const [isConfirmingReplace, setIsConfirmingReplace] = useState(false);
   const [isReplaceDialogOpen, setIsReplaceDialogOpen] = useState(false);
   const [result, setResult] = useState<TaxRollImportResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<{
+    message: string;
+    retryable: boolean;
+  } | null>(null);
+  // Already processed, or refused for what it holds: sending it again would
+  // change nothing. Another file enables the button again.
+  const [spentFile, setSpentFile] = useState<File | null>(null);
   const [history, setHistory] = useState<TaxRollImportHistoryEntry[]>([]);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
   // The history only collapses below the wide layout, where it is closed
   // until asked for; the wide layout always shows it.
-  const isWide = useMediaQuery("(min-width: 1100px)");
+  const isWide = useMediaQuery(MEDIA.twoColumns);
   // Until the Administrator toggles it, the history is open when there is room.
   const [historyChoice, setHistoryChoice] = useState<boolean | null>(null);
   const isHistoryOpen = historyChoice ?? isWide;
@@ -73,6 +83,11 @@ export function TaxRollUploadPage() {
     } finally {
       setIsHistoryLoading(false);
     }
+  }
+
+  function retryHistory() {
+    setIsHistoryLoading(true);
+    void refreshHistory();
   }
 
   useEffect(() => {
@@ -93,8 +108,14 @@ export function TaxRollUploadPage() {
 
   function resetOutcome() {
     setResult(null);
-    setError(null);
+    setFailure(null);
     setLeaving(null);
+  }
+
+  function handleFailure(caught: unknown) {
+    const retryable = isRetryable(caught);
+    setFailure({ message: getErrorMessage(caught), retryable });
+    if (!retryable) setSpentFile(file);
   }
 
   async function handleProcess() {
@@ -107,6 +128,7 @@ export function TaxRollUploadPage() {
     try {
       const response = await importTaxRoll(file, false);
       setResult(response);
+      setSpentFile(file);
       // refreshHistory() handles its own errors (historyError state) and
       // never rejects -- intentionally fire-and-forget.
       void refreshHistory();
@@ -116,7 +138,7 @@ export function TaxRollUploadPage() {
         setIsReplaceDialogOpen(true);
       }
     } catch (caught) {
-      setError(getErrorMessage(caught));
+      handleFailure(caught);
     } finally {
       setIsProcessing(false);
     }
@@ -127,7 +149,7 @@ export function TaxRollUploadPage() {
       return;
     }
 
-    setError(null);
+    setFailure(null);
     setIsConfirmingReplace(true);
     try {
       // Passes the importId of the upload that reported the conflicts so
@@ -138,7 +160,7 @@ export function TaxRollUploadPage() {
       setIsReplaceDialogOpen(false);
     } catch (caught) {
       setIsReplaceDialogOpen(false);
-      setError(getErrorMessage(caught));
+      handleFailure(caught);
     } finally {
       setIsConfirmingReplace(false);
     }
@@ -174,7 +196,9 @@ export function TaxRollUploadPage() {
               setFile(null);
               resetOutcome();
             }}
-            actionLabel="Procesar archivo"
+            error={failure?.message}
+            actionLabel={failure?.retryable ? "Reintentar" : "Procesar archivo"}
+            actionDisabled={file === spentFile}
             busy={isProcessing}
             onSubmit={() => void handleProcess()}
           />
@@ -190,8 +214,6 @@ export function TaxRollUploadPage() {
         />
       }
     >
-      {error && <Notice>{error}</Notice>}
-
       {result && (
         <div
           ref={resultRef}
@@ -271,47 +293,62 @@ export function TaxRollUploadPage() {
       )}
       {!isWide && zipPanel}
 
-      <Card
-        title="Historial de cargas"
-        className="tax-roll-upload-page__history"
-        open={isHistoryOpen}
-        onToggle={() => setHistoryChoice(!isHistoryOpen)}
-      >
-        {historyError && <Notice>{historyError}</Notice>}
+      {/* Outside the card: a closed history must not hide it. */}
+      {historyError && (
+        <RetryNotice onRetry={retryHistory}>
+          No pudimos cargar el historial de cargas. {historyError}
+        </RetryNotice>
+      )}
 
-        {isHistoryLoading && (
-          <p className="tax-roll-upload-page__muted" role="status">
-            Cargando historial…
-          </p>
-        )}
+      {(!historyError || history.length > 0) && (
+        <Card
+          title="Historial de cargas"
+          className="tax-roll-upload-page__history"
+          open={isHistoryOpen}
+          onToggle={() => setHistoryChoice(!isHistoryOpen)}
+        >
+          {isHistoryLoading && (
+            <div
+              className="tax-roll-upload-page__skeleton"
+              role="status"
+              aria-label="Cargando historial"
+            >
+              {HISTORY_PLACEHOLDERS.map((row) => (
+                <i key={row} aria-hidden="true" />
+              ))}
+            </div>
+          )}
 
-        {!historyError && !isHistoryLoading && history.length === 0 && (
-          <p className="tax-roll-upload-page__muted">
-            Todavía no se ha procesado ningún archivo.
-          </p>
-        )}
+          {!isHistoryLoading && history.length === 0 && (
+            <p className="tax-roll-upload-page__muted">
+              Todavía no se ha procesado ningún archivo.
+            </p>
+          )}
 
-        {history.length > 0 && (
-          <Table columns={["Archivo", "Fecha de carga", "Registros", "Estado"]}>
-            {history.map((entry) => {
-              const status = historyEntryStatus(entry);
-              return (
-                <TableRow
-                  key={entry.id}
-                  cells={[
-                    entry.fileName,
-                    DATE_FORMATTER.format(new Date(entry.importedAt)),
-                    formatNumber(entry.validRows + entry.invalidRows),
-                    <StatusBadge key="estado" variant={status.variant}>
-                      {status.label}
-                    </StatusBadge>,
-                  ]}
-                />
-              );
-            })}
-          </Table>
-        )}
-      </Card>
+          {history.length > 0 && (
+            <Table
+              columns={["Archivo", "Fecha de carga", "Registros", "Estado"]}
+            >
+              {history.map((entry) => {
+                const status = historyEntryStatus(entry);
+                return (
+                  <TableRow
+                    key={entry.id}
+                    cells={[
+                      entry.fileName,
+                      DATE_FORMATTER.format(new Date(entry.importedAt)),
+                      formatNumber(entry.validRows + entry.invalidRows),
+                      <StatusBadge key="estado" variant={status.variant}>
+                        {status.label}
+                      </StatusBadge>,
+                    ]}
+                  />
+                );
+              })}
+            </Table>
+          )}
+        </Card>
+      )}
     </Screen>
   );
 }

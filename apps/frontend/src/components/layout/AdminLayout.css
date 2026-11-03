@@ -34,7 +34,7 @@
   align-self: flex-start;
   display: flex;
   flex-direction: column;
-  width: 256px;
+  width: var(--shell-sidebar-width);
   height: calc(100dvh - 2 * var(--space-12));
   margin: var(--space-12);
   padding: var(--space-20) var(--space-12) var(--space-12);
@@ -57,7 +57,7 @@
    sits at the same spot in both (centered in the 56px left when collapsed),
    and the words fade instead of leaving the flow, so nothing jumps while the
    width travels. The nav and the pill clip what does not fit yet. */
-@media (min-width: 901px) {
+@media (--above-shell) {
   .admin-layout__side .admin-layout__brandbar {
     padding: var(--space-4) 6px var(--space-16);
     overflow: hidden;
@@ -70,7 +70,7 @@
 
   .admin-layout__side .admin-layout__link,
   .admin-layout__side .admin-layout__menu-item {
-    padding: 0 17px;
+    padding: 0 var(--space-16);
   }
 
   .admin-layout__side .admin-layout__label,
@@ -187,8 +187,8 @@
 
   .admin-layout__collapse svg,
   .admin-layout__expand svg {
-    width: 22px;
-    height: 22px;
+    width: var(--space-24);
+    height: var(--space-24);
   }
 
   @media (hover: hover) and (pointer: fine) {
@@ -228,7 +228,7 @@
   }
 
   .admin-layout[data-collapsed] .admin-layout__side {
-    width: 80px;
+    width: var(--shell-sidebar-collapsed-width);
   }
 
   /* While the sidebar changes width the indicator takes the link width from
@@ -294,11 +294,11 @@
   cursor: pointer;
   transition:
     transform var(--duration-press) var(--ease-out),
-    border-color var(--duration-fast) ease;
+    border-color var(--duration-fast) var(--ease-standard);
 }
 
 .admin-layout__switcher-button:active {
-  transform: scale(0.98);
+  transform: scale(var(--press-scale));
 }
 
 /* One line; a long name ends in an ellipsis (the button's label has it all). */
@@ -356,7 +356,7 @@ button.admin-layout__brand-button {
 }
 
 button.admin-layout__brand-button:active {
-  transform: scale(0.97);
+  transform: scale(var(--press-scale));
 }
 
 /* Desktop: the account actions sit at the foot of the sidebar. */
@@ -411,8 +411,8 @@ button.admin-layout__brand-button:active {
 
 .admin-layout__check {
   flex: none;
-  width: 22px;
-  height: 22px;
+  width: var(--space-24);
+  height: var(--space-24);
   color: var(--semantic-primary);
 }
 
@@ -440,8 +440,8 @@ button.admin-layout__brand-button:active {
 }
 
 .admin-layout__mark svg {
-  width: 26px;
-  height: 26px;
+  width: var(--space-24);
+  height: var(--space-24);
 }
 
 .admin-layout__brand {
@@ -490,7 +490,7 @@ button.admin-layout__brand-button:active {
 
 /* A label, not a link: nothing to click or focus. */
 .admin-layout__group-title {
-  padding: 0 14px var(--space-4);
+  padding: 0 var(--space-12) var(--space-4);
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--semantic-text-muted);
@@ -504,16 +504,11 @@ button.admin-layout__brand-button:active {
   background-color: var(--semantic-surface);
   box-shadow: var(--shadow-raised);
   pointer-events: none;
-  transition:
-    transform var(--duration-sheet) var(--ease-sheet),
-    width var(--duration-sheet) var(--ease-sheet),
-    height var(--duration-sheet) var(--ease-sheet);
+  transition: transform var(--duration-sheet) var(--ease-sheet);
 }
 
 .admin-layout__nav[data-dragging] .admin-layout__indicator {
-  transition:
-    width var(--duration-fast) var(--ease-out),
-    height var(--duration-fast) var(--ease-out);
+  transition: none;
 }
 
 .admin-layout__link,
@@ -521,10 +516,10 @@ button.admin-layout__brand-button:active {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-12);
   width: 100%;
   min-height: 56px;
-  padding: 0 14px;
+  padding: 0 var(--space-12);
   border: 0;
   border-radius: var(--radius-ctl);
   background: none;
@@ -541,8 +536,8 @@ button.admin-layout__brand-button:active {
 .admin-layout__link svg,
 .admin-layout__menu-item svg {
   flex: none;
-  width: 22px;
-  height: 22px;
+  width: var(--space-24);
+  height: var(--space-24);
 }
 
 .admin-layout__link[aria-current="page"] {
@@ -554,7 +549,7 @@ button.admin-layout__brand-button:active {
 }
 
 .admin-layout__menu-item:active {
-  transform: scale(0.98);
+  transform: scale(var(--press-scale));
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -576,7 +571,7 @@ button.admin-layout__brand-button:active {
   outline: none;
 }
 
-@media (max-width: 900px) {
+@media (--shell) {
   .admin-layout {
     flex-direction: column;
   }
@@ -594,7 +589,7 @@ button.admin-layout__brand-button:active {
     width: auto;
     height: var(--shell-tabbar-height);
     margin: 0;
-    padding: 6px;
+    padding: var(--space-4);
     overflow: visible;
   }
 
@@ -623,8 +618,9 @@ button.admin-layout__brand-button:active {
     height: 36px;
   }
 
+  /* The logo leaves the brand name out so the pill has room. */
   .admin-layout__brand {
-    font-size: var(--text-xl);
+    display: none;
   }
 
   .admin-layout__link svg {
@@ -674,28 +670,12 @@ button.admin-layout__brand-button:active {
     flex: 1;
     justify-content: center;
     min-height: 52px;
-    padding: 0 var(--space-8);
-    font-size: var(--text-md);
-    white-space: nowrap;
-  }
-}
-
-/* Below 769px the four labels only fit at the small size. */
-@media (max-width: 768px) {
-  .admin-layout__link {
     padding: 0 var(--space-4);
     font-size: var(--text-sm);
-  }
-}
-
-/* Phones: the bar hands its padding to the labels, setup shows its icon
-   only (four words don't fit from 375px), and the logo leaves the brand name
-   out so the pill has room. */
-@media (max-width: 480px) {
-  .admin-layout__side {
-    padding: var(--space-4);
+    white-space: nowrap;
   }
 
+  /* Setup shows its icon only: four words don't fit from 375px. */
   .admin-layout__group[data-icons-on-phone] {
     flex: none;
   }
@@ -717,27 +697,9 @@ button.admin-layout__brand-button:active {
     clip: rect(0 0 0 0);
     white-space: nowrap;
   }
-
-  .admin-layout__brand {
-    display: none;
-  }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .admin-layout__side,
-  .admin-layout__side *,
-  .admin-layout__side *::before,
-  .admin-layout__indicator,
-  .admin-layout__menu-item {
-    transition-duration: 0.01ms;
-  }
-
-  .admin-layout__menu {
-    animation-duration: 0.01ms;
-  }
-}
-
-/* The nav glides in after the login dissolves; the page itself fades in. */
+/* The nav glides in after the login dissolves. */
 @keyframes admin-layout-side-in {
   from {
     opacity: 0;
@@ -757,7 +719,7 @@ button.admin-layout__brand-button:active {
     var(--duration-fast) backwards;
 }
 
-@media (max-width: 900px) {
+@media (--shell) {
   .admin-layout__side {
     animation-name: admin-layout-bar-in;
   }

@@ -80,11 +80,11 @@ function rows() {
   );
 }
 
-async function write(path, headers, extraRows = []) {
+async function write(path, headers, dataRows = rows()) {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Cartera');
   sheet.addRow(headers);
-  [...rows(), ...extraRows].forEach((row) => sheet.addRow(row));
+  dataRows.forEach((row) => sheet.addRow(row));
   await workbook.xlsx.writeFile(path);
   console.log(`Written ${path}`);
 }
@@ -108,8 +108,16 @@ await write(join(outDir, 'cartera-invalida.xlsx'), HEADERS.slice(0, -1));
 // Valid columns and one row out of range: the payment orders upload stays in
 // its first step until it is fixed.
 await write(join(outDir, 'cartera-fila-invalida.xlsx'), HEADERS, [
+  ...rows(),
   outOfRangeRow(),
 ]);
+// Payment orders for the first period only: each property leaves one out,
+// which is what Slompsim asks about.
+await write(
+  join(outDir, 'mandamientos-parcial.xlsx'),
+  HEADERS,
+  rows().filter((row) => row[6] === PERIODS[0]),
+);
 
 // Word templates as a municipality would bring them: the example values are
 // written in, without any {marker}, so guided marking has to add them.

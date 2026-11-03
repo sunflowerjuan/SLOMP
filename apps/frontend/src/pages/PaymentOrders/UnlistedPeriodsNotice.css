@@ -1,0 +1,22 @@
+.unlisted-periods-notice.ui-notice {
+  max-height: none;
+}
+
+.unlisted-periods-notice__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  font-variant-numeric: tabular-nums;
+}
+
+.unlisted-periods-notice__row .ui-button {
+  flex: none;
+}
+
+@media (max-width: 768px) {
+  .unlisted-periods-notice__row .ui-button {
+    width: 100%;
+  }
+}

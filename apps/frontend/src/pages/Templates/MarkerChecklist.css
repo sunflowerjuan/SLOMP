@@ -28,8 +28,8 @@
   display: grid;
   place-items: center;
   flex: none;
-  width: 28px;
-  height: 28px;
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
   border-radius: var(--radius-default);
   background-color: var(--semantic-surface);
   color: var(--semantic-primary);

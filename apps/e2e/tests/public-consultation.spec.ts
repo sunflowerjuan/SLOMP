@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { apiFetch } from "../src/api";
 import { apiUrl, E2E_MUNICIPALITY_SLUG } from "../src/env";
 import {
   ensureActiveLiquidationTemplate,
@@ -59,6 +60,29 @@ test("con 2 de 3 datos exactos devuelve las liquidaciones vigentes del predio @U
   await expect(results(page)).toContainText("2025");
 });
 
+test("una resolución con periodos en estados distintos dice Varios estados @UAT-20", async ({
+  page,
+}) => {
+  const settlements = `/municipalities/${E2E_MUNICIPALITY_SLUG}/settlements`;
+  const found = await apiFetch(`${settlements}/search?cadastralCode=${CODE}`);
+  const [{ settlementId }] = (await found.json()) as {
+    settlementId: number;
+  }[];
+  const changeStatus = (status: string) =>
+    apiFetch(`${settlements}/${settlementId}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+
+  await changeStatus("PAGADA");
+  await page.goto(PAGE_URL);
+  await consult(page, { code: CODE, owner: OWNER });
+  await expect(results(page)).toContainText("Varios estados");
+
+  await changeStatus("VIGENTE");
+});
+
 test("con 1 solo dato lo rechaza y no sugiere ningún predio @UAT-21", async ({
   page,
 }) => {
@@ -95,6 +119,36 @@ test("la página funciona dentro de un iframe @UAT-22", async ({ page }) => {
   await expect(
     frame.getByRole("region", { name: "Resultado de la consulta" }),
   ).toContainText(CODE);
+});
+
+test("sin conexión la página lo dice y se reintenta, no es «no disponible» @UAT-N/A", async ({
+  page,
+}) => {
+  await page.route(`**/consulta-publica/${E2E_MUNICIPALITY_SLUG}`, (route) =>
+    route.abort(),
+  );
+  await page.goto(PAGE_URL);
+  await expect(page.getByText("No pudimos cargar la consulta")).toBeVisible();
+  await expect(page.getByText("Consulta no disponible")).toBeHidden();
+
+  await page.unroute(`**/consulta-publica/${E2E_MUNICIPALITY_SLUG}`);
+  await page.getByRole("button", { name: "Reintentar" }).click();
+  await expect(page.getByLabel("Cédula catastral")).toBeVisible();
+});
+
+test("una consulta que falla se reintenta con los mismos datos @UAT-N/A", async ({
+  page,
+}) => {
+  await page.goto(PAGE_URL);
+  await page.route(`**/consulta-publica/${E2E_MUNICIPALITY_SLUG}`, (route) =>
+    route.abort(),
+  );
+  await consult(page, { code: CODE, owner: OWNER });
+  await expect(results(page)).toContainText("No se pudo conectar");
+
+  await page.unroute(`**/consulta-publica/${E2E_MUNICIPALITY_SLUG}`);
+  await page.getByRole("button", { name: "Reintentar" }).click();
+  await expect(results(page)).toContainText(CODE);
 });
 
 // Last: it spends the municipality's budget of public requests for a minute.

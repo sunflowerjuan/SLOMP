@@ -52,7 +52,7 @@
   flex-shrink: 0;
 }
 
-@media (max-width: 480px) {
+@media (--shell) {
   /* The fixed zone stays as short as it can. */
   .payment-orders-page__controls,
   .payment-orders-page__step-bar {

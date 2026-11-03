@@ -2,7 +2,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-8);
-  min-height: 28px;
+  min-height: var(--control-height-sm);
   /* Long labels ("Pérdida temporal de competencia") wrap instead of
      overflowing a narrow cell. */
   padding: var(--space-4) var(--space-12);

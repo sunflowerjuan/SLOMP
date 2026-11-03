@@ -57,9 +57,7 @@ test("con las liquidaciones en firme se ven elegibles y se generan uno por uno @
     .locator("input[type=file]")
     .setInputFiles(fixture("cartera-valida.xlsx"));
   await page.getByRole("button", { name: "Revisar archivo" }).click();
-  await expect(
-    page.getByText("3 predios, 6 periodos elegibles, 0 no elegibles"),
-  ).toBeVisible();
+  await expect(page.getByText("3 predios, 6 periodos elegibles")).toBeVisible();
   await page.getByRole("button", { name: "Continuar" }).click();
 
   await page

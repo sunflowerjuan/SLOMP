@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { Icon } from "../ui/Icon";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
+import { MEDIA } from "../../styles/breakpoints";
 import { useSlidingIndicator } from "../../hooks/useSlidingIndicator";
 import {
   readSidebarCollapsed,
@@ -46,6 +47,8 @@ interface AdminLayoutProps {
   // Active municipality and how to change it: a pill in the sidebar on
   // desktop, in the top bar on a phone.
   switcher?: MunicipalitySwitch;
+  // Desktop: right under the sections, apart from them.
+  sideAction?: ReactNode;
   children: ReactNode;
 }
 
@@ -54,6 +57,7 @@ export function AdminLayout({
   activeId,
   menuItems,
   switcher,
+  sideAction,
   children,
 }: AdminLayoutProps) {
   const mainRef = useRef<HTMLElement>(null);
@@ -62,7 +66,7 @@ export function AdminLayout({
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const isFirstRender = useRef(true);
-  const isCompact = useMediaQuery("(max-width: 900px)");
+  const isCompact = useMediaQuery(MEDIA.shell);
   // Desktop only: the phone's bar has no room to give back.
   const [collapsed, setCollapsed] = useState(readSidebarCollapsed);
   const isCollapsed = collapsed && !isCompact;
@@ -272,6 +276,7 @@ export function AdminLayout({
             </div>
           ))}
         </nav>
+        {!isCompact && sideAction}
         {!isCompact && (
           <div className="admin-layout__actions">
             {menuItems.map((item) => renderMenuItem(item))}

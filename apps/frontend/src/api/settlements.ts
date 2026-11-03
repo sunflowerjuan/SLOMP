@@ -5,11 +5,20 @@ import { municipalityPath } from "./municipality";
 
 export type { SettlementStatus };
 
+// One period of a row, with its own state: a status change is per period.
+export interface SettlementPeriodStatus {
+  settlementId: number;
+  period: number;
+  status: SettlementStatus;
+  // States the selector may offer right now (decided by the backend).
+  allowedStatuses: SettlementStatus[];
+}
+
 // Mirrors the response of GET /settlements/search
 // (apps/backend/src/settlements/settlements.service.ts): one row per PDF, i.e.
 // the periods of a property that share (or will share) a Resolution.
 export interface SettlementSearchResult {
-  // Any settlement of the group: the PDF and the status change cover them all.
+  // The earliest period of the group: its PDF covers them all.
   settlementId: number;
   resolutionNumber: string | null;
   // PRESCRIPTION_RISK: periods up to (current year - 5).
@@ -20,11 +29,10 @@ export interface SettlementSearchResult {
   address: string;
   ownerName: string;
   periods: number[];
-  // "MIXED" only for legacy data whose periods have different states.
+  // "MIXED" when its periods are in different states.
   status: SettlementStatus | "MIXED";
   totalAmount: number;
-  // States the selector may offer right now (decided by the backend).
-  allowedStatuses: SettlementStatus[];
+  settlements: SettlementPeriodStatus[];
 }
 
 export interface SettlementSearchCriteria {
@@ -60,9 +68,9 @@ export function generateLiquidationPdf(
   );
 }
 
-// Applies to the whole group (resolution) of the given settlement. Only the
-// states in `allowedStatuses` are accepted; the response says which ones are
-// allowed next.
+// Changes that one period: the others of its resolution keep their state. Only
+// the states in its `allowedStatuses` are accepted; the response says which
+// ones are allowed next.
 export function changeSettlementStatus(
   settlementId: number,
   status: SettlementStatus,

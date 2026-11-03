@@ -90,11 +90,33 @@
   /* A control shaped as a pill: the active municipality */
   --radius-pill: 999px;
 
-  /* Panel shell: the top bar, and the phone's bar at the bottom */
+  /* Panel shell: the top bar, the sidebar, and the phone's bar at the bottom */
   --shell-topbar-height: 48px;
+  --shell-sidebar-width: 256px;
+  /* Collapsed to its icons: 56px links plus the sidebar's padding */
+  --shell-sidebar-collapsed-width: 80px;
   --shell-tabbar-height: 68px;
 
+  /* The detail sheet of Liquidaciones, floating this far from the edges */
+  --sheet-width: 360px;
+  --sheet-margin: var(--space-12);
+
+  /* The institutional band of the login on a phone */
+  --auth-band-height: 120px;
+
+  /* Inputs and the buttons that sit beside them */
+  --control-height: 44px;
+  /* Small square controls and the status badge */
+  --control-height-sm: 28px;
+
+  /* Lines and tracks drawn over the primary color */
+  --on-primary-line: rgba(255, 255, 255, 0.08);
+  --on-primary-track: rgba(255, 255, 255, 0.5);
+  /* The same track over a light surface */
+  --primary-track: rgba(61, 102, 144, 0.3);
+
   /* Motion */
+  --ease-standard: cubic-bezier(0.25, 0.1, 0.25, 1);
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
   /* easeInOutSine: even, unhurried travel for full-height mobile sheets. */
@@ -108,4 +130,28 @@
   --duration-sheet-slow: 400ms;
   --duration-enter: 480ms;
   --duration-intro: 700ms;
+  --duration-pulse: 1.2s;
+  --duration-spin: 0.6s;
+  /* Feedback waits a beat, so a fast response doesn't flicker */
+  --delay-feedback: 200ms;
+  --delay-rise: 120ms;
+  /* Rows arrive one after another, the last one this late at most */
+  --stagger-step: 35ms;
+  --stagger-max: 200ms;
+  --press-scale: 0.97;
+}
+
+/* Whatever travels, turns or scales does it at once. Only the short fades
+   (--duration-fast) stay. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-press: 0.01ms;
+    --duration-base: 0.01ms;
+    --duration-sheet: 0.01ms;
+    --duration-sheet-slow: 0.01ms;
+    --duration-enter: 0.01ms;
+    --duration-intro: 0.01ms;
+    --stagger-step: 0ms;
+    --press-scale: 1;
+  }
 }

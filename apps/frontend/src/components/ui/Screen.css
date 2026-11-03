@@ -20,6 +20,14 @@
   gap: var(--space-16);
 }
 
+.ui-screen__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+  margin-left: auto;
+}
+
 .ui-screen__body {
   display: flex;
   flex: 1;
@@ -39,7 +47,7 @@
   flex-shrink: 0;
 }
 
-@media (max-width: 900px) {
+@media (--shell) {
   /* The fixed zone stays under 30% of the usable height. */
   .ui-screen {
     gap: var(--space-16);
@@ -72,7 +80,7 @@
 }
 
 /* The upload area takes the height of the panel beside it. */
-@media (min-width: 901px) {
+@media (--above-shell) {
   .ui-screen__input-row .ui-dropzone {
     flex: 1;
     min-height: 220px;

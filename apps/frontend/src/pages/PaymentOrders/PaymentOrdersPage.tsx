@@ -35,15 +35,20 @@ import type {
   IssuedCandidate,
   PaymentOrderCandidate,
 } from "../../domain/paymentOrder";
+import {
+  paymentOrderContextRows,
+  pendingUnlisted,
+} from "../../domain/slompsim";
 import { usePaymentOrderPdf } from "../../hooks/usePaymentOrderPdf";
 import { usePdfJob } from "../../hooks/usePdfJob";
+import { useSlompsim } from "../../slompsim/useSlompsim";
 import { formatCount } from "../../utils/formatCount";
 import { GeneratePaymentOrderDialog } from "./GeneratePaymentOrderDialog";
 import { IneligiblePaymentOrderList } from "./IneligiblePaymentOrderList";
 import { IssuedPaymentOrderList } from "./IssuedPaymentOrderList";
 import { PaymentOrderCandidateList } from "./PaymentOrderCandidateList";
 import { PaymentOrderZipPanel } from "./PaymentOrderZipPanel";
-import { SlompsimButton } from "./SlompsimButton";
+import { UnlistedPeriodsNotice } from "./UnlistedPeriodsNotice";
 import "./PaymentOrdersPage.css";
 
 type Tab = "generar" | "historial";
@@ -100,6 +105,10 @@ export function PaymentOrdersPage() {
   const stepRef = useRef<HTMLDivElement>(null);
   const shownStep = useRef(step);
   const pdf = usePaymentOrderPdf();
+  const {
+    reviewUnlisted,
+    conversation: { appliedIds },
+  } = useSlompsim();
 
   const loadOrders = useCallback(async () => {
     try {
@@ -147,6 +156,15 @@ export function PaymentOrdersPage() {
   );
   const pending = candidates.filter(
     (candidate) => !issued[candidate.cadastralCode],
+  );
+  // What Slompsim already applied stops counting without reading the Excel
+  // again.
+  const unlisted = useMemo(
+    () =>
+      pendingUnlisted(preview?.unlisted ?? []).filter(
+        ({ id }) => !appliedIds.includes(id),
+      ),
+    [preview, appliedIds],
   );
 
   // A finished ZIP issued numbers: the history gains them, its rows show
@@ -275,7 +293,6 @@ export function PaymentOrdersPage() {
     <Screen
       className="payment-orders-page"
       title="Mandamientos"
-      action={<SlompsimButton />}
       input={
         <div className="payment-orders-page__controls">
           <SegmentedControl
@@ -379,6 +396,7 @@ export function PaymentOrdersPage() {
                 file={file}
                 onFileSelect={startOver}
                 onClear={() => startOver(null)}
+                error={error}
                 actionLabel="Revisar archivo"
                 busy={isReviewing}
                 onSubmit={() => void handleReview()}
@@ -386,7 +404,6 @@ export function PaymentOrdersPage() {
               {notice && (
                 <Notice variant={notice.variant}>{notice.text}</Notice>
               )}
-              {error && <Notice>{error}</Notice>}
               {preview && preview.invalidRows.length > 0 && (
                 <Card title="Filas inválidas">
                   <Notice>{invalidRowsText(preview.invalidRows.length)}</Notice>
@@ -402,8 +419,18 @@ export function PaymentOrdersPage() {
               {notice && (
                 <Notice variant={notice.variant}>{notice.text}</Notice>
               )}
-              {/* SL-156 adds here the access to Slompsim for the periods
-                  that are liquidated but missing from the Excel. */}
+              {unlisted.length > 0 && (
+                <UnlistedPeriodsNotice
+                  rows={unlisted}
+                  onReview={() =>
+                    reviewUnlisted({
+                      fileName: preview.fileName,
+                      fileRows: paymentOrderContextRows(preview),
+                      rows: unlisted,
+                    })
+                  }
+                />
+              )}
               <Card title="Elegibles">
                 <PaymentOrderCandidateList
                   candidates={candidates}

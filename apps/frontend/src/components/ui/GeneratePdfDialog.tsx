@@ -2,23 +2,19 @@ import { Button } from "./Button";
 import { Dialog } from "./Dialog";
 import { Notice } from "./Notice";
 
-interface LiquidacionSummary {
-  cedulaCatastral: string;
-  propietario: string;
-}
-
 interface GeneratePdfDialogProps {
   open: boolean;
-  liquidacion: LiquidacionSummary | null;
   isGenerating?: boolean;
   error?: string | null;
   onCancel: () => void;
   onGenerate: () => void;
 }
 
+// The first PDF of a liquidation issues its resolution, which can't be
+// undone, so it is confirmed. A liquidation with its resolution is generated
+// from the sheet without asking.
 export function GeneratePdfDialog({
   open,
-  liquidacion,
   isGenerating = false,
   error = null,
   onCancel,
@@ -26,7 +22,7 @@ export function GeneratePdfDialog({
 }: GeneratePdfDialogProps) {
   return (
     <Dialog
-      open={open && liquidacion !== null}
+      open={open}
       title="Generar liquidación oficial"
       onClose={() => {
         if (!isGenerating) onCancel();
@@ -34,10 +30,8 @@ export function GeneratePdfDialog({
     >
       <div className="ui-dialog__body">
         <p>
-          <strong>Cédula catastral:</strong> {liquidacion?.cedulaCatastral}
-        </p>
-        <p>
-          <strong>Propietario:</strong> {liquidacion?.propietario}
+          <strong>Esta acción no se puede deshacer.</strong> La liquidación
+          recibirá el siguiente número de resolución y ese número queda usado.
         </p>
       </div>
       {error && <Notice className="ui-dialog__notice">{error}</Notice>}
@@ -46,7 +40,7 @@ export function GeneratePdfDialog({
           Cancelar
         </Button>
         <Button variant="primary" loading={isGenerating} onClick={onGenerate}>
-          Generar PDF
+          {error ? "Reintentar" : "Generar"}
         </Button>
       </div>
     </Dialog>

@@ -65,7 +65,7 @@
 }
 
 /* Phone: the state and its action go on one line under the code. */
-@media (max-width: 520px) {
+@media (--shell) {
   .payment-order-candidates__row {
     flex-direction: column;
     align-items: stretch;
@@ -74,11 +74,5 @@
 
   .payment-order-candidates__actions {
     justify-content: space-between;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .payment-order-candidates li {
-    animation: fade-in var(--duration-fast) ease-out backwards;
   }
 }

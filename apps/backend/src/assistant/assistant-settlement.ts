@@ -11,17 +11,19 @@ export interface AssistantSettlement {
   status: SettlementStatus;
   allowedStatuses: SettlementStatus[];
   hasPaymentOrder: boolean;
+  // Null while the period has no resolution yet.
+  resolutionNumber: string | null;
 }
 
-// The columns every assistant query reads: the property's code, and the
-// dates the status rules need.
+// The columns every assistant query reads: the property's code, the
+// resolution's number, and the dates the status rules need.
 export const ASSISTANT_SETTLEMENT_SELECT = {
   id: true,
   period: true,
   status: true,
   replacedAt: true,
   property: { select: { cadastralCode: true } },
-  resolution: { select: { issuedAt: true } },
+  resolution: { select: { number: true, issuedAt: true } },
   paymentOrder: { select: { number: true, issuedAt: true } },
 } satisfies Prisma.SettlementSelect;
 
@@ -52,5 +54,6 @@ export function toAssistantSettlement(
     status: row.status,
     allowedStatuses: allowedStatusesOf(row, now),
     hasPaymentOrder: row.paymentOrder !== null,
+    resolutionNumber: row.resolution?.number ?? null,
   };
 }

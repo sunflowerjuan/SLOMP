@@ -1,17 +1,17 @@
 .settlement-sheet {
   position: fixed;
-  top: var(--space-12);
-  right: var(--space-12);
-  bottom: var(--space-12);
+  top: var(--sheet-margin);
+  right: var(--sheet-margin);
+  bottom: var(--sheet-margin);
   z-index: 7;
-  width: 360px;
+  width: var(--sheet-width);
   padding: var(--space-24);
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   border-radius: var(--radius-xl);
   background-color: var(--semantic-surface-muted);
-  transform: translateX(calc(100% + 24px));
+  transform: translateX(calc(100% + 2 * var(--sheet-margin)));
   visibility: hidden;
   transition:
     transform var(--duration-base) var(--ease-sheet),
@@ -39,18 +39,18 @@
   opacity: 0;
   visibility: hidden;
   transition:
-    opacity var(--duration-base) ease,
+    opacity var(--duration-base) var(--ease-standard),
     visibility 0s var(--duration-base);
 }
 
 .settlement-sheet__scrim[data-open="true"] {
   opacity: 1;
   visibility: visible;
-  transition: opacity var(--duration-base) ease;
+  transition: opacity var(--duration-base) var(--ease-standard);
 }
 
 /* From 1440px the panel pushes the list instead of covering it. */
-@media (min-width: 1440px) {
+@media (--wide) {
   .settlement-sheet__scrim {
     display: none;
   }
@@ -104,7 +104,7 @@
 }
 
 .settlement-sheet__close:active {
-  transform: scale(0.92);
+  transform: scale(var(--press-scale));
 }
 
 .settlement-sheet__close svg {
@@ -114,13 +114,12 @@
 
 .settlement-sheet__details {
   display: grid;
-  gap: 22px;
-  margin: 28px 0;
+  gap: var(--space-24);
+  margin: var(--space-24) 0;
 }
 
 .settlement-sheet__details dt {
   font-size: var(--text-sm);
-  /* Muted grey is only 3.9:1 on the sheet's grey. */
   color: var(--tinta-600);
 }
 
@@ -134,13 +133,17 @@
   margin-top: var(--space-4);
 }
 
+.settlement-sheet__notice {
+  margin-bottom: var(--space-16);
+}
+
 .settlement-sheet__note {
   margin: var(--space-8) 0 0;
   font-size: var(--text-sm);
   font-weight: 400;
 }
 
-@media (max-width: 900px) {
+@media (--shell) {
   /* Phone: a bottom sheet that is as tall as its content. */
   .settlement-sheet {
     top: auto;

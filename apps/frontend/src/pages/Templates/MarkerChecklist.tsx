@@ -159,7 +159,7 @@ export function MarkerChecklist({
         <div className="marker-list__bar" aria-hidden="true">
           <span
             style={{
-              width: `${progress.total ? (progress.done / progress.total) * 100 : 100}%`,
+              transform: `scaleX(${progress.total ? progress.done / progress.total : 1})`,
             }}
           />
         </div>

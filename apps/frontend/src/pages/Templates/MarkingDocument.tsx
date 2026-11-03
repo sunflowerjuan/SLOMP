@@ -12,6 +12,7 @@ import {
   tableGrid,
   tableKeyOf,
 } from "../../domain/templateMarking";
+import { MEDIA } from "../../styles/breakpoints";
 import type {
   DocumentItem,
   MarkSource,
@@ -68,7 +69,7 @@ export function MarkingDocument({
   onToggleRow,
   onRemoveRows,
 }: MarkingDocumentProps) {
-  const toolsFirst = useMediaQuery("(max-width: 900px)");
+  const toolsFirst = useMediaQuery(MEDIA.shell);
   const rootRef = useRef<HTMLDivElement>(null);
   const pointerDown = useRef(false);
   const lastPointer = useRef("mouse");

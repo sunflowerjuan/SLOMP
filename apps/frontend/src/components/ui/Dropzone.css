@@ -13,8 +13,8 @@
   text-align: center;
   box-sizing: border-box;
   transition:
-    border-color var(--duration-fast) ease,
-    background-color var(--duration-fast) ease;
+    border-color var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-fast) var(--ease-standard);
 }
 
 .ui-dropzone__pick {
@@ -83,19 +83,25 @@
 
 .ui-dropzone__file {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-12);
+  justify-content: center;
+  gap: 0 var(--space-12);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--text-sm);
 }
 
 .ui-dropzone__file-name {
+  min-width: 0;
   font-weight: 600;
   color: var(--semantic-text);
+  overflow-wrap: anywhere;
 }
 
+/* "714 KB" stays in one piece. */
 .ui-dropzone__file-size {
   color: var(--semantic-text-muted);
+  white-space: nowrap;
 }
 
 .ui-dropzone__remove {
@@ -118,6 +124,7 @@
 }
 
 .ui-dropzone__error {
+  margin: 0;
   font-family: var(--font-sans);
   font-size: var(--text-sm);
   font-weight: 500;
@@ -125,7 +132,7 @@
 }
 
 /* Phone: the upload zone stays fixed under the title, so it is kept short. */
-@media (max-width: 900px) {
+@media (--shell) {
   .ui-dropzone {
     min-height: 96px;
     padding: var(--space-12);

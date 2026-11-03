@@ -30,6 +30,18 @@ export class ApiError extends Error {
   }
 }
 
+// Sending the same request again can work: it never got an answer, the
+// server failed, or the rate limit runs out. Anything else needs a change
+// first (another file, other data).
+export function isRetryable(error: unknown): boolean {
+  if (!(error instanceof ApiError)) return true;
+  return (
+    error.status === NETWORK_ERROR_STATUS ||
+    error.status === 429 ||
+    error.status >= 500
+  );
+}
+
 export interface ServerError {
   // Developer-facing English description; never shown to the user.
   message: string | null;

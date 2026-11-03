@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { readStoredDraft, storeDraft } from "../../api/templateDraftStorage";
 import type { StoredDraft } from "../../api/templateDraftStorage";
 import type { TemplateDocumentType } from "../../api/templates";
@@ -42,12 +42,6 @@ export function TemplatesPage({
   const [file, setFile] = useState<File | null>(null);
   const [notice, setNotice] = useState<Outcome | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(null), TOAST_MS);
-    return () => clearTimeout(timer);
-  }, [toast]);
 
   const handleExit = useCallback(
     (exit: MarkingExit) => {
@@ -110,7 +104,13 @@ export function TemplatesPage({
           />
         </div>
       }
-      overlay={<Toast message={toast} />}
+      overlay={
+        <Toast
+          message={toast}
+          durationMs={TOAST_MS}
+          onExpire={() => setToast(null)}
+        />
+      }
     >
       {/* The chosen file stays when the document changes, to be uploaded
           as the new one; only the history starts afresh. */}

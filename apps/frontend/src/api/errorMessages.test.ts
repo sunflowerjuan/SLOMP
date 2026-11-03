@@ -1,10 +1,86 @@
 import { describe, expect, it } from "vitest";
+import type { RejectedStatusChange } from "./assistant";
 import {
   messageForErrorCode,
   messageForPaymentOrderRejection,
   missingLiquidationDataText,
   paymentOrderLeftOutMessage,
+  statusChangeRejectionMessage,
+  statusChangeRejectionTitle,
 } from "./errorMessages";
+
+describe("the rejections of a Slompsim proposal", () => {
+  const rejected: RejectedStatusChange = {
+    settlementId: 7,
+    to: "PRESCRITA",
+    reason: "TRANSITION_NOT_ALLOWED",
+    allowed: ["EN_FIRME", "PAGADA"],
+    cadastralCode: "010000040021000",
+    period: 2019,
+    current: "EN_FIRME",
+  };
+
+  it("names the period and the state it can't go to", () => {
+    expect(statusChangeRejectionTitle(rejected)).toBe(
+      "No se puede pasar la liquidación 2019 a Pérdida temporal de competencia",
+    );
+    expect(statusChangeRejectionTitle({ ...rejected, period: undefined })).toBe(
+      "No se puede aplicar este cambio",
+    );
+  });
+
+  it("explains each reason without codes", () => {
+    const paymentOrder = {
+      number: "2026-0004",
+      issuedAt: "2026-10-20T15:00:00.000Z",
+    };
+    const texts: [Partial<RejectedStatusChange>, string][] = [
+      [
+        { paymentOrder },
+        "Este periodo está en el mandamiento 2026-0004 del 20/10/2026. Un periodo con mandamiento solo puede pasar a ese estado cuando se cumplan 5 años desde el mandamiento, es decir, desde el 20/10/2031.",
+      ],
+      [{ to: "VIGENTE" }, "Una liquidación en firme no vuelve a Vigente."],
+      [
+        { to: "EN_FIRME", current: "VIGENTE" },
+        "Ese cambio de estado no está permitido para esta liquidación.",
+      ],
+      [
+        { reason: "REPLACED" },
+        "La liquidación 2019 del predio 010000040021000 fue reemplazada por una carga más reciente. Pide el cambio de nuevo.",
+      ],
+      [{ reason: "NOT_FOUND" }, "No encontré esa liquidación en Ejemplo."],
+    ];
+    for (const [overrides, text] of texts) {
+      expect(
+        statusChangeRejectionMessage({ ...rejected, ...overrides }, "Ejemplo"),
+      ).toBe(text);
+    }
+  });
+
+  it("counts what changed while the Administrator was reviewing", () => {
+    expect(
+      messageForErrorCode("ASSISTANT_CHANGES_REJECTED", {
+        rejected: [{}, {}, {}],
+      }),
+    ).toBe(
+      "No se aplicó ningún cambio: 3 liquidaciones cambiaron mientras revisabas. Revisa la propuesta de nuevo.",
+    );
+    expect(
+      messageForErrorCode("ASSISTANT_CHANGES_REJECTED", { rejected: [{}] }),
+    ).toContain("1 liquidación cambió");
+  });
+
+  it("has a text for every code of the assistant", () => {
+    for (const code of [
+      "ASSISTANT_UNAVAILABLE",
+      "ASSISTANT_RATE_LIMITED",
+      "ASSISTANT_TOO_MANY_TOOL_CALLS",
+      "ASSISTANT_TOOL_INPUT_INVALID",
+    ]) {
+      expect(messageForErrorCode(code)).not.toBeNull();
+    }
+  });
+});
 
 describe("messageForPaymentOrderRejection", () => {
   it("says when a liquidation that isn't firm yet will be", () => {

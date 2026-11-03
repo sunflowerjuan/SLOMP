@@ -1,3 +1,4 @@
+import type { AssistantSettlement } from "./assistant";
 import { request, requestBlob } from "./httpClient";
 import type { BlobResponse } from "./httpClient";
 import { municipalityPath } from "./municipality";
@@ -45,6 +46,9 @@ export interface PaymentOrderImportPreview {
   // Same row checks as the tax roll.
   invalidRows: TaxRollRowIssue[];
   warnings: TaxRollRowIssue[];
+  // For every property in the file, its current settlements whose period the
+  // file leaves out.
+  unlisted: AssistantSettlement[];
 }
 
 export interface IssuedPaymentOrder {

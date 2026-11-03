@@ -103,12 +103,17 @@ describe('SettlementsService', () => {
         periods: [2018, 2019],
         status: SettlementStatus.VIGENTE,
         totalAmount: 2000,
-        allowedStatuses: [
-          SettlementStatus.VIGENTE,
-          SettlementStatus.PAGADA,
-          SettlementStatus.ACUERDO_DE_PAGO,
-          SettlementStatus.PRESCRITA,
-        ],
+        settlements: [1, 2].map((settlementId, index) => ({
+          settlementId,
+          period: 2018 + index,
+          status: SettlementStatus.VIGENTE,
+          allowedStatuses: [
+            SettlementStatus.VIGENTE,
+            SettlementStatus.PAGADA,
+            SettlementStatus.ACUERDO_DE_PAGO,
+            SettlementStatus.PRESCRITA,
+          ],
+        })),
       }),
       // Resolution issued 90 days ago: VIGENTE until the sweep runs, but it
       // can't go back to VIGENTE by hand once moved. In no payment order, so
@@ -118,15 +123,64 @@ describe('SettlementsService', () => {
         resolutionNumber: 'LOIP 15514 2026-0007',
         periods: [2025],
         totalAmount: 1000,
-        allowedStatuses: [
-          SettlementStatus.VIGENTE,
-          SettlementStatus.EN_FIRME,
-          SettlementStatus.PAGADA,
-          SettlementStatus.ACUERDO_DE_PAGO,
-          SettlementStatus.PRESCRITA,
+        settlements: [
+          {
+            settlementId: 3,
+            period: 2025,
+            status: SettlementStatus.VIGENTE,
+            allowedStatuses: [
+              SettlementStatus.VIGENTE,
+              SettlementStatus.EN_FIRME,
+              SettlementStatus.PAGADA,
+              SettlementStatus.ACUERDO_DE_PAGO,
+              SettlementStatus.PRESCRITA,
+            ],
+          },
         ],
       }),
     ]);
+  });
+
+  it('gives each period of a resolution its own state and its own options', async () => {
+    const resolution = {
+      id: 7,
+      number: 'LOIP 15514 2026-0007',
+      kind: 'NORMAL',
+      issuedAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
+    };
+    const prisma = buildPrisma([
+      {
+        ...ONE_PROPERTY,
+        settlements: [
+          // Only this period of the resolution has a payment order.
+          {
+            ...settlement(1, 2023, resolution),
+            status: SettlementStatus.EN_FIRME,
+            paymentOrder: { issuedAt: new Date() },
+          },
+          {
+            ...settlement(2, 2024, resolution),
+            status: SettlementStatus.PAGADA,
+          },
+        ],
+      },
+    ]);
+    const service = new SettlementsService(prisma as never);
+
+    const [row] = await service.search(MUNICIPALITY_ID, {
+      cadastralCode: '000100010001',
+    });
+
+    expect(row.status).toBe('MIXED');
+    expect(
+      row.settlements.map(({ period, status }) => [period, status]),
+    ).toEqual([
+      [2023, SettlementStatus.EN_FIRME],
+      [2024, SettlementStatus.PAGADA],
+    ]);
+    const [withOrder, withoutOrder] = row.settlements;
+    expect(withOrder.allowedStatuses).not.toContain(SettlementStatus.PRESCRITA);
+    expect(withoutOrder.allowedStatuses).toContain(SettlementStatus.PRESCRITA);
   });
 
   it('returns the row indicators: kind of resolution and periods missing from the latest tax roll (SL-136)', async () => {

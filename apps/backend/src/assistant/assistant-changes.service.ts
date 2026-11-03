@@ -85,7 +85,7 @@ export class AssistantChangesService {
         // loudly instead of writing an unchecked transition.
         if (claimed.count === 0) {
           throw rejectedConflict([
-            { settlementId, reason: 'TRANSITION_NOT_ALLOWED', allowed: [] },
+            { settlementId, to, reason: 'TRANSITION_NOT_ALLOWED', allowed: [] },
           ]);
         }
       }

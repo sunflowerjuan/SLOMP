@@ -55,37 +55,3 @@
   min-width: 0;
   font-variant-numeric: tabular-nums;
 }
-
-/* Folds the progress block away (and back) instead of popping it. The margin
-   cancels the container's gap while it is closed. */
-.ui-pdf-job__collapse {
-  display: grid;
-  grid-template-rows: 0fr;
-  margin-top: calc(var(--reveal-gap, var(--space-20)) * -1);
-  opacity: 0;
-  transition:
-    grid-template-rows var(--duration-sheet) var(--ease-sheet-soft),
-    margin-top var(--duration-sheet) var(--ease-sheet-soft),
-    opacity var(--duration-base) ease;
-}
-
-.ui-pdf-job__collapse[data-open="true"] {
-  grid-template-rows: 1fr;
-  margin-top: 0;
-  opacity: 1;
-}
-
-.ui-pdf-job__collapse-inner {
-  min-height: 0;
-  overflow: hidden;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ui-pdf-job__progress span {
-    transition: none;
-  }
-
-  .ui-pdf-job__collapse {
-    transition-duration: 0.01ms;
-  }
-}
