@@ -2,6 +2,10 @@ name: CI
 on:
   pull_request:
     branches: [develop, main]
+  # Runs again on main so deploy.yml (SL-148) can wait for a green CI of the
+  # exact commit it ships.
+  push:
+    branches: [main]
 
 jobs:
   build-and-test:

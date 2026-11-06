@@ -1,0 +1,90 @@
+name: Deploy
+# Production deploy to the VPS (SL-148): runs after the CI of a push to main
+# is green, builds and publishes the images to GHCR, and waits for a person to
+# approve the `production` environment before touching the VPS.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+# One deploy at a time; a newer one waits instead of cutting the first in half.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  images:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha }}
+      # The frontend bakes the API URL in at build time. Repository variable.
+      DOMAIN: ${{ vars.DOMAIN }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Build and push the images
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # ponytail: no layer cache between runs (4 builds from scratch);
+        # add buildx + cache-to when the build time hurts.
+        run: |
+          set -euo pipefail
+          test -n "$DOMAIN" || { echo "Set the DOMAIN repository variable" >&2; exit 1; }
+          repo=ghcr.io/${GITHUB_REPOSITORY,,}
+          echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          label="org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY"
+          build() { # name dockerfile extra-args...
+            local name=$1 file=$2; shift 2
+            docker build --label "$label" -f "$file" -t "$repo-$name:$SHA" "$@" .
+            docker push "$repo-$name:$SHA"
+          }
+          build backend apps/backend/Dockerfile --target runtime
+          build migrate apps/backend/Dockerfile --target tooling
+          build pdf apps/pdf-function/Dockerfile
+          build proxy apps/frontend/Dockerfile --build-arg "VITE_API_URL=https://$DOMAIN/api"
+
+  deploy:
+    needs: images
+    runs-on: ubuntu-latest
+    # Required reviewers of this environment approve before the job starts.
+    # SSH_HOST, SSH_KEY and SSH_KNOWN_HOSTS live here, never in the repository.
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha }}
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_KEY: ${{ secrets.SSH_KEY }}
+      SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+    steps:
+      - name: Prepare SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id && chmod 600 ~/.ssh/id
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+      # The token only lasts for this job; it is removed from the VPS at the end.
+      - name: Let the VPS pull from GHCR
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$TOKEN" | ssh -i ~/.ssh/id -o IdentitiesOnly=yes "deploy@$SSH_HOST" \
+            "docker login ghcr.io -u '$GITHUB_ACTOR' --password-stdin"
+      # deploy.sh pulls, migrates, starts, waits for /health and rolls back
+      # by itself; its exit code is the job's.
+      - name: Deploy
+        run: |
+          ssh -i ~/.ssh/id -o IdentitiesOnly=yes "deploy@$SSH_HOST" \
+            "cd ~/slomp && git fetch -q origin && git checkout -q $SHA && ops/deploy.sh $SHA"
+      - name: Remove the registry login from the VPS
+        if: always()
+        run: ssh -i ~/.ssh/id -o IdentitiesOnly=yes "deploy@$SSH_HOST" "docker logout ghcr.io" || true

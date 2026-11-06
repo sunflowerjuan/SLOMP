@@ -193,10 +193,19 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml run --rm migrate 
 
 ### Actualizar
 
+Un merge a `main` despliega solo (`.github/workflows/deploy.yml`): cuando el CI de ese commit pasa, se construyen las imágenes (backend, migrate, pdf y proxy), se publican en GHCR etiquetadas con el hash del commit y el job `deploy` espera la aprobación de un integrante en el `environment` `production`. Aprobado, entra a la VPS como `deploy` y corre `ops/deploy.sh <hash>`: descarga las imágenes, aplica las migraciones, levanta los servicios y espera hasta 2 minutos a que `/api/health` responda 200. Si no responde, vuelve al commit anterior y el job termina en rojo. La VPS conserva las dos últimas imágenes de cada servicio.
+
+Configuración en GitHub (una vez): variable de repositorio `DOMAIN`; secretos del `environment` `production`: `SSH_HOST`, `SSH_KEY` (llave privada del usuario `deploy`) y `SSH_KNOWN_HOSTS` (salida de `ssh-keyscan <host>` verificada contra la huella de la VPS); revisores requeridos en ese `environment`.
+
+### Revertir a un commit anterior
+
+Como `deploy`, en la VPS:
+
 ```bash
-cd ~/slomp && git pull
-docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build   # aplica las migraciones nuevas antes de reiniciar el backend
+~/slomp/ops/deploy.sh <hash-del-commit>
 ```
+
+Usa las imágenes de ese commit si siguen en la VPS (las dos últimas) y, si no, las descarga de GHCR (requiere `docker login ghcr.io` con un token de lectura de paquetes). Las migraciones no se revierten: una migración destructiva se maneja con el respaldo (`ops/README.md`). Para actualizar a mano sin el workflow: `git pull` y `docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build`.
 
 ### Logs y estado
 
