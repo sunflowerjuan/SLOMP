@@ -24,12 +24,14 @@ RUN pnpm --filter pdf-function --prod --legacy deploy /out/pdf-function
 FROM node:24-trixie-slim AS runtime
 # writer-only LibreOffice (no GUI/Java) plus metric-compatible fonts so the
 # PDF layout matches Word documents that use Arial/Times/Calibri, and
-# Montserrat, the font of the Páez header and footer.
+# Montserrat, the font of the Páez header and footer. Gillius ADF stands in
+# for Gill Sans MT (see fontconfig/30-gill-sans.conf).
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       libreoffice-writer fonts-liberation fonts-dejavu-core fonts-crosextra-carlito \
-      fonts-montserrat \
+      fonts-montserrat fonts-adf-gillius \
  && rm -rf /var/lib/apt/lists/*
+COPY apps/pdf-function/fontconfig/30-gill-sans.conf /etc/fonts/conf.d/
 
 WORKDIR /app
 COPY --from=deploy --chown=node:node /out/pdf-function ./

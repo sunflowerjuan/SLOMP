@@ -16,9 +16,11 @@ export function SlompsimSideButton() {
         aria-expanded={isOpen}
         aria-controls={SLOMPSIM_PANEL_ID}
         onClick={() => (isOpen ? close({ returnFocus: false }) : open())}
+        // With the sidebar collapsed only the icon shows.
+        title="Slompsim"
       >
         <SlompsimIcon />
-        Slompsim
+        <span className="admin-layout__label">Slompsim</span>
       </button>
     </>
   );

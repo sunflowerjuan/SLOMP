@@ -166,14 +166,28 @@ test("el menú se recorre con teclado y el enlace de salto lleva al contenido @U
   await expect(page.locator("#main")).toBeFocused();
   await expect(page).toHaveURL(viewUrl("cargas"));
 
+  // On desktop the sidebar's head comes before the sections: the button that
+  // collapses it, then the municipality pill.
   await skip.focus();
+  if (!isMobile) {
+    await page.keyboard.press("Tab");
+    await expect(
+      page.getByRole("button", { name: "Contraer menú" }),
+    ).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(municipalityPill(page)).toBeFocused();
+  }
   await page.keyboard.press("Tab");
   await expect(menu(page).getByRole("link", { name: "Cartera" })).toBeFocused();
-  await page.keyboard.press("Shift+Tab");
+  const beforeSections = isMobile ? 1 : 3;
+  for (let i = 0; i < beforeSections; i += 1) {
+    await page.keyboard.press("Shift+Tab");
+  }
   await expect(skip).toBeFocused();
   await expect(skip).toBeInViewport();
-  await page.keyboard.press("Tab");
-  await page.keyboard.press("Tab");
+  for (let i = 0; i < beforeSections + 1; i += 1) {
+    await page.keyboard.press("Tab");
+  }
   await expect(
     menu(page).getByRole("link", { name: "Liquidaciones" }),
   ).toBeFocused();
