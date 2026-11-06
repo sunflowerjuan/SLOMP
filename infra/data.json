@@ -1,0 +1,168 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.47.16.16243",
+      "templateHash": "14582999425771548420"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for all resources. Defaults to the resource group location."
+      }
+    },
+    "serverName": {
+      "type": "string",
+      "defaultValue": "psql-predial-dev",
+      "metadata": {
+        "description": "Name of the PostgreSQL Flexible Server."
+      }
+    },
+    "postgresVersion": {
+      "type": "string",
+      "defaultValue": "16",
+      "metadata": {
+        "description": "PostgreSQL major version."
+      }
+    },
+    "administratorLogin": {
+      "type": "string",
+      "defaultValue": "pgadmin",
+      "metadata": {
+        "description": "Administrator login name. Not a secret by itself, but useless without administratorLoginPassword."
+      }
+    },
+    "administratorLoginPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Administrator password. No default on purpose — always pass it explicitly (an environment variable via readEnvironmentVariable() in the .bicepparam file, never a literal)."
+      }
+    },
+    "skuName": {
+      "type": "string",
+      "defaultValue": "Standard_B1ms",
+      "metadata": {
+        "description": "SKU name. B1ms is the Burstable-tier size for this environment."
+      }
+    },
+    "skuTier": {
+      "type": "string",
+      "defaultValue": "Burstable",
+      "metadata": {
+        "description": "SKU tier for skuName."
+      }
+    },
+    "storageSizeGB": {
+      "type": "int",
+      "defaultValue": 32,
+      "metadata": {
+        "description": "Provisioned storage, in GiB. 32 is the minimum for the Burstable tier."
+      }
+    },
+    "backupRetentionDays": {
+      "type": "int",
+      "defaultValue": 7,
+      "metadata": {
+        "description": "Backup retention, in days."
+      }
+    },
+    "dataSubnetId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of snet-data (from network.bicep, SL-60). Must already be delegated to Microsoft.DBforPostgreSQL/flexibleServers."
+      }
+    },
+    "vnetId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the VNet (from network.bicep, SL-60). The Private DNS zone this module creates gets linked to it."
+      }
+    },
+    "privateDnsZoneName": {
+      "type": "string",
+      "defaultValue": "[format('{0}.private.postgres.database.azure.com', parameters('serverName'))]",
+      "metadata": {
+        "description": "Name of the Private DNS zone for the server. Must end in \"postgres.database.azure.com\" (Azure requirement for VNet-integrated flexible servers)."
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/privateDnsZones",
+      "apiVersion": "2020-06-01",
+      "name": "[parameters('privateDnsZoneName')]",
+      "location": "global"
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+      "apiVersion": "2020-06-01",
+      "name": "[format('{0}/{1}', parameters('privateDnsZoneName'), format('{0}-link', parameters('privateDnsZoneName')))]",
+      "location": "global",
+      "properties": {
+        "virtualNetwork": {
+          "id": "[parameters('vnetId')]"
+        },
+        "registrationEnabled": false
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateDnsZones', parameters('privateDnsZoneName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DBforPostgreSQL/flexibleServers",
+      "apiVersion": "2023-06-01-preview",
+      "name": "[parameters('serverName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "[parameters('skuName')]",
+        "tier": "[parameters('skuTier')]"
+      },
+      "properties": {
+        "version": "[parameters('postgresVersion')]",
+        "administratorLogin": "[parameters('administratorLogin')]",
+        "administratorLoginPassword": "[parameters('administratorLoginPassword')]",
+        "storage": {
+          "storageSizeGB": "[parameters('storageSizeGB')]"
+        },
+        "backup": {
+          "backupRetentionDays": "[parameters('backupRetentionDays')]",
+          "geoRedundantBackup": "Disabled"
+        },
+        "highAvailability": {
+          "mode": "Disabled"
+        },
+        "network": {
+          "delegatedSubnetResourceId": "[parameters('dataSubnetId')]",
+          "privateDnsZoneArmResourceId": "[resourceId('Microsoft.Network/privateDnsZones', parameters('privateDnsZoneName'))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateDnsZones', parameters('privateDnsZoneName'))]",
+        "[resourceId('Microsoft.Network/privateDnsZones/virtualNetworkLinks', parameters('privateDnsZoneName'), format('{0}-link', parameters('privateDnsZoneName')))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "serverId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', parameters('serverName'))]"
+    },
+    "serverName": {
+      "type": "string",
+      "value": "[parameters('serverName')]"
+    },
+    "fullyQualifiedDomainName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.DBforPostgreSQL/flexibleServers', parameters('serverName')), '2023-06-01-preview').fullyQualifiedDomainName]"
+    },
+    "privateDnsZoneId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Network/privateDnsZones', parameters('privateDnsZoneName'))]"
+    }
+  }
+}

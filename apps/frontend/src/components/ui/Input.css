@@ -1,0 +1,85 @@
+.ui-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.ui-input-label {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--semantic-text);
+}
+
+.ui-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.ui-input {
+  width: 100%;
+  height: var(--control-height);
+  padding: 0 var(--space-16);
+  font-family: var(--font-sans);
+  /* 16px: below that, iOS zooms the page when the input gets focus. */
+  font-size: var(--text-md);
+  color: var(--semantic-text);
+  background-color: var(--semantic-surface);
+  border: 1px solid var(--grafito-500);
+  border-radius: var(--radius-default);
+  box-sizing: border-box;
+  transition: border-color var(--duration-fast) var(--ease-standard);
+}
+
+.ui-input::placeholder {
+  color: var(--semantic-text-muted);
+}
+
+.ui-input:focus-visible {
+  border-color: var(--tinta-500);
+  outline-offset: 0;
+}
+
+.ui-input--with-toggle {
+  padding-right: 72px;
+}
+
+.ui-input--error {
+  border-color: var(--semantic-danger);
+}
+
+.ui-input-toggle {
+  position: absolute;
+  right: 0;
+  min-width: var(--tap-size);
+  height: var(--tap-size);
+  background: none;
+  border: none;
+  padding: 0 var(--space-12);
+  border-radius: var(--radius-default);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--tinta-500);
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ui-input-toggle:hover {
+    color: var(--tinta-600);
+  }
+}
+
+.ui-input-error,
+.ui-input-hint {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: var(--semantic-danger-hover);
+}
+
+.ui-input-hint {
+  line-height: 1.4;
+  color: var(--semantic-text-muted);
+}

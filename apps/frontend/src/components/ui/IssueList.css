@@ -1,0 +1,21 @@
+.ui-issue-list {
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+.ui-issue-list summary {
+  min-height: var(--tap-size);
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  color: var(--semantic-text);
+  cursor: pointer;
+}
+
+.ui-issue-list ul {
+  max-height: 12rem;
+  margin: 0;
+  padding: 0 var(--space-8) 0 var(--space-20);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}

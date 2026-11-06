@@ -1,0 +1,156 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.47.16.16243",
+      "templateHash": "8865833958560681593"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for the Private Endpoints. Defaults to the resource group location."
+      }
+    },
+    "vnetId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the VNet (network.bicep output vnetId). Every Private DNS zone gets linked to it."
+      }
+    },
+    "peSubnetId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of snet-pe, the subnet the Private Endpoints live in."
+      }
+    },
+    "keyVaultId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the Key Vault (storage-security.bicep output keyVaultId)."
+      }
+    },
+    "storageAccountId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the Storage Account (storage-security.bicep output storageAccountId)."
+      }
+    }
+  },
+  "variables": {
+    "endpoints": [
+      {
+        "name": "pe-keyvault-predial-dev",
+        "targetId": "[parameters('keyVaultId')]",
+        "groupId": "vault",
+        "zoneName": "privatelink.vaultcore.azure.net"
+      },
+      {
+        "name": "pe-storage-blob-predial-dev",
+        "targetId": "[parameters('storageAccountId')]",
+        "groupId": "blob",
+        "zoneName": "[format('privatelink.blob.{0}', environment().suffixes.storage)]"
+      },
+      {
+        "name": "pe-storage-queue-predial-dev",
+        "targetId": "[parameters('storageAccountId')]",
+        "groupId": "queue",
+        "zoneName": "[format('privatelink.queue.{0}', environment().suffixes.storage)]"
+      }
+    ]
+  },
+  "resources": [
+    {
+      "copy": {
+        "name": "privateDnsZones",
+        "count": "[length(variables('endpoints'))]"
+      },
+      "type": "Microsoft.Network/privateDnsZones",
+      "apiVersion": "2020-06-01",
+      "name": "[variables('endpoints')[copyIndex()].zoneName]",
+      "location": "global"
+    },
+    {
+      "copy": {
+        "name": "privateDnsZoneVnetLinks",
+        "count": "[length(variables('endpoints'))]"
+      },
+      "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+      "apiVersion": "2020-06-01",
+      "name": "[format('{0}/{1}', variables('endpoints')[copyIndex()].zoneName, format('{0}-link', variables('endpoints')[copyIndex()].zoneName))]",
+      "location": "global",
+      "properties": {
+        "registrationEnabled": false,
+        "virtualNetwork": {
+          "id": "[parameters('vnetId')]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateDnsZones', variables('endpoints')[copyIndex()].zoneName)]"
+      ]
+    },
+    {
+      "copy": {
+        "name": "privateEndpoints",
+        "count": "[length(variables('endpoints'))]"
+      },
+      "type": "Microsoft.Network/privateEndpoints",
+      "apiVersion": "2023-11-01",
+      "name": "[variables('endpoints')[copyIndex()].name]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "subnet": {
+          "id": "[parameters('peSubnetId')]"
+        },
+        "privateLinkServiceConnections": [
+          {
+            "name": "[variables('endpoints')[copyIndex()].name]",
+            "properties": {
+              "privateLinkServiceId": "[variables('endpoints')[copyIndex()].targetId]",
+              "groupIds": [
+                "[variables('endpoints')[copyIndex()].groupId]"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "copy": {
+        "name": "privateDnsZoneGroups",
+        "count": "[length(variables('endpoints'))]"
+      },
+      "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+      "apiVersion": "2023-11-01",
+      "name": "[format('{0}/{1}', variables('endpoints')[copyIndex()].name, 'default')]",
+      "properties": {
+        "privateDnsZoneConfigs": [
+          {
+            "name": "config",
+            "properties": {
+              "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', variables('endpoints')[copyIndex()].zoneName)]"
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateDnsZones', variables('endpoints')[copyIndex()].zoneName)]",
+        "privateDnsZoneVnetLinks",
+        "[resourceId('Microsoft.Network/privateEndpoints', variables('endpoints')[copyIndex()].name)]"
+      ]
+    }
+  ],
+  "outputs": {
+    "privateEndpointNames": {
+      "type": "array",
+      "copy": {
+        "count": "[length(variables('endpoints'))]",
+        "input": "[variables('endpoints')[copyIndex()].name]"
+      }
+    }
+  }
+}

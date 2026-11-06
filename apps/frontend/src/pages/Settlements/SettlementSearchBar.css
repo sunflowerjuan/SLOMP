@@ -1,0 +1,84 @@
+.settlement-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-12);
+}
+
+.settlement-search__field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  flex: 1 1 200px;
+  min-height: var(--control-height);
+  padding: 0 var(--space-16);
+  border: 1px solid var(--grafito-500);
+  border-radius: var(--radius-default);
+  background-color: var(--semantic-surface);
+  color: var(--semantic-text-muted);
+}
+
+.settlement-search__field:focus-within {
+  border-color: var(--tinta-500);
+  outline: var(--focus-ring);
+  outline-offset: 0;
+}
+
+.settlement-search__field svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+.settlement-search__field input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  font: inherit;
+  font-size: var(--text-md);
+  color: var(--semantic-text);
+}
+
+.settlement-search__field input::placeholder {
+  color: var(--semantic-text-muted);
+}
+
+/* The three controls of the bar line up; with a finger the criterion keeps
+   its full target (and has a row of its own on a phone). */
+.settlement-search .ui-button {
+  height: var(--control-height);
+}
+
+@media (pointer: fine) {
+  .settlement-search .ui-segmented__option {
+    min-height: calc(var(--control-height) - 6px);
+  }
+}
+
+/* Phone: the button sits beside the field; the criterion goes under both. */
+@media (--shell) {
+  .settlement-search {
+    flex-wrap: wrap;
+    gap: var(--space-8);
+  }
+
+  .settlement-search__field {
+    order: 1;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .settlement-search .ui-button {
+    order: 2;
+    flex: none;
+  }
+
+  .settlement-search .ui-segmented {
+    order: 3;
+    flex: 1 1 100%;
+  }
+}

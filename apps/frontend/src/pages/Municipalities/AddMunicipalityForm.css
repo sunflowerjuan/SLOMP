@@ -1,0 +1,14 @@
+.add-municipality {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-20);
+  margin-top: var(--space-12);
+}
+
+.add-municipality__code {
+  font-variant-numeric: tabular-nums;
+}
+
+.add-municipality .ui-dialog__actions {
+  margin-top: var(--space-4);
+}

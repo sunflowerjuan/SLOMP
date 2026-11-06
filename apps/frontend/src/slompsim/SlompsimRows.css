@@ -1,0 +1,41 @@
+.slompsim-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Fixed columns: every row lines up whatever its badge says. */
+.slompsim-rows li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 3.5rem 7.5rem;
+  gap: var(--space-12);
+  align-items: center;
+  min-height: 36px;
+  padding: 2px 0;
+  border-bottom: 1px solid var(--semantic-border);
+}
+
+.slompsim-rows[data-wide-periods="true"] li {
+  grid-template-columns: minmax(0, 1fr) 5rem 7.5rem;
+}
+
+.slompsim-rows li:first-child {
+  min-height: 0;
+  padding-bottom: var(--space-4);
+  font-weight: 600;
+  color: var(--semantic-text-muted);
+}
+
+.slompsim-rows__first {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+/* Tighter than elsewhere: "competencia" has to fit whole in the column. */
+.slompsim-rows .ui-status-badge {
+  justify-self: start;
+  gap: 6px;
+  padding-inline: var(--space-8);
+}

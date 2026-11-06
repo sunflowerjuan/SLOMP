@@ -1,0 +1,156 @@
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  UploadedFile,
+  UseFilters,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { CurrentUser } from '../auth/current-user.decorator.js';
+import type { AuthenticatedUser } from '../auth/jwt.strategy.js';
+import { CurrentMunicipality } from '../municipalities/current-municipality.decorator.js';
+import type { MunicipalityContext } from '../municipalities/municipality-context.js';
+import { MunicipalityGuard } from '../municipalities/municipality.guard.js';
+import { TaxRollService } from './tax-roll.service.js';
+import {
+  assertUploadedXlsx,
+  MAX_TAX_ROLL_FILE_SIZE_MB,
+  TAX_ROLL_UPLOAD_LIMITS,
+  TaxRollFileTooLargeFilter,
+} from './tax-roll-upload.js';
+
+@ApiTags('tax-roll')
+@ApiBearerAuth()
+@UseGuards(MunicipalityGuard)
+@Controller('municipalities/:slug/tax-roll')
+export class TaxRollController {
+  constructor(private readonly taxRollService: TaxRollService) {}
+
+  @Post('import')
+  @UseInterceptors(FileInterceptor('file', { limits: TAX_ROLL_UPLOAD_LIMITS }))
+  @UseFilters(TaxRollFileTooLargeFilter)
+  @ApiOperation({
+    summary:
+      'Importa el Excel de predios y deudas del periodo, y persiste las liquidaciones resultantes.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: `Archivo Excel (.xlsx) con el reporte de predios y deudas. Tamaño máximo: ${MAX_TAX_ROLL_FILE_SIZE_MB} MB.`,
+        },
+        confirmReplace: {
+          type: 'string',
+          enum: ['true', 'false'],
+          description:
+            'Confirma el reemplazo de una liquidación vigente ya existente para el mismo predio y periodo. Si se omite o es "false" y hay conflictos, esos pares predio/periodo quedan reportados en "persisted.conflicts" sin modificarse.',
+        },
+        previousImportId: {
+          type: 'string',
+          description:
+            'Id del TaxRollImport que se está confirmando. Si se envía y corresponde al mismo archivo y administrador, esta carga actualiza ese registro de historial en vez de crear uno nuevo.',
+        },
+      },
+      required: ['file'],
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description:
+      'Excel leído y procesado en una sola transacción: si algo falla no queda nada escrito. "validRows" es el número de filas válidas (las filas no se devuelven). Puede incluir filas inválidas (no se persisten, van en "invalidRows") y conflictos de reemplazo no confirmados (van en "persisted.conflicts").',
+    schema: {
+      example: {
+        validRows: 1,
+        invalidRows: [
+          { row: 8, reason: 'Missing cadastral code' },
+          {
+            row: 9,
+            reason:
+              'Period 1979 is out of range: it must be between 1980 and 2026',
+          },
+        ],
+        warnings: [{ row: 12, reason: 'Missing owner' }],
+        persisted: {
+          properties: 1,
+          owners: 1,
+          settlements: 1,
+          conflicts: [{ cadastralCode: '041-02-0011-010', period: 2024 }],
+          locked: [],
+        },
+        importId: 17,
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Si alguna cédula catastral no empieza por el código DANE del municipio (TAX_ROLL_WRONG_MUNICIPALITY), se rechaza todo el archivo. También: no se adjuntó ningún archivo en el campo "file", el archivo no tiene extensión .xlsx, supera el tamaño máximo, no es un .xlsx real (renombrado o dañado), o su contenido no se pudo usar (archivo vacío, encabezados faltantes o fuera de orden, sin filas de datos).',
+  })
+  import(
+    @CurrentMunicipality() municipality: MunicipalityContext,
+    @CurrentUser() user: AuthenticatedUser,
+    @UploadedFile() file?: Express.Multer.File,
+    // Multipart form fields always arrive as strings.
+    @Body('confirmReplace') confirmReplace?: string,
+    // Id of the TaxRollImport being confirmed -- see TaxRollService.import.
+    @Body('previousImportId') previousImportId?: string,
+  ) {
+    assertUploadedXlsx(file);
+    const parsedPreviousImportId = Number(previousImportId);
+    return this.taxRollService.import(
+      municipality,
+      file.buffer,
+      confirmReplace === 'true',
+      file.originalname,
+      user.id,
+      previousImportId && Number.isInteger(parsedPreviousImportId)
+        ? parsedPreviousImportId
+        : undefined,
+    );
+  }
+
+  @Get('imports')
+  @ApiOperation({
+    summary:
+      'Lista el historial de cargas de Excel, más reciente primero (máximo 50, sin paginación).',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Historial de cargas.',
+    schema: {
+      example: [
+        {
+          id: 17,
+          fileName: 'periodo_2024_Q1.xlsx',
+          importedAt: '2024-03-14T15:32:00.000Z',
+          validRows: 812,
+          invalidRows: 3,
+          warnings: 1,
+          properties: 812,
+          owners: 790,
+          settlements: 812,
+          conflicts: 0,
+          administratorEmail: 'admin@example.gov.co',
+        },
+      ],
+    },
+  })
+  listImports(@CurrentMunicipality() municipality: MunicipalityContext) {
+    return this.taxRollService.listImports(municipality.id);
+  }
+}

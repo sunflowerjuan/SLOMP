@@ -1,0 +1,21 @@
+.ui-page-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.ui-page-header__title {
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--semantic-text);
+}
+
+.ui-page-header__subtitle {
+  margin: 0;
+  max-width: 64ch;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}

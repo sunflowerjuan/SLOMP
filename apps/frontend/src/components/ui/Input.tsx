@@ -1,0 +1,82 @@
+import { useId, useState } from "react";
+import type { ComponentProps } from "react";
+import "./Input.css";
+
+// Its ref (React 19 passes it as a prop) reaches the <input>.
+interface InputProps extends Omit<ComponentProps<"input">, "id"> {
+  label: string;
+  error?: string;
+  // Short help under the field; the error takes its place when there is one.
+  hint?: string;
+  id?: string;
+}
+
+export function Input({
+  label,
+  error,
+  hint,
+  type,
+  className,
+  id,
+  ...rest
+}: InputProps) {
+  const generatedId = useId();
+  const inputId = id ?? generatedId;
+  const errorId = `${inputId}-error`;
+  const hintId = `${inputId}-hint`;
+  const [showPassword, setShowPassword] = useState(false);
+  const isPassword = type === "password";
+  const resolvedType = isPassword && showPassword ? "text" : type;
+
+  const classes = [
+    "ui-input",
+    isPassword ? "ui-input--with-toggle" : "",
+    error ? "ui-input--error" : "",
+    className ?? "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <div className="ui-input-group">
+      <label className="ui-input-label" htmlFor={inputId}>
+        {label}
+      </label>
+      <div className="ui-input-wrapper">
+        <input
+          id={inputId}
+          type={resolvedType}
+          className={classes}
+          {...rest}
+          aria-invalid={Boolean(error)}
+          aria-describedby={
+            error ? errorId : hint ? hintId : rest["aria-describedby"]
+          }
+        />
+        {isPassword && (
+          <button
+            type="button"
+            className="ui-input-toggle"
+            onClick={() => setShowPassword((value) => !value)}
+            aria-label={
+              showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
+            }
+          >
+            {showPassword ? "Ocultar" : "Mostrar"}
+          </button>
+        )}
+      </div>
+      {error ? (
+        <p className="ui-input-error" id={errorId} role="alert">
+          {error}
+        </p>
+      ) : (
+        hint && (
+          <p className="ui-input-hint" id={hintId}>
+            {hint}
+          </p>
+        )
+      )}
+    </div>
+  );
+}

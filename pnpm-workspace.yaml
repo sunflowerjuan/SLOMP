@@ -1,7 +1,15 @@
 packages:
   - "apps/*"
   - "packages/*"
+overrides:
+  '@types/node': ^24.0.0
 allowBuilds:
+  '@prisma/engines': true
+  '@scarf/scarf': false
+  bcrypt: true
   esbuild: false
   msgpackr-extract: false
+  prisma: true
+  # Prebuilt binaries come as @img/sharp-* packages; its script only checks them.
+  sharp: false
   workerd: false

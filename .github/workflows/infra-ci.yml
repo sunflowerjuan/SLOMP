@@ -1,0 +1,37 @@
+name: Infra CI
+on:
+    pull_request:
+        branches: [develop, main]
+        paths:
+            - "infra/**"
+
+jobs:
+    bicep-validate:
+        runs-on: ubuntu-latest
+        env:
+            # Only lets `az bicep build-params` resolve data.dev.bicepparam's
+            # readEnvironmentVariable() call and produce a diffable JSON —
+            # never the real PostgreSQL admin password, which is only ever
+            # set at actual deploy time.
+            PSQL_ADMIN_PASSWORD: ci-placeholder-password
+        steps:
+            - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+            - name: Build .bicep and check compiled JSON is in sync
+              run: |
+                  set -e
+                  for f in infra/*.bicep; do
+                      az bicep build --file "$f" --outfile /tmp/out.json
+                      # Strip the compiler version/templateHash at every level (main.json
+                      # embeds each module's template): it changes with the Bicep CLI
+                      # version and isn't part of the actual template.
+                      jq 'del(.. | ._generator?)' "${f%.bicep}.json" > /tmp/committed.json
+                      jq 'del(.. | ._generator?)' /tmp/out.json > /tmp/fresh.json
+                      diff -u /tmp/committed.json /tmp/fresh.json
+                  done
+            - name: Build .bicepparam and check compiled JSON is in sync
+              run: |
+                  set -e
+                  for f in infra/*.bicepparam; do
+                      az bicep build-params --file "$f" --outfile /tmp/out.json
+                      diff -u "${f%.bicepparam}.json" /tmp/out.json
+                  done

@@ -1,0 +1,188 @@
+import { useMemo, useSyncExternalStore } from "react";
+
+// Minimal hash-based routing (no react-router).
+//
+// A hash (`/#/consulta`) is used instead of a real path (`/consulta`) because
+// the frontend is served from a Storage static website
+// (infra/static-web-app.bicep) whose 404 document is configured by hand via
+// CLI: with a hash, a direct link shared with taxpayers works even if that
+// setting is missing -- the public consultation must always be available.
+//
+// Each municipality has its own public consultation, `#/consulta/:slug`: it is
+// the page its website embeds in an iframe. Without a municipality
+// (`#/consulta`) there is nothing to show, and no municipality is ever listed.
+//
+// The panel carries its municipality in the URL too (`#/municipio-a/cargas`),
+// so each tab works with the municipality of its own address (SL-122,
+// section 7). Configuración is one panel (`#/municipio-a/configuracion`), and
+// the templates of each document have their own screen under it.
+const PUBLIC_CONSULTATION_PREFIX = "#/consulta";
+
+// The templates of one document have their own screen under Configuración
+// (`#/municipio-a/configuracion/plantillas/liquidacion`): their history, the
+// way to activate an earlier version and the upload of a new one.
+// Configuración itself only says which version of each document is in use.
+export type TemplatesSegment = "liquidacion" | "mandamiento";
+
+const TEMPLATES_SEGMENTS: TemplatesSegment[] = ["liquidacion", "mandamiento"];
+
+// What the panel shows: a screen of the menu or the templates of a document.
+export type AdminView =
+  | "cargas"
+  | "liquidaciones"
+  | "mandamientos"
+  | "configuracion"
+  | `configuracion/plantillas/${TemplatesSegment}`;
+
+// The menu entry a view belongs to.
+export type AdminSection =
+  "cargas" | "liquidaciones" | "mandamientos" | "configuracion";
+
+const ADMIN_VIEWS: AdminView[] = [
+  "cargas",
+  "liquidaciones",
+  "mandamientos",
+  "configuracion",
+  ...TEMPLATES_SEGMENTS.map((segment) => templatesView(segment)),
+];
+
+// Other addresses of a view: the ones Plantillas and Consulta pública had
+// before they moved under Configuración, and the tabs Configuración had
+// before it was a single panel (saved links keep working). The panel
+// replaces them with the view's own.
+const VIEW_ALIASES = new Map<string, AdminView>([
+  ["plantillas", "configuracion"],
+  ["consulta-publica", "configuracion"],
+  ["configuracion/plantillas", "configuracion"],
+  ["configuracion/consulta", "configuracion"],
+]);
+
+const DEFAULT_ADMIN_VIEW: AdminView = "cargas";
+
+// Same shape the backend accepts for a slug: lowercase words joined by single
+// hyphens (no overlapping groups, so it cannot backtrack badly).
+export const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export function publicConsultationHref(slug: string): string {
+  return `${PUBLIC_CONSULTATION_PREFIX}/${encodeURIComponent(slug)}`;
+}
+
+// `null`: not a public consultation route. `{ slug: null }`: it is one, but
+// without a (valid) municipality, so the page is "Consulta no disponible".
+export interface PublicConsultationRoute {
+  slug: string | null;
+}
+
+export function parsePublicConsultationRoute(
+  hash: string,
+): PublicConsultationRoute | null {
+  if (!hash.startsWith(PUBLIC_CONSULTATION_PREFIX)) return null;
+  const rest = hash.slice(PUBLIC_CONSULTATION_PREFIX.length);
+  if (rest !== "" && !rest.startsWith("/") && !rest.startsWith("?")) {
+    return null; // e.g. "#/consulta-publica", an admin section
+  }
+
+  const [path] = rest.split("?");
+  const [, segment = "", ...extra] = path.split("/");
+  if (extra.some((part) => part !== "")) return { slug: null };
+
+  let slug: string;
+  try {
+    slug = decodeURIComponent(segment);
+  } catch {
+    return { slug: null };
+  }
+  return { slug: SLUG_PATTERN.test(slug) ? slug : null };
+}
+
+export function templatesView(segment: TemplatesSegment): AdminView {
+  return `configuracion/plantillas/${segment}`;
+}
+
+// The document whose templates a view shows; null for any other view.
+export function templatesSegmentOf(view: AdminView): TemplatesSegment | null {
+  return (
+    TEMPLATES_SEGMENTS.find((segment) => templatesView(segment) === view) ??
+    null
+  );
+}
+
+// Configuración and the templates screens belong to its single menu entry.
+export function adminSectionOf(view: AdminView): AdminSection {
+  return (
+    view.startsWith("configuracion/") ? "configuracion" : view
+  ) as AdminSection;
+}
+
+export function adminHref(
+  slug: string,
+  view: AdminView = DEFAULT_ADMIN_VIEW,
+): string {
+  return `#/${encodeURIComponent(slug)}/${view}`;
+}
+
+// `slug: null` when the address names no municipality (`#/`, or a link from
+// before SL-126 such as `#/cargas`); the panel then opens one. A slug that
+// isn't well formed is still returned, so the panel can say it doesn't exist
+// instead of quietly opening another municipality.
+export interface AdminRoute {
+  slug: string | null;
+  view: AdminView;
+  // The address is an alias of the view (`#/municipio-a/plantillas`): the panel
+  // replaces it with the view's own address.
+  isAlias: boolean;
+}
+
+function asView(path: string): Omit<AdminRoute, "slug"> | null {
+  const view = ADMIN_VIEWS.find((candidate) => candidate === path);
+  if (view) return { view, isAlias: false };
+  const target = VIEW_ALIASES.get(path);
+  return target ? { view: target, isAlias: true } : null;
+}
+
+const DEFAULT_VIEW_ROUTE: Omit<AdminRoute, "slug"> = {
+  view: DEFAULT_ADMIN_VIEW,
+  isAlias: false,
+};
+
+export function parseAdminRoute(hash: string): AdminRoute {
+  const [path] = hash.replace(/^#\/?/, "").split("?");
+  const [first = "", ...rest] = path
+    .split("/")
+    .filter((segment) => segment !== "");
+  const legacyView = rest.length === 0 ? asView(first) : null;
+  if (first === "" || legacyView) {
+    return { slug: null, ...(legacyView ?? DEFAULT_VIEW_ROUTE) };
+  }
+  let slug: string;
+  try {
+    slug = decodeURIComponent(first);
+  } catch {
+    slug = first;
+  }
+  return { slug, ...(asView(rest.join("/")) ?? DEFAULT_VIEW_ROUTE) };
+}
+
+function subscribe(onChange: () => void) {
+  window.addEventListener("hashchange", onChange);
+  return () => window.removeEventListener("hashchange", onChange);
+}
+
+const getHash = () => window.location.hash;
+
+export function usePublicConsultationRoute(): PublicConsultationRoute | null {
+  const hash = useSyncExternalStore(subscribe, getHash);
+  return useMemo(() => parsePublicConsultationRoute(hash), [hash]);
+}
+
+export function useAdminRoute(): AdminRoute {
+  const hash = useSyncExternalStore(subscribe, getHash);
+  const { slug, view, isAlias } = parseAdminRoute(hash);
+  return useMemo(() => ({ slug, view, isAlias }), [slug, view, isAlias]);
+}
+
+// The municipality of this tab's address, for code outside React (the HTTP
+// client). Read on every call, never kept from before.
+export function currentAdminSlug(): string | null {
+  return parseAdminRoute(getHash()).slug;
+}

@@ -1,0 +1,16 @@
+.settlements-page.ui-screen {
+  gap: var(--space-24);
+}
+
+.settlements-page__count {
+  margin: calc(var(--space-12) * -1) 0 0;
+  min-height: 1.5em;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--semantic-text-muted);
+}
+
+/* With room to spare the open sheet pushes the list; otherwise it overlays. */
+.settlements-page[data-sheet="pushed"] {
+  margin-right: calc(var(--sheet-width) + 2 * var(--sheet-margin));
+}

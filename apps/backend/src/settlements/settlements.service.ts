@@ -1,0 +1,337 @@
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  SettlementEventSource,
+  SettlementEventType,
+  SettlementStatus,
+} from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { errorBody } from '../common/errors/error-body.js';
+import { ErrorCode } from '../common/errors/error-codes.js';
+import { groupSettlementsForResolution } from '../resolutions/group-settlements-for-resolution.js';
+import { currentYearInColombia } from '../tax-roll/period-rules.js';
+import {
+  groupSettlementsByResolution,
+  isMissingPeriod,
+  type SettlementGroup,
+} from './group-search-results.js';
+import { allowedStatuses } from './settlement-status-rules.js';
+
+export interface SettlementSearchCriteria {
+  cadastralCode?: string;
+  owner?: string;
+  address?: string;
+}
+
+export interface SettlementStatusChangeResult {
+  settlementId: number;
+  // The settlements that changed: only this one. The other periods of its
+  // resolution keep their own status.
+  settlementIds: number[];
+  status: SettlementStatus;
+  // What the selector may offer next, from the new state.
+  allowedStatuses: SettlementStatus[];
+  // Periods of the group still marked as missing after the change.
+  missingPeriods: number[];
+}
+
+// One period of a row: a status change is per period, never per resolution,
+// so each one has its own state and its own options.
+export interface SettlementPeriodStatus {
+  settlementId: number;
+  period: number;
+  status: SettlementStatus;
+  // States the status selector may offer for this period right now.
+  allowedStatuses: SettlementStatus[];
+}
+
+// One row per PDF the Administrator can generate: the periods of a property
+// that share (or will share) a Resolution. Co-owned properties join every
+// owner's name.
+export interface SettlementSearchResult extends SettlementGroup {
+  cadastralCode: string;
+  address: string;
+  ownerName: string;
+  settlements: SettlementPeriodStatus[];
+}
+
+// How many properties a single search returns (each with all its groups, so
+// a group is never cut). There's no pagination yet (not asked for) — this
+// just keeps a very broad search from returning the whole table.
+const MAX_RESULTS = 100;
+
+@Injectable()
+export class SettlementsService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async search(
+    municipalityId: number,
+    criteria: SettlementSearchCriteria,
+  ): Promise<SettlementSearchResult[]> {
+    const cadastralCode = criteria.cadastralCode?.trim();
+    const owner = criteria.owner?.trim();
+    const address = criteria.address?.trim();
+
+    if (!cadastralCode && !owner && !address) {
+      throw new BadRequestException(
+        errorBody(
+          ErrorCode.SETTLEMENT_SEARCH_CRITERIA_REQUIRED,
+          'Provide at least one of cadastralCode, owner or address.',
+        ),
+      );
+    }
+
+    const currentYear = currentYearInColombia();
+    const now = new Date();
+    const properties = await this.prisma.property.findMany({
+      where: {
+        municipalityId,
+        // Only properties with a current settlement: one already replaced
+        // (replacedAt set) is history, regardless of its payment status —
+        // generating an official PDF from one wouldn't make sense.
+        settlements: { some: { replacedAt: null } },
+        ...(cadastralCode
+          ? { cadastralCode: { contains: cadastralCode, mode: 'insensitive' } }
+          : {}),
+        ...(address
+          ? { address: { contains: address, mode: 'insensitive' } }
+          : {}),
+        ...(owner
+          ? {
+              owners: {
+                some: {
+                  owner: { name: { contains: owner, mode: 'insensitive' } },
+                },
+              },
+            }
+          : {}),
+      },
+      include: {
+        owners: { include: { owner: true } },
+        settlements: {
+          where: { replacedAt: null },
+          include: {
+            resolution: true,
+            paymentOrder: { select: { issuedAt: true } },
+          },
+        },
+      },
+      orderBy: { cadastralCode: 'asc' },
+      take: MAX_RESULTS,
+    });
+
+    return properties.flatMap((property) => {
+      const ownerName = property.owners
+        .map((propertyOwner) => propertyOwner.owner.name)
+        .join(', ');
+      const groups = groupSettlementsByResolution(
+        property.settlements.map((settlement) => ({
+          id: settlement.id,
+          period: settlement.period,
+          status: settlement.status,
+          totalAmount: settlement.totalAmount.toNumber(),
+          missingSince: settlement.missingSince,
+          resolution: settlement.resolution,
+        })),
+        currentYear,
+      );
+      // A property has one current settlement per period.
+      const byPeriod = new Map(
+        property.settlements.map((settlement) => [
+          settlement.period,
+          settlement,
+        ]),
+      );
+      return groups.map((group) => ({
+        ...group,
+        cadastralCode: property.cadastralCode,
+        address: property.address,
+        ownerName,
+        settlements: group.periods.map((period) => {
+          const settlement = byPeriod.get(period)!;
+          return {
+            settlementId: settlement.id,
+            period,
+            status: settlement.status,
+            allowedStatuses: allowedStatuses({
+              current: settlement.status,
+              resolutionIssuedAt: settlement.resolution?.issuedAt ?? null,
+              paymentOrderAt: settlement.paymentOrder?.issuedAt ?? null,
+              now,
+            }),
+          };
+        }),
+      }));
+    });
+  }
+
+  // Changes the status of this one settlement (a property and period): the
+  // other periods of its Resolution keep theirs. Which states
+  // can be set depends on the current one, the resolution's age and the
+  // settlement's own payment order (settlement-status-rules.ts). Only a
+  // current settlement can be changed: one already replaced isn't "the"
+  // settlement of its property+period anymore. The change and its audit
+  // event (source MANUAL) are written together.
+  async changeStatus(
+    municipalityId: number,
+    administratorId: number,
+    id: number,
+    status: unknown,
+  ): Promise<SettlementStatusChangeResult> {
+    if (
+      typeof status !== 'string' ||
+      !Object.values(SettlementStatus).includes(status as SettlementStatus)
+    ) {
+      throw new BadRequestException(
+        errorBody(
+          ErrorCode.SETTLEMENT_STATUS_INVALID,
+          `"status" must be one of: ${Object.values(SettlementStatus).join(', ')}.`,
+          { allowed: Object.values(SettlementStatus) },
+        ),
+      );
+    }
+    const target = status as SettlementStatus;
+
+    // A settlement of another municipality is "not found", same as one that
+    // does not exist.
+    const settlement = await this.prisma.settlement.findFirst({
+      where: { id, property: { municipalityId } },
+      include: {
+        resolution: { select: { issuedAt: true } },
+        paymentOrder: { select: { issuedAt: true } },
+      },
+    });
+    if (!settlement) {
+      throw new NotFoundException(
+        errorBody(
+          ErrorCode.SETTLEMENT_NOT_FOUND,
+          `Settlement ${id} not found.`,
+        ),
+      );
+    }
+    if (settlement.replacedAt !== null) {
+      throw new ConflictException(
+        errorBody(
+          ErrorCode.SETTLEMENT_ALREADY_REPLACED,
+          'Cannot change the status of a settlement that was already replaced.',
+        ),
+      );
+    }
+
+    const context = {
+      resolutionIssuedAt: settlement.resolution?.issuedAt ?? null,
+      paymentOrderAt: settlement.paymentOrder?.issuedAt ?? null,
+      now: new Date(),
+    };
+    const allowed = allowedStatuses({
+      ...context,
+      current: settlement.status,
+    });
+    if (!allowed.includes(target)) {
+      throw new ConflictException(
+        errorBody(
+          ErrorCode.SETTLEMENT_STATUS_TRANSITION_NOT_ALLOWED,
+          `Cannot change the status from ${settlement.status} to ${target}.`,
+          { from: settlement.status, to: target, allowed },
+        ),
+      );
+    }
+
+    // Re-sending the current state is a no-op: nothing to change or audit.
+    if (target !== settlement.status) {
+      await this.prisma.$transaction(async (tx) => {
+        // Applies only if the settlement still has the status the transition
+        // was checked against: another tab or the EN_FIRME sweep changing it
+        // in between answers 409 instead of an unchecked transition.
+        const claimed = await tx.settlement.updateMany({
+          where: { id, status: settlement.status, replacedAt: null },
+          data: { status: target },
+        });
+        if (claimed.count === 0) {
+          throw new ConflictException(
+            errorBody(
+              ErrorCode.SETTLEMENT_STATUS_CHANGED,
+              'The settlement changed while this request was in progress. Reload it and try again.',
+            ),
+          );
+        }
+        await tx.settlementEvent.create({
+          data: {
+            settlementId: id,
+            municipalityId,
+            type: SettlementEventType.STATUS_CHANGED,
+            fromStatus: settlement.status,
+            toStatus: target,
+            source: SettlementEventSource.MANUAL,
+            administratorId,
+          },
+        });
+      });
+    }
+
+    return {
+      settlementId: id,
+      settlementIds: [id],
+      status: target,
+      allowedStatuses: allowedStatuses({ ...context, current: target }),
+      missingPeriods: await this.missingPeriodsOfGroup(
+        municipalityId,
+        settlement,
+      ),
+    };
+  }
+
+  // Periods of the settlement's group (its Resolution, or the periods that
+  // will form one) still flagged as missing from the latest tax roll.
+  private async missingPeriodsOfGroup(
+    municipalityId: number,
+    settlement: { id: number; propertyId: number; resolutionId: number | null },
+  ): Promise<number[]> {
+    const members =
+      settlement.resolutionId !== null
+        ? await this.prisma.settlement.findMany({
+            where: {
+              resolutionId: settlement.resolutionId,
+              replacedAt: null,
+              property: { municipalityId },
+            },
+            select: {
+              id: true,
+              period: true,
+              status: true,
+              missingSince: true,
+            },
+          })
+        : await this.prisma.settlement.findMany({
+            where: {
+              propertyId: settlement.propertyId,
+              property: { municipalityId },
+              replacedAt: null,
+              resolutionId: null,
+            },
+            select: {
+              id: true,
+              period: true,
+              status: true,
+              missingSince: true,
+            },
+          });
+    const groupIds = new Set(
+      settlement.resolutionId !== null
+        ? members.map((member) => member.id)
+        : groupSettlementsForResolution(
+            members,
+            settlement.id,
+            currentYearInColombia(),
+          ).map((member) => member.id),
+    );
+    return members
+      .filter((member) => groupIds.has(member.id) && isMissingPeriod(member))
+      .map((member) => member.period)
+      .sort((a, b) => a - b);
+  }
+}

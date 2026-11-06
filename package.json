@@ -11,7 +11,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test:playwright": "pnpm --filter e2e run test:playwright"
   },
   "keywords": [],
   "author": "",
@@ -26,9 +27,12 @@
   "packageManager": "pnpm@11.24.0",
   "type": "module",
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "eslint": "^10.10.0",
+    "globals": "^17.12.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.5.1",
-    "prettier": "^3.9.6"
+    "prettier": "^3.9.6",
+    "typescript-eslint": "^8.69.0"
   }
 }

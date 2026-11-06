@@ -1,0 +1,30 @@
+.ui-notice {
+  padding: var(--space-12) var(--space-16);
+  border-radius: var(--radius-default);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  /* A long warning scrolls inside itself instead of pushing the page. */
+  flex: none;
+  max-height: 7.5rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.ui-notice--error {
+  color: var(--semantic-danger-hover);
+  background-color: var(--semantic-danger-bg);
+}
+
+.ui-notice--success {
+  color: var(--semantic-text);
+  background-color: var(--semantic-success-bg);
+}
+
+.ui-notice--info {
+  color: var(--semantic-text);
+  background-color: var(--semantic-bg-selected);
+}
+
+.ui-notice {
+  animation: rise-in var(--duration-base) var(--ease-out) backwards;
+}

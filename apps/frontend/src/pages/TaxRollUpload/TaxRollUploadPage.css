@@ -1,0 +1,181 @@
+.tax-roll-upload-page {
+  /* The swipe-out carries the result card past the screen edge. */
+  overflow-x: clip;
+}
+
+.tax-roll-upload-page__result-reveal {
+  /* Backwards fill: nothing is held after the entry, so the swipe can set
+     its own transform. */
+  animation: rise-in var(--duration-base) var(--ease-out) backwards;
+  /* Horizontal swipes are ours; vertical ones keep scrolling the page. */
+  touch-action: pan-y;
+}
+
+/* Exit: the close button fades it where it is; a swipe carries it off to the
+   side from wherever the finger left it (no `from`: it starts at the
+   element's current, inline transform). */
+.tax-roll-upload-page__result-reveal[data-leaving] {
+  pointer-events: none;
+}
+
+.tax-roll-upload-page__result-reveal[data-leaving="fade"] {
+  animation: tax-roll-result-leave-fade var(--duration-fast) var(--ease-out)
+    forwards;
+}
+
+.tax-roll-upload-page__result-reveal[data-leaving="1"] {
+  animation: tax-roll-result-leave-right var(--duration-fast) var(--ease-out)
+    forwards;
+}
+
+.tax-roll-upload-page__result-reveal[data-leaving="-1"] {
+  animation: tax-roll-result-leave-left var(--duration-fast) var(--ease-out)
+    forwards;
+}
+
+@keyframes tax-roll-result-leave-fade {
+  to {
+    opacity: 0;
+    transform: translateY(var(--space-8));
+  }
+}
+
+@keyframes tax-roll-result-leave-right {
+  to {
+    opacity: 0;
+    transform: translateX(110%);
+  }
+}
+
+@keyframes tax-roll-result-leave-left {
+  to {
+    opacity: 0;
+    transform: translateX(-110%);
+  }
+}
+
+/* Placeholder rows while the history loads. */
+.tax-roll-upload-page__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.tax-roll-upload-page__skeleton i {
+  display: block;
+  height: var(--space-16);
+  border-radius: var(--radius-default);
+  background-color: var(--semantic-surface-muted);
+  animation: pulse var(--duration-pulse) var(--ease-sheet-soft) infinite;
+}
+
+.tax-roll-upload-page__muted {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+.tax-roll-upload-page__close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--tap-size);
+  height: var(--tap-size);
+  margin: calc(var(--space-8) * -1);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-default);
+  background: none;
+  color: var(--semantic-text-muted);
+}
+
+.tax-roll-upload-page__close svg {
+  width: 16px;
+  height: 16px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tax-roll-upload-page__close:hover {
+    background-color: var(--semantic-surface-muted);
+    color: var(--semantic-text);
+  }
+}
+
+/* History: four columns don't fit a phone, nor the narrow column beside the
+   result on a small laptop, so each row becomes a small card -- file name and
+   status on top, date and count underneath. */
+@media (--shell) {
+  .tax-roll-upload-page__history .ui-table__head {
+    display: none;
+  }
+
+  .tax-roll-upload-page__history .ui-table,
+  .tax-roll-upload-page__history .ui-table__body {
+    display: block;
+  }
+
+  .tax-roll-upload-page__history .ui-table__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--space-12);
+    row-gap: var(--space-4);
+    align-items: center;
+    padding: var(--space-12) 0;
+  }
+
+  .tax-roll-upload-page__history .ui-table__cell {
+    padding: 0;
+  }
+
+  .tax-roll-upload-page__history .ui-table__cell:nth-child(1) {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .tax-roll-upload-page__history .ui-table__cell:nth-child(4) {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .tax-roll-upload-page__history .ui-table__cell:nth-child(2),
+  .tax-roll-upload-page__history .ui-table__cell:nth-child(3) {
+    grid-column: 1 / -1;
+    font-size: var(--text-sm);
+    color: var(--semantic-text-muted);
+  }
+
+  .tax-roll-upload-page__history .ui-table__cell:nth-child(3)::after {
+    content: " registros";
+  }
+}
+
+/* Desktop: a result with the history closed fits the screen without scrolling,
+   so the result card is tighter and the history is a slim bar. */
+@media (--two-columns) {
+  .tax-roll-upload-page .ui-screen__body {
+    gap: var(--space-16);
+    padding-bottom: var(--space-8);
+  }
+
+  .tax-roll-upload-page__result {
+    gap: var(--space-8);
+    padding: var(--space-12) var(--space-24);
+  }
+
+  .tax-roll-upload-page__result .ui-stat {
+    padding: var(--space-8) var(--space-12);
+  }
+
+  .tax-roll-upload-page__result .ui-issue-list summary {
+    min-height: 36px;
+  }
+
+  .tax-roll-upload-page__result .ui-notice {
+    padding-block: var(--space-8);
+  }
+
+  /* Same padding open and closed, so the header stays put while it folds. */
+  .tax-roll-upload-page__history {
+    padding-block: var(--space-12);
+  }
+}

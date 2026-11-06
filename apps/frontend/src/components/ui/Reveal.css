@@ -1,0 +1,4 @@
+/* Only fades: what follows it moves at once. */
+.ui-reveal {
+  animation: fade-in var(--duration-base) var(--ease-out) backwards;
+}

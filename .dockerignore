@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+.git
+.github
+.claude
+.env
+**/.env
+.env.prod
+infra
+packages/shared/.agents
+packages/shared/.windsurf

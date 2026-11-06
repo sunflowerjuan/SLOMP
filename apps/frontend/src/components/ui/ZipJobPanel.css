@@ -1,0 +1,67 @@
+.ui-zip-panel {
+  gap: var(--space-20);
+}
+
+.ui-zip-panel__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  font-size: var(--text-sm);
+  color: var(--semantic-text-muted);
+}
+
+.ui-zip-panel__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  padding: var(--space-16) 0;
+  border-bottom: 1px solid var(--semantic-border);
+}
+
+.ui-zip-panel__row:last-child {
+  border-bottom: 0;
+}
+
+.ui-zip-panel__row > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.ui-zip-panel__row strong {
+  color: var(--semantic-text);
+}
+
+/* Placeholder rows while the counts load: same box as the real rows. */
+.ui-zip-panel__row--skeleton i,
+.ui-zip-panel__row--skeleton b {
+  display: block;
+  background-color: var(--semantic-surface-muted);
+  border-radius: var(--radius-default);
+  animation: pulse var(--duration-pulse) var(--ease-sheet-soft) infinite;
+}
+
+/* Each bar sits in a 21px line (the text's line height), so the row is as
+   tall as the real one. */
+.ui-zip-panel__row--skeleton i {
+  box-sizing: border-box;
+  width: 9rem;
+  height: 21px;
+  padding-block: 3px;
+  background-clip: content-box;
+}
+
+.ui-zip-panel__row--skeleton i + i {
+  width: 4.5rem;
+  padding-block: 4px;
+}
+
+.ui-zip-panel__row--skeleton b {
+  width: 7.5rem;
+  height: 40px;
+}
+
+.ui-zip-panel__enter {
+  animation: rise-in var(--duration-base) var(--ease-out) backwards;
+}
