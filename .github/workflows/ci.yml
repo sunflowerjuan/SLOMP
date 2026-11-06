@@ -2,6 +2,10 @@ name: CI
 on:
   pull_request:
     branches: [develop, main]
+  # Runs again on main so deploy.yml (SL-148) can wait for a green CI of the
+  # exact commit it ships.
+  push:
+    branches: [main]
 
 jobs:
   build-and-test:
@@ -37,6 +41,9 @@ jobs:
   # Not blocking yet: it becomes required after 3 green runs in a row of the
   # SL-166 flows suite (Julián flips continue-on-error then).
   e2e:
+    # Only on PRs: on the push to main it would add ~8 min to each deploy
+    # and it is not blocking. Drop this line when it becomes required.
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     continue-on-error: true
     env:
