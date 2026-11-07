@@ -2,7 +2,7 @@ import { createRequire } from 'node:module';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { AppModule, ObserveInstrument } from './app.module.js';
+import { AppModule } from './app.module.js';
 import { allowedOrigins } from './auth/refresh-cookie.js';
 import { assertDeploymentSecrets } from './common/deployment-secrets.js';
 import { validationExceptionFactory } from './common/errors/error-body.js';
@@ -21,9 +21,7 @@ async function bootstrap() {
   // published in the repository or too short (SL-115).
   assertDeploymentSecrets(process.env);
 
-  const app = (await NestFactory.create(AppModule, {
-    instrument: ObserveInstrument,
-  })) as NestExpressApplication;
+  const app = (await NestFactory.create(AppModule)) as NestExpressApplication;
 
   const trustProxyHops = Number(process.env.TRUST_PROXY_HOPS);
   if (Number.isInteger(trustProxyHops) && trustProxyHops >= 1) {
