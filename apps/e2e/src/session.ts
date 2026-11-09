@@ -17,4 +17,8 @@ export async function signIn(page: Page): Promise<void> {
   await expect(
     page.getByRole("navigation", { name: "Panel Administrador" }),
   ).toBeVisible();
+  // The menu shows before the municipalities load; only then does the panel
+  // replace the bare address with a municipality's. A test that navigates
+  // before that would have its address overwritten by the redirect.
+  await expect(page).toHaveURL(/#\/[^/]+\/cargas$/);
 }

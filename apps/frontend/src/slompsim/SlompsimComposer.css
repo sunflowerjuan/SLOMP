@@ -8,6 +8,10 @@
 }
 
 .slompsim-composer__field {
+  /* Height of the send button, and of one line of text with its padding, so
+     a single line sits centered beside it. A finger keeps the full tap size;
+     a mouse gets a slimmer field. */
+  --composer-control: var(--control-height);
   display: flex;
   align-items: flex-end;
   gap: var(--space-8);
@@ -15,6 +19,12 @@
   border: 1px solid var(--grafito-500);
   border-radius: var(--radius-default);
   background-color: var(--semantic-surface);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .slompsim-composer__field {
+    --composer-control: 36px;
+  }
 }
 
 /* The ring belongs to the whole field, send button included. */
@@ -30,10 +40,12 @@
 
 /* Up to six lines of 1.5, plus its padding; then it scrolls inside. */
 .slompsim-composer__input {
+  box-sizing: border-box;
   flex: 1;
   min-width: 0;
-  max-height: calc(9em + 12px);
-  padding: 6px 0;
+  min-height: var(--composer-control);
+  max-height: calc(9em + var(--composer-control) - 1.5em);
+  padding: calc((var(--composer-control) - 1.5em) / 2) 0;
   border: 0;
   outline: none;
   background: none;
@@ -53,8 +65,8 @@
   display: grid;
   place-items: center;
   flex: none;
-  width: var(--tap-size);
-  height: var(--tap-size);
+  width: var(--composer-control);
+  height: var(--composer-control);
   padding: 0;
   border: 0;
   border-radius: var(--radius-default);

@@ -93,6 +93,8 @@
   /* Panel shell: the top bar, the sidebar, and the phone's bar at the bottom */
   --shell-topbar-height: 48px;
   --shell-sidebar-width: 256px;
+  /* Collapsed to its icons: 56px links plus the sidebar's padding */
+  --shell-sidebar-collapsed-width: 80px;
   --shell-tabbar-height: 68px;
 
   /* The detail sheet of Liquidaciones, floating this far from the edges */

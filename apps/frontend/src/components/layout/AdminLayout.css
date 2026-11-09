@@ -28,6 +28,8 @@
 .admin-layout__side {
   position: sticky;
   top: var(--space-12);
+  /* Above the screen, so the municipality list can open over it. */
+  z-index: 1;
   flex: none;
   align-self: flex-start;
   display: flex;
@@ -36,9 +38,11 @@
   height: calc(100dvh - 2 * var(--space-12));
   margin: var(--space-12);
   padding: var(--space-20) var(--space-12) var(--space-12);
-  overflow: auto;
   background-color: var(--semantic-surface-muted);
   border-radius: var(--radius-xl);
+  /* Even in and out: the width travels at one pace instead of jumping most
+     of the way in the first frames. */
+  transition: width var(--duration-sheet) var(--ease-sheet-soft);
 }
 
 .admin-layout__brandbar {
@@ -47,6 +51,200 @@
   align-items: center;
   gap: var(--space-12);
   padding: var(--space-4) var(--space-8) var(--space-24);
+}
+
+/* Desktop sidebar, expanded or collapsed. Only its width changes: every icon
+   sits at the same spot in both (centered in the 56px left when collapsed),
+   and the words fade instead of leaving the flow, so nothing jumps while the
+   width travels. The nav and the pill clip what does not fit yet. */
+@media (--above-shell) {
+  .admin-layout__side .admin-layout__brandbar {
+    padding: var(--space-4) 6px var(--space-16);
+    overflow: hidden;
+  }
+
+  /* From the left: centered, the logo would drift out as the width shrinks. */
+  .admin-layout__side .admin-layout__brand-button {
+    justify-content: flex-start;
+  }
+
+  .admin-layout__side .admin-layout__link,
+  .admin-layout__side .admin-layout__menu-item {
+    padding: 0 var(--space-16);
+  }
+
+  .admin-layout__side .admin-layout__label,
+  .admin-layout__side .admin-layout__brand,
+  .admin-layout__side .admin-layout__group-name,
+  .admin-layout__side .admin-layout__switcher-label,
+  .admin-layout__side .admin-layout__switcher-button svg:last-child {
+    white-space: nowrap;
+    /* Opening: back once the width has made room for them. */
+    transition: opacity var(--duration-fast) ease var(--duration-fast);
+  }
+
+  .admin-layout[data-collapsed] .admin-layout__label,
+  .admin-layout[data-collapsed] .admin-layout__brand,
+  .admin-layout[data-collapsed] .admin-layout__group-name,
+  .admin-layout[data-collapsed] .admin-layout__switcher-label,
+  .admin-layout[data-collapsed] .admin-layout__switcher-button svg:last-child {
+    opacity: 0;
+    /* Closing: gone before the width cuts them. */
+    transition: opacity var(--duration-press) ease;
+  }
+
+  /* Collapsed, a line takes the place of the title of each group after the
+     first. It hangs from the title, not the group: a positioned group would
+     become the links' offsetParent and shift the indicator. */
+  .admin-layout__side
+    .admin-layout__group
+    + .admin-layout__group
+    .admin-layout__group-title {
+    position: relative;
+  }
+
+  .admin-layout__side
+    .admin-layout__group
+    + .admin-layout__group
+    .admin-layout__group-title::after {
+    content: "";
+    position: absolute;
+    top: 9px;
+    right: var(--space-12);
+    left: var(--space-12);
+    height: 1px;
+    background-color: var(--grafito-400);
+    opacity: 0;
+    transition: opacity var(--duration-press) ease;
+  }
+
+  .admin-layout[data-collapsed]
+    .admin-layout__group
+    + .admin-layout__group
+    .admin-layout__group-title::after {
+    opacity: 1;
+    transition: opacity var(--duration-fast) ease var(--duration-fast);
+  }
+
+  /* Expanded: beside the logo, gone with the words when it collapses. */
+  .admin-layout__collapse {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 36px;
+    height: 36px;
+    margin-left: auto;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-ctl);
+    background: none;
+    color: var(--semantic-text-muted);
+    cursor: pointer;
+    transition:
+      transform var(--duration-press) var(--ease-out),
+      opacity var(--duration-fast) ease var(--duration-fast);
+  }
+
+  .admin-layout[data-collapsed] .admin-layout__collapse {
+    visibility: hidden;
+    opacity: 0;
+    transition:
+      opacity var(--duration-press) ease,
+      visibility 0s linear var(--duration-press);
+  }
+
+  /* Collapsed: laid over the logo, it shows the sidebar glyph on hover or
+     keyboard focus; otherwise the logo shows through. */
+  .admin-layout__expand {
+    position: absolute;
+    top: var(--space-4);
+    left: 6px;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-ctl);
+    background-color: var(--semantic-surface);
+    color: var(--semantic-text);
+    cursor: pointer;
+    opacity: 0;
+    transition:
+      opacity var(--duration-fast) ease,
+      transform var(--duration-press) var(--ease-out);
+  }
+
+  .admin-layout__expand:hover,
+  .admin-layout__expand:focus-visible {
+    opacity: 1;
+  }
+
+  .admin-layout__collapse:active,
+  .admin-layout__expand:active {
+    transform: scale(0.94);
+  }
+
+  .admin-layout__collapse svg,
+  .admin-layout__expand svg {
+    width: var(--space-24);
+    height: var(--space-24);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .admin-layout__collapse:hover {
+      background-color: var(--semantic-hover);
+      color: var(--semantic-text);
+    }
+  }
+
+  /* In the sidebar the pill takes its whole width, on the raised surface. */
+  .admin-layout__side .admin-layout__switcher {
+    flex: none;
+    margin-bottom: var(--space-20);
+  }
+
+  .admin-layout__side .admin-layout__switcher-button {
+    width: 100%;
+    min-height: 48px;
+    padding: 0 var(--space-12) 0 18px;
+    overflow: hidden;
+    border-radius: var(--radius-ctl);
+    background-color: var(--semantic-surface);
+  }
+
+  /* The sidebar is narrower than the top bar: the name gets two lines. Its
+     width stays that of the expanded sidebar (the pill's 200px of content
+     less the pin, the chevron and their gaps), so the name never rewraps
+     and the pill keeps its height while the sidebar narrows. */
+  .admin-layout__side .admin-layout__switcher-label {
+    display: -webkit-box;
+    flex: 1 0 150px;
+    padding-block: var(--space-8);
+    line-height: 1.25;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .admin-layout[data-collapsed] .admin-layout__side {
+    width: var(--shell-sidebar-collapsed-width);
+  }
+
+  /* While the sidebar changes width the indicator takes the link width from
+     CSS (the nav's width less its padding), so it moves with the sidebar
+     instead of a frame behind the measurement. */
+  .admin-layout__side[data-resizing] .admin-layout__indicator {
+    width: calc(100% - 2 * var(--space-4)) !important;
+    transition: none;
+  }
+
+  /* The list opens beside the pin instead of below it. */
+  .admin-layout[data-collapsed] .admin-layout__menu--switcher {
+    top: 0;
+    left: calc(100% + var(--space-12));
+    min-width: 264px;
+  }
 }
 
 /* Everything beside the sidebar: the top bar, then the screen. One viewport
@@ -167,6 +365,7 @@ button.admin-layout__brand-button:active {
   flex-direction: column;
   gap: var(--space-4);
   margin-top: auto;
+  overflow: hidden;
 }
 
 /* Opens below its trigger: the phone's logo or the municipality pill. */
@@ -256,8 +455,16 @@ button.admin-layout__brand-button:active {
 .admin-layout__nav {
   position: relative;
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--space-16);
+  min-height: 0;
+  /* Short screens scroll the links; the padding keeps focus rings and the
+     indicator's shadow in view. */
+  margin: calc(-1 * var(--space-4));
+  padding: var(--space-4);
+  overflow-x: hidden;
+  overflow-y: auto;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -425,6 +632,9 @@ button.admin-layout__brand-button:active {
     flex-direction: row;
     gap: 0;
     min-width: 0;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
   }
 
   /* Grows by its number of links: all get the same width while it fits;
