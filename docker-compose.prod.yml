@@ -2,6 +2,8 @@
 # rest talk over the compose network. Secrets come from .env.prod, which only
 # exists on the VPS (see .env.prod.example and the README, "Producción"):
 #   docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+# The deploy workflow (SL-148) builds the images in CI, tags them with the
+# commit hash (IMAGE_TAG) and ops/deploy.sh pulls them instead of building.
 # Memory limits are a starting point for the 1 vCPU / 3.8 GiB plan, to be
 # adjusted with the measurements of the first deployment (SL-146).
 name: slomp-prod
@@ -51,6 +53,7 @@ services:
 
   pdf:
     <<: *service
+    image: ${IMAGE_REPO:-slomp}-pdf:${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/pdf-function/Dockerfile
@@ -73,6 +76,7 @@ services:
   # One-shot: applies Prisma migrations and exits. No seed in production; the
   # first administrator is created with admin:create (SL-146).
   migrate:
+    image: ${IMAGE_REPO:-slomp}-migrate:${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
@@ -88,6 +92,7 @@ services:
 
   backend:
     <<: *service
+    image: ${IMAGE_REPO:-slomp}-backend:${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/backend/Dockerfile
@@ -109,6 +114,8 @@ services:
       ASSISTANT_API_KEY: ${ASSISTANT_API_KEY:-}
       ASSISTANT_MODEL: ${ASSISTANT_MODEL:-}
       ASSISTANT_EFFORT: ${ASSISTANT_EFFORT:-}
+      # Optional: another endpoint that speaks the same API.
+      ASSISTANT_BASE_URL: ${ASSISTANT_BASE_URL:-}
     # Node sizes its heap to about half of this limit. Importing the 11202-row
     # tax roll of Paez peaks at about 460 MiB (about 600 MiB with two uploads
     # at once); before SL-190 it took about 750 MiB and failed with 512m.
@@ -128,6 +135,7 @@ services:
   # Caddy: TLS, HTTP -> HTTPS, the built frontend at / and the API at /api.
   proxy:
     <<: *service
+    image: ${IMAGE_REPO:-slomp}-proxy:${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/frontend/Dockerfile
