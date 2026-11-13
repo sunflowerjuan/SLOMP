@@ -48,6 +48,8 @@ ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=deploy --chown=node:node /out/backend ./
 COPY --from=build --chown=node:node /repo/apps/backend/dist ./dist
+# Nightly refresh of the reporting schema, run by cron with `exec` (SL-131).
+COPY --from=build --chown=node:node /repo/apps/backend/scripts/reporting-refresh.mjs ./scripts/reporting-refresh.mjs
 USER node
 EXPOSE 3000
 CMD ["node", "dist/main"]

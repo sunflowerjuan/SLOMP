@@ -4,6 +4,8 @@ build/
 .env
 .env.local
 .env.prod
+# TLS key of the database (ops/pg-cert.sh)
+pg-certs/
 *.log
 *.tsbuildinfo
 .DS_Store

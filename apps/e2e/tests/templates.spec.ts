@@ -673,8 +673,9 @@ test("el menú de marcadores no se mueve al recorrerlo y se cierra si la selecci
   isMobile,
 }) => {
   test.skip(isMobile, "En el teléfono el menú es una hoja inferior fija.");
-  // A short window: the document scrolls and the menu has to scroll inside.
-  await page.setViewportSize({ width: 1280, height: 560 });
+  // A short window: the document scrolls far enough to hide its title, and
+  // the menu has to scroll inside.
+  await page.setViewportSize({ width: 1280, height: 500 });
   await upload(page, "Liquidación", "plantilla-liquidacion-tabla-llena.docx");
 
   const title = page
@@ -705,6 +706,9 @@ test("el menú de marcadores no se mueve al recorrerlo y se cierra si la selecci
   await page.locator(".guided-marking__document").evaluate((zone) => {
     zone.scrollTop = zone.scrollHeight;
   });
+  await expect(
+    page.locator('[data-source="pending"]').first(),
+  ).not.toBeInViewport();
   await expect(menu).toBeHidden();
 });
 
