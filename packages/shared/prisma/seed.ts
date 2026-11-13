@@ -37,6 +37,8 @@ async function main() {
   console.log("Cleaning up existing data...");
   await prisma.taxRollImport.deleteMany();
   await prisma.settlementDetail.deleteMany();
+  // Events point to their settlement (Restrict): they go first.
+  await prisma.settlementEvent.deleteMany();
   // Settlements point to their payment order (Restrict): they go first.
   await prisma.settlement.deleteMany();
   await prisma.paymentOrder.deleteMany();
@@ -48,7 +50,8 @@ async function main() {
   await prisma.propertyOwner.deleteMany();
   await prisma.property.deleteMany();
   await prisma.owner.deleteMany();
-  await prisma.municipality.deleteMany();
+  // Municipalities are not deleted: they are setup, not sample data, and
+  // templates, drafts and PDF jobs hang from them (Restrict).
 
   if (seedAdmin) {
     await prisma.administrator.deleteMany();
@@ -69,8 +72,10 @@ async function main() {
     );
   }
 
-  const municipality = await prisma.municipality.create({
-    data: {
+  const municipality = await prisma.municipality.upsert({
+    where: { slug: "paez" },
+    update: {},
+    create: {
       name: "Páez",
       state: "Boyacá",
       daneCode: "15514", // cadastral codes start with it
