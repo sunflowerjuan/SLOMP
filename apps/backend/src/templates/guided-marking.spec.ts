@@ -606,3 +606,122 @@ it('writes parts that Word can open (namespaces and xml:space)', () => {
   );
   expect(xml).not.toContain('xmlns:xml');
 });
+
+// Word splits and wraps text in ways a plain run list does not show: spelling
+// and bookmark anchors between runs, hyperlinks, tracked changes, tabs. These
+// are hand-written XML cases of what a document saved by Word contains.
+describe('Word fragmentation', () => {
+  const run = (text: string) =>
+    `<w:r><w:t xml:space="preserve">${text}</w:t></w:r>`;
+  const paragraph = (inner: string) => docxFromXml(`<w:p>${inner}</w:p>`);
+  const markedText = (
+    docx: Buffer,
+    sample: string,
+    field: string,
+    type: 'LIQUIDACION' | 'MANDAMIENTO' = 'LIQUIDACION',
+  ) => {
+    const block = readDocxContent(docx, type).blocks.find((b) =>
+      b.text.includes(sample),
+    )!;
+    const start = block.text.indexOf(sample);
+    return applySelections(docx, type, [
+      { blockId: block.blockId, start, end: start + sample.length, field },
+    ]);
+  };
+
+  it('keeps the marker whole when spelling and bookmark anchors sit between the runs', () => {
+    const docx = paragraph(
+      `${run('Predio en Lote ')}<w:proofErr w:type="spellStart"/>${run('El Ej')}<w:bookmarkStart w:id="0" w:name="_GoBack"/>${run('emplo')}<w:bookmarkEnd w:id="0"/><w:proofErr w:type="spellEnd"/>${run(' fin')}`,
+    );
+    expect(textOf(docx, 'body:p0')).toBe('Predio en Lote El Ejemplo fin');
+    const marked = markedText(docx, 'El Ejemplo', 'propertyName');
+    expect(textOf(marked, 'body:p0')).toBe('Predio en Lote {propertyName} fin');
+    expect(render(marked, PREVIEW_DATA.LIQUIDACION)).toBe(
+      `Predio en Lote ${PREVIEW_DATA.LIQUIDACION.propertyName} fin`,
+    );
+  });
+
+  it('lists and marks text inside a hyperlink', () => {
+    const docx = paragraph(
+      `${run('Ver ')}<w:hyperlink r:id="rId9" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${run('Lote El Ejemplo')}</w:hyperlink>`,
+    );
+    expect(textOf(docx, 'body:p0')).toBe('Ver Lote El Ejemplo');
+    const marked = markedText(docx, 'Lote El Ejemplo', 'propertyName');
+    expect(render(marked, PREVIEW_DATA.LIQUIDACION)).toBe(
+      `Ver ${PREVIEW_DATA.LIQUIDACION.propertyName}`,
+    );
+  });
+
+  it('lists and marks text inside a structured document tag', () => {
+    const docx = paragraph(
+      `<w:sdt><w:sdtContent>${run('Lote El Ejemplo')}</w:sdtContent></w:sdt>`,
+    );
+    expect(textOf(docx, 'body:p0')).toBe('Lote El Ejemplo');
+    const marked = markedText(docx, 'Lote El Ejemplo', 'propertyName');
+    expect(render(marked, PREVIEW_DATA.LIQUIDACION)).toBe(
+      PREVIEW_DATA.LIQUIDACION.propertyName,
+    );
+  });
+
+  it('reads inserted text and ignores deleted text of tracked changes', () => {
+    const docx = paragraph(
+      `${run('Predio ')}<w:del w:id="1" w:author="a"><w:r><w:delText>Viejo</w:delText></w:r></w:del><w:ins w:id="2" w:author="a">${run('Lote El Ejemplo')}</w:ins>`,
+    );
+    expect(textOf(docx, 'body:p0')).toBe('Predio Lote El Ejemplo');
+    const marked = markedText(docx, 'Lote El Ejemplo', 'propertyName');
+    const xml = new PizZip(marked).file('word/document.xml')!.asText();
+    expect(xml).toContain('<w:delText>Viejo</w:delText>');
+    expect(textOf(marked, 'body:p0')).toBe('Predio {propertyName}');
+  });
+
+  it('does not count tabs and line breaks as text, so a selection after them does not shift', () => {
+    const docx = paragraph(
+      `${run('Predio')}<w:r><w:tab/></w:r>${run('Lote El ')}<w:r><w:br/></w:r>${run('Ejemplo')}`,
+    );
+    expect(textOf(docx, 'body:p0')).toBe('PredioLote El Ejemplo');
+    const marked = markedText(docx, 'Lote El Ejemplo', 'propertyName');
+    const xml = new PizZip(marked).file('word/document.xml')!.asText();
+    expect(xml).toContain('<w:tab/>');
+    expect(xml).toContain('<w:br/>');
+    expect(textOf(marked, 'body:p0')).toBe('Predio{propertyName}');
+  });
+
+  it('recognizes a hand-written marker split in three runs and fills it', () => {
+    const docx = paragraph(
+      `${run('RESOLUCION {res')}<w:proofErr w:type="spellStart"/>${run('olutionNum')}${run('ber}')}<w:proofErr w:type="spellEnd"/>`,
+    );
+    const { appliedMarkers } = readDocxContent(docx, 'LIQUIDACION');
+    expect(appliedMarkers.map((m) => m.field)).toEqual(['resolutionNumber']);
+    expect(render(docx, PREVIEW_DATA.LIQUIDACION)).toBe(
+      'RESOLUCION RES-0001-2026',
+    );
+  });
+
+  it('renders the liquidations list of a payment order that crosses runs', () => {
+    const docx = paragraph(
+      `${run('Liquidaciones {#liquidat')}${run('ions}LIQ {num')}<w:proofErr w:type="spellStart"/>${run('ber}{separator}{/liq')}${run('uidations}.')}`,
+    );
+    const { appliedMarkers } = readDocxContent(docx, 'MANDAMIENTO');
+    expect(appliedMarkers.map((m) => m.field)).toContain('liquidations');
+    const text = render(docx, PREVIEW_DATA.MANDAMIENTO);
+    expect(text).not.toMatch(/[{}]/);
+    expect(text).toContain(
+      'LIQ LIQ-0001-2026, LIQ LIQ-0002-2026 y LIQ LIQ-0003-2026.',
+    );
+  });
+
+  it('marks the inline list of liquidations over text that crosses runs', () => {
+    const docx = paragraph(
+      `${run('Liquidaciones LIQ-00')}${run('01-2026 fin')}`,
+    );
+    const marked = markedText(
+      docx,
+      'LIQ-0001-2026',
+      'liquidations',
+      'MANDAMIENTO',
+    );
+    const text = render(marked, PREVIEW_DATA.MANDAMIENTO);
+    expect(text).not.toMatch(/[{}]|LIQ-0001-2026 fin/);
+    expect(text).toContain('LIQ-0003-2026 fin');
+  });
+});
