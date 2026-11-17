@@ -24,6 +24,7 @@ import { useSlompsim } from "../../slompsim/useSlompsim";
 import { MEDIA } from "../../styles/breakpoints";
 import { triggerBrowserDownload } from "../../utils/downloadBlob";
 import { formatCount } from "../../utils/formatCount";
+import { AlertsSummary } from "./AlertsSummary";
 import { SettlementDetailSheet } from "./SettlementDetailSheet";
 import { SettlementList } from "./SettlementList";
 import type { ListState } from "./SettlementList";
@@ -65,6 +66,8 @@ export function SettlementsPage() {
   const [slompsimWasOpen, setSlompsimWasOpen] = useState(slompsimOpen);
   const searched = useRef<SettlementSearchCriteria | null>(null);
   const appliedCount = appliedIds.length;
+  // Status changes (here or by Slompsim) move the alert counts.
+  const [statusChanges, setStatusChanges] = useState(0);
 
   // Never two panels on the right: opening Slompsim closes the sheet, and
   // opening the sheet closes Slompsim (handleToggle).
@@ -193,6 +196,7 @@ export function SettlementsPage() {
         ),
       );
       setEditingId(null);
+      setStatusChanges((n) => n + 1);
       setToast(
         `Estado del periodo ${settlement.period} actualizado a «${SETTLEMENT_STATUS_LABEL[status]}».`,
       );
@@ -277,6 +281,8 @@ export function SettlementsPage() {
       covered={covered}
       input={
         <>
+          <AlertsSummary refreshKey={statusChanges + appliedCount} />
+
           <SettlementSearchBar
             field={field}
             query={query}

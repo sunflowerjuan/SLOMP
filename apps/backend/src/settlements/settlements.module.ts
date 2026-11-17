@@ -7,6 +7,8 @@ import {
   PublicSettlementQueryController,
 } from './public-settlement-query.controller.js';
 import { PublicSettlementQueryService } from './public-settlement-query.service.js';
+import { AlertsController } from './alerts.controller.js';
+import { AlertsService } from './alerts.service.js';
 import { SettlementsController } from './settlements.controller.js';
 import { SettlementsService } from './settlements.service.js';
 import { EnFirmeService } from './en-firme.service.js';
@@ -18,7 +20,16 @@ import { EnFirmeService } from './en-firme.service.js';
     ]),
     ResolutionsModule,
   ],
-  controllers: [SettlementsController, PublicSettlementQueryController],
-  providers: [SettlementsService, PublicSettlementQueryService, EnFirmeService],
+  controllers: [
+    SettlementsController,
+    AlertsController,
+    PublicSettlementQueryController,
+  ],
+  providers: [
+    SettlementsService,
+    AlertsService,
+    PublicSettlementQueryService,
+    EnFirmeService,
+  ],
 })
 export class SettlementsModule {}
